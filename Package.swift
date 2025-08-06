@@ -1,5 +1,6 @@
 // swift-tools-version: 5.9
 
+import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
@@ -15,15 +16,31 @@ let package = Package(
             targets: ["SwiftAI"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-syntax.git", from: "601.0.1-latest")
+    ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "SwiftAI"
+            name: "SwiftAI",
+            dependencies: ["SwiftAIMacros"]
+        ),
+        .macro(
+            name: "SwiftAIMacros",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+            ]
         ),
         .testTarget(
             name: "SwiftAITests",
             dependencies: ["SwiftAI"]
+        ),
+        .testTarget(
+            name: "SwiftAIMacrosTests",
+            dependencies: [
+                "SwiftAIMacros",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ],
         ),
     ]
 )

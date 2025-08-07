@@ -20,8 +20,8 @@ public enum Schema: Sendable, Equatable {
   /// A floating-point number with optional constraints.
   case number(constraints: [DoubleConstraint], metadata: Metadata?)
 
-  /// A boolean value.
-  case boolean(metadata: Metadata?)
+  /// A boolean value with optional constraints.
+  case boolean(constraints: [BooleanConstraint], metadata: Metadata?)
 
   /// A union type that can match any of the provided schemas.
   indirect case anyOf(schemas: [Schema], metadata: Metadata?)

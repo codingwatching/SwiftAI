@@ -14,6 +14,7 @@ public enum ConstraintKind: Sendable, Equatable {
   case string(StringConstraint)
   case int(IntConstraint)
   case double(DoubleConstraint)
+  case boolean(BooleanConstraint)
   indirect case array(ArrayConstraint)
 }
 
@@ -81,6 +82,15 @@ extension Constraint where Value == Double {
   /// Constrains the number to be within a specific range.
   public static func range(_ range: ClosedRange<Double>) -> Constraint<Double> {
     Constraint(kind: .double(.range(lowerBound: range.lowerBound, upperBound: range.upperBound)))
+  }
+}
+
+// MARK: - Boolean Constraints
+
+extension Constraint where Value == Bool {
+  /// Requires the boolean to be exactly the specified value.
+  public static func constant(_ value: Bool) -> Constraint<Bool> {
+    Constraint(kind: .boolean(.constant(value)))
   }
 }
 
@@ -162,4 +172,10 @@ public enum DoubleConstraint: Sendable, Equatable {
   ///   - lowerBound: The minimum value (nil for no minimum)
   ///   - upperBound: The maximum value (nil for no maximum)
   case range(lowerBound: Double?, upperBound: Double?)
+}
+
+/// Constraints that can be applied to boolean values.
+public enum BooleanConstraint: Sendable, Equatable {
+  /// Requires the boolean to be exactly the specified value.
+  case constant(Bool)
 }

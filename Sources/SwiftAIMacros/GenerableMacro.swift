@@ -2,6 +2,9 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+// TODO: Improve formatting of generated code - currently generates compact single-line output.
+// Consider using SwiftBasicFormat or manual trivia application for better readability.
+
 struct GuideInfo {
   let description: String
   // TODO: Suppport constraints.
@@ -15,30 +18,42 @@ public struct GenerableMacro: ExtensionMacro {
     conformingTo protocols: [TypeSyntax],
     in context: some MacroExpansionContext
   ) throws -> [ExtensionDeclSyntax] {
+    // TODO: Support enums as well.
     guard let structDecl = declaration.as(StructDeclSyntax.self) else {
       throw GenerableMacroError.notAStruct
     }
 
-    let properties = try makeProperties(from: structDecl)
+    let propertyExprs = try makePropertyExpressions(from: structDecl)
 
-    let schemaProperty = DeclSyntax(
-      """
-      public static var schema: Schema {
-        .object(properties: [\(raw: properties)], metadata: nil)
+    let schemaDecl = try VariableDeclSyntax("public static var schema: Schema") {
+      FunctionCallExprSyntax(callee: ExprSyntax(".object")) {
+        LabeledExprSyntax(
+          label: "properties",
+          expression: DictionaryExprSyntax {
+            for propertyExpr in propertyExprs {
+              propertyExpr
+            }
+          }
+        )
+        LabeledExprSyntax(label: "metadata", expression: ExprSyntax("nil"))
       }
-      """
-    )
+    }
 
-    let extensionDecl = try ExtensionDeclSyntax(
-      "extension \(type.trimmed): Generable"
+    let extensionDecl = ExtensionDeclSyntax(
+      extendedType: type,
+      inheritanceClause: InheritanceClauseSyntax {
+        InheritedTypeSyntax(type: TypeSyntax("Generable"))
+      }
     ) {
-      schemaProperty
+      schemaDecl
     }
 
     return [extensionDecl]
   }
 
-  private static func makeProperties(from structDecl: StructDeclSyntax) throws -> String {
+  private static func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
+    -> [DictionaryElementSyntax]
+  {
     let storedProperties = structDecl.memberBlock.members.compactMap { member in
       member.decl.as(VariableDeclSyntax.self)
     }.filter { variableDecl in
@@ -51,7 +66,7 @@ public struct GenerableMacro: ExtensionMacro {
 
     // TODO: Handle @Generable with a `description` parameter.
 
-    var propertyEntries: [String] = []
+    var propertyExpressions: [DictionaryElementSyntax] = []
 
     for property in storedProperties {
       for binding in property.bindings {
@@ -69,52 +84,69 @@ public struct GenerableMacro: ExtensionMacro {
 
         // Parse @Guide attributes for this property
         let guideInfo = parseGuideAttributes(for: property)
-        let schemaType = makeSchemaForType(type, guideInfo: guideInfo)
+        let schemaExpr = makeSchemaExpression(for: type, guideInfo: guideInfo)
 
-        // FIXME: Use a more structured way to build the schema that outputs well formatted Swift code.
-        let propertyEntry = """
-          "\(propertyName)": Schema.Property(
-            schema: \(schemaType),
-            isOptional: \(isOptional)
-          )
-          """
-        propertyEntries.append(propertyEntry)
+        let propertyExpr = DictionaryElementSyntax(
+          key: ExprSyntax(literal: propertyName),
+          value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
+            LabeledExprSyntax(label: "schema", expression: schemaExpr)
+            LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
+          }
+        )
+
+        propertyExpressions.append(propertyExpr)
       }
     }
 
-    return propertyEntries.joined(separator: ",\n      ")
+    return propertyExpressions
   }
 
-  private static func makeSchemaForType(_ type: TypeSyntax, guideInfo: GuideInfo? = nil) -> String {
+  private static func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = nil)
+    -> ExprSyntax
+  {
     let typeName = type.trimmed.description
 
     // Handle optional types
     if let optionalType = type.as(OptionalTypeSyntax.self) {
-      return makeSchemaForType(optionalType.wrappedType, guideInfo: guideInfo)
+      return makeSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
     }
 
     // Handle array types
     if let arrayType = type.as(ArrayTypeSyntax.self) {
-      let elementSchema = makeSchemaForType(arrayType.element)
-      let metadata = makeMetadata(from: guideInfo)
-      return ".array(items: \(elementSchema), constraints: [], metadata: \(metadata))"
+      let elementSchema = makeSchemaExpression(for: arrayType.element)
+      let metadataExpr = makeMetadataExpression(from: guideInfo)
+
+      return ExprSyntax(
+        FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
+          LabeledExprSyntax(label: "items", expression: elementSchema)
+          LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
+          LabeledExprSyntax(label: "metadata", expression: metadataExpr)
+        }
+      )
     }
 
-    // Handle basic types with constraints and metadata
-    let metadata = makeMetadata(from: guideInfo)
+    // Type mapping for basic schema kinds
+    let typeToSchemaKind: [String: String] = [
+      "String": ".string",
+      "Int": ".integer",
+      "Double": ".number",
+      "Bool": ".boolean",
+    ]
 
-    switch typeName {
-    case "String":
-      return ".string(constraints: [], metadata: \(metadata))"
-    case "Int":
-      return ".integer(constraints: [], metadata: \(metadata))"
-    case "Double":
-      return ".number(constraints: [], metadata: \(metadata))"
-    case "Bool":
-      return ".boolean(metadata: \(metadata))"
-    default:
+    // Handle basic types with constraints and metadata
+    let metadataExpr = makeMetadataExpression(from: guideInfo)
+
+    if let schemaKind = typeToSchemaKind[typeName] {
+      return ExprSyntax(
+        FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
+          LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
+          LabeledExprSyntax(label: "metadata", expression: metadataExpr)
+        }
+      )
+    } else {
       // For custom types, assume they conform to Generable and reference their schema
-      return "\(typeName).schema"
+      // TODO: The current Schema API does not support adding descriptions and constraints to nested types.
+      return ExprSyntax("\(raw: typeName).schema")
     }
   }
 
@@ -141,12 +173,17 @@ public struct GenerableMacro: ExtensionMacro {
     return nil
   }
 
-  private static func makeMetadata(from guideInfo: GuideInfo?) -> String {
+  private static func makeMetadataExpression(from guideInfo: GuideInfo?) -> ExprSyntax {
     guard let guideInfo = guideInfo else {
-      return "nil"
+      return ExprSyntax("nil")
     }
 
-    return "Schema.Metadata(description: \"\(guideInfo.description)\")"
+    return ExprSyntax(
+      FunctionCallExprSyntax(callee: ExprSyntax("Schema.Metadata")) {
+        LabeledExprSyntax(
+          label: "description", expression: ExprSyntax(literal: guideInfo.description))
+      }
+    )
   }
 }
 

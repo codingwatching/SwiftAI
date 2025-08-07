@@ -14,14 +14,14 @@ import Foundation
 /// struct WeatherReport {
 ///   @Guide("The current temperature in Celsius")
 ///   let temperature: Int
-///     
+///
 ///   @Guide("Brief description of current conditions")
 ///   let conditions: String
 ///
 ///   @Guide("Chance of precipitation as percentage", .range(0...100))
 ///   let precipitationChance: Int
 /// }
-/// 
+///
 /// // Use with an LLM
 /// let report = try await llm.reply(
 ///   to: [UserMessage(chunks: [.text("What's the weather in Paris?")])],
@@ -29,10 +29,15 @@ import Foundation
 /// )
 /// ```
 public protocol Generable: Codable, Sendable {
-  // TODO: Implementation will be added as the design evolves
+  /// The schema that describes the structure and constraints of this type.
+  var schema: Schema { get }
 }
 
 // MARK: - Basic Type Conformances
 
 /// String conforms to Generable for simple text generation use cases.
-extension String: Generable {}
+extension String: Generable {
+  public var schema: Schema {
+    .string(constraints: [], metadata: nil)
+  }
+}

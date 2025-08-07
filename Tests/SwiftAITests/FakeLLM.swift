@@ -128,11 +128,40 @@ enum FakeLLMError: Error {
 struct FakeResponse: Generable, Equatable {
   let message: String
   let count: Int
+
+  var schema: Schema {
+    .object(
+      properties: [
+        "message": Schema.Property(
+          schema: .string(constraints: [], metadata: .init(description: "A test message")),
+          isOptional: false
+        ),
+        "count": Schema.Property(
+          schema: .integer(constraints: [], metadata: .init(description: "A test count")),
+          isOptional: false
+        ),
+      ],
+      metadata: nil
+    )
+  }
 }
 
 struct FakeTool: Tool {
   struct Arguments: Generable {
     let input: String
+
+    var schema: Schema {
+      .object(
+        properties: [
+          "input": Schema.Property(
+            schema: .string(
+              constraints: [], metadata: .init(description: "Input for the fake tool")),
+            isOptional: false
+          )
+        ],
+        metadata: nil
+      )
+    }
   }
 
   let name = "fake_tool"

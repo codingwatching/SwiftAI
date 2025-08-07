@@ -2,53 +2,11 @@ import Testing
 import SwiftAI
 import Foundation
 
-// MARK: - Fake LLM Implementation for Testing
-
-/// A fake LLM implementation that returns JSON responses and deserializes them.
-struct FakeLLM: LLM {
-  var isAvailable: Bool = true
-  let jsonResponse: String
-  
-  init(jsonResponse: String) {
-    self.jsonResponse = jsonResponse
-  }
-  
-  /// Convenience initializer for plain text responses
-  init(textResponse: String) {
-    self.jsonResponse = "\"\(textResponse.replacingOccurrences(of: "\"", with: "\\\""))\""
-  }
-  
-  func reply<T: Generable>(
-    to messages: [any Message],
-    tools: [any Tool],
-    returning type: T.Type,
-    options: LLMReplyOptions
-  ) async throws -> LLMReply<T> {
-    let jsonData = Data(jsonResponse.utf8)
-    
-    // Deserialize JSON to the requested type
-    let decoder = JSONDecoder()
-    let content = try decoder.decode(T.self, from: jsonData)
-    
-    // Add an AI response to the history
-    let aiResponse = AIMessage(text: jsonResponse) // FIXME: this may be a structured response not plain text.
-    let fullHistory = messages + [aiResponse]
-    
-    return LLMReply(content: content, history: fullHistory)
-  }
-}
-
-// MARK: - Test Types
-
-struct FakeResponse: Generable {
-  let message: String
-  let count: Int
-}
-
 // MARK: - Test Cases
 
 @Test func llmProtocolWithStringResponse() async throws {
-  let fakeLLM = FakeLLM(textResponse: "Hello from fake LLM!")
+  var fakeLLM = FakeLLM()
+  fakeLLM.queueReply("Hello from fake LLM!")
   
   let messages: [any Message] = [
     SystemMessage(text: "You are a helpful assistant"),
@@ -72,7 +30,8 @@ struct FakeResponse: Generable {
     }
     """
   
-  let fakeLLM = FakeLLM(jsonResponse: jsonResponse)
+  var fakeLLM = FakeLLM()
+  fakeLLM.queueReply(jsonResponse)
   
   let messages: [any Message] = [UserMessage(text: "Generate a fake response")]
   

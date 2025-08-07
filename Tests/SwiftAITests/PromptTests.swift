@@ -1,6 +1,6 @@
-import Testing
-import SwiftAI
 import Foundation
+import SwiftAI
+import Testing
 
 // MARK: - Test Helpers
 
@@ -21,7 +21,7 @@ extension PromptRepresentable {
 
 @Test func promptBasicStringInitializer() {
   let prompt = Prompt("Hello, world!")
-  
+
   #expect(prompt.textContent == "Hello, world!")
 }
 
@@ -32,24 +32,25 @@ extension PromptRepresentable {
     "User input: \(userInput)"
     "Please respond clearly."
   }
-  
-  let expectedText = "System: You are a helpful assistant.\nUser input: Swift programming\nPlease respond clearly."
+
+  let expectedText =
+    "System: You are a helpful assistant.\nUser input: Swift programming\nPlease respond clearly."
   #expect(prompt.textContent == expectedText)
 }
 
 @Test func stringPromptRepresentableConformance() {
   let string: any PromptRepresentable = "Hello from string"
-  
+
   #expect(string.textContent == "Hello from string")
 }
 
 @Test func promptFromChunks() {
   let chunks: [ContentChunk] = [
     .text("First part"),
-    .text("Second part")
+    .text("Second part"),
   ]
   let prompt = Prompt(chunks: chunks)
-  
+
   #expect(prompt.textContent == "First part\nSecond part")
 }
 
@@ -57,7 +58,7 @@ extension PromptRepresentable {
   let prompt = Prompt {
     // Empty builder should work
   }
-  
+
   #expect(prompt.textContent == "")
 }
 
@@ -65,7 +66,7 @@ extension PromptRepresentable {
   let prompt = Prompt {
     "Single item"
   }
-  
+
   #expect(prompt.textContent == "Single item")
 }
 
@@ -79,7 +80,7 @@ extension PromptRepresentable {
       "Additional context"
     }
   }
-  
+
   #expect(prompt.textContent == "Main content\nAdditional context")
 }
 
@@ -91,7 +92,7 @@ extension PromptRepresentable {
       "Additional context"
     }
   }
-  
+
   #expect(prompt.textContent == "Main content")
 }
 
@@ -105,7 +106,7 @@ extension PromptRepresentable {
       "Basic mode instructions"
     }
   }
-  
+
   #expect(prompt.textContent == "System prompt\nAdvanced mode instructions")
 }
 
@@ -119,7 +120,7 @@ extension PromptRepresentable {
       "Basic mode instructions"
     }
   }
-  
+
   #expect(prompt.textContent == "System prompt\nBasic mode instructions")
 }
 
@@ -131,7 +132,7 @@ extension PromptRepresentable {
       "- \(example)"
     }
   }
-  
+
   let expectedText = "Here are some examples:\n- Example 1\n- Example 2\n- Example 3"
   #expect(prompt.textContent == expectedText)
 }
@@ -144,7 +145,7 @@ extension PromptRepresentable {
       "- \(example)"
     }
   }
-  
+
   #expect(prompt.textContent == "Examples:")
 }
 
@@ -152,7 +153,7 @@ extension PromptRepresentable {
   let includeExamples = true
   let examples = ["Swift", "Python"]
   let isAdvanced = false
-  
+
   let prompt = Prompt {
     "Programming language guide"
     if isAdvanced {
@@ -167,7 +168,8 @@ extension PromptRepresentable {
       }
     }
   }
-  
-  let expectedText = "Programming language guide\nThis covers basic concepts\nLanguages included:\n- Swift programming\n- Python programming"
+
+  let expectedText =
+    "Programming language guide\nThis covers basic concepts\nLanguages included:\n- Swift programming\n- Python programming"
   #expect(prompt.textContent == expectedText)
 }

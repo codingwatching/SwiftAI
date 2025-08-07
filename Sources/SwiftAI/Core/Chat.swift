@@ -15,13 +15,13 @@ import Foundation
 public actor Chat {
   /// The conversation history including all messages exchanged.
   public private(set) var messages: [any Message]
-  
+
   /// The language model used for generating responses.
   public let llm: any LLM
-  
+
   /// The tools available for the LLM to use during the conversation.
   public let tools: [any Tool]
-  
+
   /// Creates a new chat instance with the specified LLM and tools.
   ///
   /// - Parameters:
@@ -35,7 +35,7 @@ public actor Chat {
   }
 
   // TODO: Add an init with a system prompt PromptBuilder to allow constructing.
-  
+
   /// Sends a prompt to the LLM and returns the generated response.
   ///
   /// - Parameters:
@@ -50,7 +50,7 @@ public actor Chat {
   ) async throws -> T {
     let userMessage = UserMessage(chunks: prompt.chunks)
     messages.append(userMessage)
-    
+
     // TODO: This will be very inefficient for on device models because the model
     //  will have to reprocess the entire history each time.
     let reply = try await llm.reply(
@@ -59,12 +59,12 @@ public actor Chat {
       returning: type,
       options: options
     )
-    
+
     messages = reply.history
-    
+
     return reply.content
   }
-  
+
   /// Sends a prompt constructed with PromptBuilder to the LLM and returns the generated response.
   ///
   /// - Parameters:

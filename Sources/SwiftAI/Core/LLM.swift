@@ -4,7 +4,7 @@ import Foundation
 public protocol LLM: Model {
   /// Whether the LLM can be used.
   var isAvailable: Bool { get }
-  
+
   /// Queries the LLM to generate a structured response.
   ///
   /// This method sends a conversation history to the language model along with available tools
@@ -63,7 +63,7 @@ extension LLM {
 public struct LLMReply<T: Generable> {
   /// The generated content parsed into the requested type.
   public let content: T
-  
+
   /// The complete conversation history including the model's response.
   ///
   /// Useful for maintaining conversation context across multiple interactions
@@ -86,17 +86,17 @@ public struct LLMReplyOptions {
   ///
   /// Range: 0.0 (deterministic) to 2.0 (maximum creativity). Default varies by model.
   public let temperature: Double?
-  
+
   /// Maximum number of tokens the model can generate in its response.
   ///
   /// Helps control response length and prevent runaway generation. Set to nil for model default.
   public let maximumTokens: Int?
-  
+
   // TODO: Add sampling modes.
-  
+
   /// Default configuration with model-specific defaults for all parameters.
   public static let `default` = LLMReplyOptions()
-  
+
   public init(temperature: Double? = nil, maximumTokens: Int? = nil) {
     self.temperature = temperature
     self.maximumTokens = maximumTokens

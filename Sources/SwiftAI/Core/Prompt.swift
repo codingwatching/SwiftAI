@@ -25,21 +25,21 @@ public protocol PromptRepresentable {
 public struct Prompt: PromptRepresentable {
   /// The content chunks that make up this prompt.
   public let chunks: [ContentChunk]
-  
+
   /// Creates a prompt from a plain text string.
   ///
   /// - Parameter content: The text content for the prompt
   public init(_ content: String) {
     self.chunks = [.text(content)]
   }
-  
+
   /// Creates a prompt from content chunks.
   ///
   /// - Parameter chunks: The content chunks for the prompt
   public init(chunks: [ContentChunk]) {
     self.chunks = chunks
   }
-  
+
   /// Creates a prompt using a result builder for dynamic composition.
   ///
   /// - Parameter content: A closure that builds the prompt content
@@ -71,11 +71,11 @@ public struct PromptBuilder {
     let allChunks = components.flatMap { $0.chunks }
     return Prompt(chunks: allChunks)
   }
-    
+
   public static func buildExpression(_ expression: PromptRepresentable) -> PromptRepresentable {
     return expression
   }
-  
+
   public static func buildOptional(_ component: PromptRepresentable?) -> PromptRepresentable {
     if let component = component {
       return component
@@ -83,15 +83,15 @@ public struct PromptBuilder {
       return Prompt(chunks: [])
     }
   }
-  
+
   public static func buildEither(first component: PromptRepresentable) -> PromptRepresentable {
     return component
   }
-  
+
   public static func buildEither(second component: PromptRepresentable) -> PromptRepresentable {
     return component
   }
-  
+
   /// Enables for loops and array generation in prompt builders.
   public static func buildArray(_ components: [PromptRepresentable]) -> PromptRepresentable {
     let allChunks = components.flatMap { $0.chunks }

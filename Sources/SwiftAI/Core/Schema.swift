@@ -65,20 +65,3 @@ public enum Schema: Sendable, Equatable {
     }
 }
 
-/// The internal representation of constraint specifications.
-///
-/// This enum provides a type-erased way to represent constraints for different value types
-/// within the schema system.
-public enum ConstraintKind: Sendable, Equatable {
-    /// A constraint applied to string values.
-    case string(StringConstraint)
-
-    /// A constraint applied to integer values.
-    case int(IntConstraint)
-
-    /// A constraint applied to floating-point values.
-    case double(DoubleConstraint)
-
-    /// A constraint applied to array values.
-    indirect case array(ArrayConstraint)
-}

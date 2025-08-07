@@ -2,6 +2,11 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+struct GuideInfo {
+    let description: String
+    // TODO: Suppport constraints.
+}
+
 public struct GenerableMacro: ExtensionMacro {
     public static func expansion(
         of node: AttributeSyntax,
@@ -61,7 +66,10 @@ public struct GenerableMacro: ExtensionMacro {
 
                 let propertyName = pattern.identifier.text
                 let isOptional = type.is(OptionalTypeSyntax.self)
-                let schemaType = makeSchemaForType(type)
+
+                // Parse @Guide attributes for this property
+                let guideInfo = parseGuideAttributes(for: property)
+                let schemaType = makeSchemaForType(type, guideInfo: guideInfo)
 
                 // FIXME: Use a more structured way to build the schema that outputs well formatted Swift code.
                 let propertyEntry = """
@@ -77,34 +85,69 @@ public struct GenerableMacro: ExtensionMacro {
         return propertyEntries.joined(separator: ",\n      ")
     }
 
-    private static func makeSchemaForType(_ type: TypeSyntax) -> String {
+    private static func makeSchemaForType(_ type: TypeSyntax, guideInfo: GuideInfo? = nil) -> String
+    {
         let typeName = type.trimmed.description
 
         // Handle optional types
         if let optionalType = type.as(OptionalTypeSyntax.self) {
-            return makeSchemaForType(optionalType.wrappedType)
+            return makeSchemaForType(optionalType.wrappedType, guideInfo: guideInfo)
         }
 
         // Handle array types
         if let arrayType = type.as(ArrayTypeSyntax.self) {
             let elementSchema = makeSchemaForType(arrayType.element)
-            return ".array(items: \(elementSchema), metadata: nil)"
+            let metadata = makeMetadata(from: guideInfo)
+            return ".array(items: \(elementSchema), constraints: [], metadata: \(metadata))"
         }
 
-        // Handle basic types
+        // Handle basic types with constraints and metadata
+        let metadata = makeMetadata(from: guideInfo)
+
         switch typeName {
         case "String":
-            return ".string(constraints: [], metadata: nil)"
+            return ".string(constraints: [], metadata: \(metadata))"
         case "Int":
-            return ".integer(constraints: [], metadata: nil)"
+            return ".integer(constraints: [], metadata: \(metadata))"
         case "Double":
-            return ".number(constraints: [], metadata: nil)"
+            return ".number(constraints: [], metadata: \(metadata))"
         case "Bool":
-            return ".boolean(metadata: nil)"
+            return ".boolean(metadata: \(metadata))"
         default:
             // For custom types, assume they conform to Generable and reference their schema
             return "\(typeName).schema"
         }
+    }
+
+    private static func parseGuideAttributes(for property: VariableDeclSyntax) -> GuideInfo? {
+        // Look for @Guide attributes on this property
+        for attribute in property.attributes {
+            if case .attribute(let attr) = attribute,
+                let identifierType = attr.attributeName.as(IdentifierTypeSyntax.self),
+                identifierType.name.text == "Guide"
+            {
+
+                // Parse the description from the first argument
+                if let arguments = attr.arguments?.as(LabeledExprListSyntax.self),
+                    let firstArg = arguments.first,
+                    let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),
+                    let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
+                {
+
+                    let description = String(segment.content.text)
+                    return GuideInfo(description: description)
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func makeMetadata(from guideInfo: GuideInfo?) -> String {
+        guard let guideInfo = guideInfo else {
+            return "nil"
+        }
+
+        return "Schema.Metadata(description: \"\(guideInfo.description)\")"
     }
 }
 

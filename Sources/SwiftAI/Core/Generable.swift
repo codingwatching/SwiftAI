@@ -30,14 +30,35 @@ import Foundation
 /// ```
 public protocol Generable: Codable, Sendable {
   /// The schema that describes the structure and constraints of this type.
-  var schema: Schema { get }
+  static var schema: Schema { get }
 }
+
+// MARK: - Macro Declaration
+
+/// Conforms types to Generable by automatically generating schema implementations.
+///
+/// This macro analyzes your struct or class and generates the required `schema` property
+/// that describes the structure for language model generation.
+///
+/// ## Example
+///
+/// ```swift
+/// @Generable
+/// struct Recipe {
+///   let name: String
+///   let ingredients: [String]
+///   let cookingTime: Int
+/// }
+/// ```
+@attached(extension, conformances: Generable, names: named(schema))
+public macro Generable(description: String? = nil) =
+  #externalMacro(module: "SwiftAIMacros", type: "GenerableMacro")
 
 // MARK: - Basic Type Conformances
 
 /// String conforms to Generable for simple text generation use cases.
 extension String: Generable {
-  public var schema: Schema {
+  public static var schema: Schema {
     .string(constraints: [], metadata: nil)
   }
 }

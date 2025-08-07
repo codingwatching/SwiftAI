@@ -125,43 +125,16 @@ enum FakeLLMError: Error {
   case toolNotFound(String)
 }
 
-struct FakeResponse: Generable, Equatable {
+@Generable
+struct FakeResponse: Equatable {
   let message: String
   let count: Int
-
-  var schema: Schema {
-    .object(
-      properties: [
-        "message": Schema.Property(
-          schema: .string(constraints: [], metadata: .init(description: "A test message")),
-          isOptional: false
-        ),
-        "count": Schema.Property(
-          schema: .integer(constraints: [], metadata: .init(description: "A test count")),
-          isOptional: false
-        ),
-      ],
-      metadata: nil
-    )
-  }
 }
 
 struct FakeTool: Tool {
-  struct Arguments: Generable {
+  @Generable
+  struct Arguments {
     let input: String
-
-    var schema: Schema {
-      .object(
-        properties: [
-          "input": Schema.Property(
-            schema: .string(
-              constraints: [], metadata: .init(description: "Input for the fake tool")),
-            isOptional: false
-          )
-        ],
-        metadata: nil
-      )
-    }
   }
 
   let name = "fake_tool"

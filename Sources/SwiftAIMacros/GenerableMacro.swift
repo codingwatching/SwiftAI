@@ -1,9 +1,9 @@
+import SwiftFormat
+import SwiftOperators
+import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
-
-// TODO: Improve formatting of generated code - currently generates compact single-line output.
-// Consider using SwiftBasicFormat or manual trivia application for better readability.
 
 struct GuideInfo {
   let description: String
@@ -25,166 +25,157 @@ public struct GenerableMacro: ExtensionMacro {
 
     let propertyExprs = try makePropertyExpressions(from: structDecl)
 
-    let schemaDecl = try VariableDeclSyntax("public static var schema: Schema") {
-      FunctionCallExprSyntax(callee: ExprSyntax(".object")) {
-        LabeledExprSyntax(
-          label: "properties",
-          expression: DictionaryExprSyntax {
-            for propertyExpr in propertyExprs {
-              propertyExpr
-            }
-          }
+    let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): Generable") {
+      try VariableDeclSyntax("public static var schema: Schema") {
+        """
+        .object(
+          properties: \(DictionaryExprSyntax {
+              for propertyExpr in propertyExprs {
+                propertyExpr
+              }
+            }),
+          metadata: nil
         )
-        LabeledExprSyntax(label: "metadata", expression: ExprSyntax("nil"))
+        """
       }
     }
 
-    let extensionDecl = ExtensionDeclSyntax(
-      extendedType: type,
-      inheritanceClause: InheritanceClauseSyntax {
-        InheritedTypeSyntax(type: TypeSyntax("Generable"))
-      }
-    ) {
-      schemaDecl
-    }
+    return [extensionDecl.formatted()]
+  }
+}
 
-    return [extensionDecl]
+private func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
+  -> [DictionaryElementSyntax]
+{
+  let storedProperties = structDecl.memberBlock.members.compactMap { member in
+    member.decl.as(VariableDeclSyntax.self)
+  }.filter { variableDecl in
+    // Only consider stored properties (let/var without getters and without default values)
+    variableDecl.bindings.allSatisfy { binding in
+      binding.accessorBlock == nil && binding.initializer == nil
+    }
+    // TODO: Revisit whether properties with default values should be excluded from schema
   }
 
-  private static func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
-    -> [DictionaryElementSyntax]
-  {
-    let storedProperties = structDecl.memberBlock.members.compactMap { member in
-      member.decl.as(VariableDeclSyntax.self)
-    }.filter { variableDecl in
-      // Only consider stored properties (let/var without getters and without default values)
-      variableDecl.bindings.allSatisfy { binding in
-        binding.accessorBlock == nil && binding.initializer == nil
+  // TODO: Handle @Generable with a `description` parameter.
+
+  var propertyExpressions: [DictionaryElementSyntax] = []
+
+  for property in storedProperties {
+    for binding in property.bindings {
+      guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
+        throw GenerableMacroError.unsupportedPropertyPattern
       }
-      // TODO: Revisit whether properties with default values should be excluded from schema
-    }
 
-    // TODO: Handle @Generable with a `description` parameter.
-
-    var propertyExpressions: [DictionaryElementSyntax] = []
-
-    for property in storedProperties {
-      for binding in property.bindings {
-        guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
-          throw GenerableMacroError.unsupportedPropertyPattern
-        }
-
-        guard let type = binding.typeAnnotation?.type else {
-          let propertyName = pattern.identifier.text
-          throw GenerableMacroError.missingTypeAnnotation(propertyName: propertyName)
-        }
-
+      guard let type = binding.typeAnnotation?.type else {
         let propertyName = pattern.identifier.text
-        let isOptional = type.is(OptionalTypeSyntax.self)
-
-        // Parse @Guide attributes for this property
-        let guideInfo = parseGuideAttributes(for: property)
-        let schemaExpr = makeSchemaExpression(for: type, guideInfo: guideInfo)
-
-        let propertyExpr = DictionaryElementSyntax(
-          key: ExprSyntax(literal: propertyName),
-          value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
-            LabeledExprSyntax(label: "schema", expression: schemaExpr)
-            LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
-          }
-        )
-
-        propertyExpressions.append(propertyExpr)
+        throw GenerableMacroError.missingTypeAnnotation(propertyName: propertyName)
       }
-    }
 
-    return propertyExpressions
-  }
+      let propertyName = pattern.identifier.text
+      let isOptional = type.is(OptionalTypeSyntax.self)
 
-  private static func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = nil)
-    -> ExprSyntax
-  {
-    let typeName = type.trimmed.description
+      // Parse @Guide attributes for this property
+      let guideInfo = parseGuideAttributes(for: property)
+      let schemaExpr = makeSchemaExpression(for: type, guideInfo: guideInfo)
 
-    // Handle optional types
-    if let optionalType = type.as(OptionalTypeSyntax.self) {
-      return makeSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
-    }
-
-    // Handle array types
-    if let arrayType = type.as(ArrayTypeSyntax.self) {
-      let elementSchema = makeSchemaExpression(for: arrayType.element)
-      let metadataExpr = makeMetadataExpression(from: guideInfo)
-
-      return ExprSyntax(
-        FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
-          LabeledExprSyntax(label: "items", expression: elementSchema)
-          LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
-          LabeledExprSyntax(label: "metadata", expression: metadataExpr)
+      let propertyExpr = DictionaryElementSyntax(
+        key: ExprSyntax(literal: propertyName),
+        value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
+          LabeledExprSyntax(label: "schema", expression: schemaExpr)
+          LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
         }
       )
+
+      propertyExpressions.append(propertyExpr)
     }
+  }
 
-    // Type mapping for basic schema kinds
-    let typeToSchemaKind: [String: String] = [
-      "String": ".string",
-      "Int": ".integer",
-      "Double": ".number",
-      "Bool": ".boolean",
-    ]
+  return propertyExpressions
+}
 
-    // Handle basic types with constraints and metadata
+private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = nil)
+  -> ExprSyntax
+{
+  let typeName = type.trimmed.description
+
+  // Handle optional types
+  if let optionalType = type.as(OptionalTypeSyntax.self) {
+    return makeSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
+  }
+
+  // Handle array types
+  if let arrayType = type.as(ArrayTypeSyntax.self) {
+    let elementSchema = makeSchemaExpression(for: arrayType.element)
     let metadataExpr = makeMetadataExpression(from: guideInfo)
 
-    if let schemaKind = typeToSchemaKind[typeName] {
-      return ExprSyntax(
-        FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
-          LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
-          LabeledExprSyntax(label: "metadata", expression: metadataExpr)
-        }
-      )
-    } else {
-      // For custom types, assume they conform to Generable and reference their schema
-      // TODO: The current Schema API does not support adding descriptions and constraints to nested types.
-      return ExprSyntax("\(raw: typeName).schema")
-    }
-  }
-
-  private static func parseGuideAttributes(for property: VariableDeclSyntax) -> GuideInfo? {
-    // Look for @Guide attributes on this property
-    for attribute in property.attributes {
-      if case .attribute(let attr) = attribute,
-        let identifierType = attr.attributeName.as(IdentifierTypeSyntax.self),
-        identifierType.name.text == "Guide"
-      {
-
-        // Parse the description from the first argument
-        if let arguments = attr.arguments?.as(LabeledExprListSyntax.self),
-          let firstArg = arguments.first,
-          let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),
-          let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
-        {
-
-          let description = String(segment.content.text)
-          return GuideInfo(description: description)
-        }
-      }
-    }
-    return nil
-  }
-
-  private static func makeMetadataExpression(from guideInfo: GuideInfo?) -> ExprSyntax {
-    guard let guideInfo = guideInfo else {
-      return ExprSyntax("nil")
-    }
-
     return ExprSyntax(
-      FunctionCallExprSyntax(callee: ExprSyntax("Schema.Metadata")) {
-        LabeledExprSyntax(
-          label: "description", expression: ExprSyntax(literal: guideInfo.description))
+      FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
+        LabeledExprSyntax(label: "items", expression: elementSchema)
+        LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
+        LabeledExprSyntax(label: "metadata", expression: metadataExpr)
       }
     )
   }
+
+  // Type mapping for basic schema kinds
+  let typeToSchemaKind: [String: String] = [
+    "String": ".string",
+    "Int": ".integer",
+    "Double": ".number",
+    "Bool": ".boolean",
+  ]
+
+  // Handle basic types with constraints and metadata
+  if let schemaKind = typeToSchemaKind[typeName] {
+    let metadataExpr = makeMetadataExpression(from: guideInfo)
+    return ExprSyntax(
+      FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
+        LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
+        LabeledExprSyntax(label: "metadata", expression: metadataExpr)
+      }
+    )
+  } else {
+    // For custom types, assume they conform to Generable and reference their schema
+    // TODO: The current Schema API does not support adding descriptions and constraints to nested types.
+    return ExprSyntax("\(raw: typeName).schema")
+  }
+}
+
+private func parseGuideAttributes(for property: VariableDeclSyntax) -> GuideInfo? {
+  // Look for @Guide attributes on this property
+  for attribute in property.attributes {
+    if case .attribute(let attr) = attribute,
+      let identifierType = attr.attributeName.as(IdentifierTypeSyntax.self),
+      identifierType.name.text == "Guide"
+    {
+
+      // Parse the description from the first argument
+      if let arguments = attr.arguments?.as(LabeledExprListSyntax.self),
+        let firstArg = arguments.first,
+        let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),
+        let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
+      {
+
+        let description = String(segment.content.text)
+        return GuideInfo(description: description)
+      }
+    }
+  }
+  return nil
+}
+
+private func makeMetadataExpression(from guideInfo: GuideInfo?) -> ExprSyntax {
+  guard let guideInfo = guideInfo else {
+    return ExprSyntax("nil")
+  }
+
+  return ExprSyntax(
+    FunctionCallExprSyntax(callee: ExprSyntax("Schema.Metadata")) {
+      LabeledExprSyntax(
+        label: "description", expression: ExprSyntax(literal: guideInfo.description))
+    }
+  )
 }
 
 enum GenerableMacroError: Error, CustomStringConvertible {
@@ -208,5 +199,35 @@ enum GenerableMacroError: Error, CustomStringConvertible {
       return
         "Property '\(propertyName)' must have an explicit type annotation. Use 'let \(propertyName): Type' instead of relying on type inference."
     }
+  }
+}
+
+extension DeclSyntaxParseable {
+  fileprivate func formatted() -> Self {
+    formatSyntaxNode(self)
+  }
+}
+
+private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
+  var configuration = Configuration()
+  configuration.indentation = .spaces(2)
+  configuration.maximumBlankLines = 1
+  configuration.lineBreakBeforeControlFlowKeywords = true
+  configuration.lineLength = 80
+  configuration.lineBreakBeforeEachArgument = true
+  configuration.respectsExistingLineBreaks = false
+
+  let formatter = SwiftFormatter(configuration: configuration)
+
+  do {
+    var output = ""
+    try formatter.format(
+      source: node.description,
+      assumingFileURL: nil,
+      to: &output
+    )
+    return try T(SyntaxNodeString(stringLiteral: output))
+  } catch {
+    return node
   }
 }

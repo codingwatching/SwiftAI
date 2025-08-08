@@ -24,7 +24,6 @@ final class GenerableMacroTests: XCTestCase {
         let arrayOfInts: [Int]
         let optionalArrayOfBools: [Bool]?
         let customType: CustomStruct
-        let optionalArrayOfOptionalInts: [Int?]?
       }
       """,
       expandedSource: """
@@ -39,7 +38,6 @@ final class GenerableMacroTests: XCTestCase {
           let arrayOfInts: [Int]
           let optionalArrayOfBools: [Bool]?
           let customType: CustomStruct
-          let optionalArrayOfOptionalInts: [Int?]?
         }
 
         extension AllTypes: Generable {
@@ -98,14 +96,6 @@ final class GenerableMacroTests: XCTestCase {
                   schema: CustomStruct.schema,
                   isOptional: false
                 ),
-                "optionalArrayOfOptionalInts": Schema.Property(
-                  schema: .array(
-                    items: .integer(constraints: [], metadata: nil),
-                    constraints: [],
-                    metadata: nil
-                  ),
-                  isOptional: true
-                ),
               ],
               metadata: nil
             )
@@ -140,6 +130,107 @@ final class GenerableMacroTests: XCTestCase {
                   schema: .string(constraints: [], metadata: nil),
                   isOptional: false
                 )
+              ],
+              metadata: nil
+            )
+          }
+        }
+        """,
+      macros: testMacros,
+      indentationWidth: .spaces(2)
+    )
+  }
+
+  func testArrayOfOptionalTypesRejected() throws {
+    assertMacroExpansion(
+      """
+      @Generable
+      struct InvalidType {
+        let problematicProperty: [Int?]
+      }
+      """,
+      expandedSource: """
+        struct InvalidType {
+          let problematicProperty: [Int?]
+        }
+        """,
+      diagnostics: [
+        DiagnosticSpec(
+          message:
+            "Property 'problematicProperty' cannot be an array of optional types '[Int?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead.",
+          line: 1, column: 1)
+      ],
+      macros: testMacros,
+      indentationWidth: .spaces(2)
+    )
+  }
+
+  func testGuideWithConstraints() throws {
+    assertMacroExpansion(
+      """
+      @Generable
+      struct ConstrainedFields {
+        @Guide(.pattern("[A-Z]+"), .minLength(5))
+        let name: String
+        
+        @Guide(description: "User age", .minimum(18), .maximum(100))
+        let age: Int
+        
+        @Guide(.minimum(0.0))
+        let score: Double?
+        
+        @Guide(description: "Tags array", .minimumCount(1), .element(.minLength(2)))
+        let tags: [String]
+      }
+      """,
+      expandedSource: """
+        struct ConstrainedFields {
+          @Guide(.pattern("[A-Z]+"), .minLength(5))
+          let name: String
+          
+          @Guide(description: "User age", .minimum(18), .maximum(100))
+          let age: Int
+          
+          @Guide(.minimum(0.0))
+          let score: Double?
+          
+          @Guide(description: "Tags array", .minimumCount(1), .element(.minLength(2)))
+          let tags: [String]
+        }
+
+        extension ConstrainedFields: Generable {
+          public static var schema: Schema {
+            .object(
+              properties: [
+                "name": Schema.Property(
+                  schema: .string(
+                    constraints: [.pattern("[A-Z]+"), .minLength(5)],
+                    metadata: nil
+                  ),
+                  isOptional: false
+                ),
+                "age": Schema.Property(
+                  schema: .integer(
+                    constraints: [.minimum(18), .maximum(100)],
+                    metadata: Schema.Metadata(description: "User age")
+                  ),
+                  isOptional: false
+                ),
+                "score": Schema.Property(
+                  schema: .number(constraints: [.minimum(0.0)], metadata: nil),
+                  isOptional: true
+                ),
+                "tags": Schema.Property(
+                  schema: .array(
+                    items: .string(constraints: [], metadata: nil),
+                    constraints: [
+                      AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
+                      AnyArrayConstraint(Constraint<[String]>.element(.minLength(2))),
+                    ],
+                    metadata: Schema.Metadata(description: "Tags array")
+                  ),
+                  isOptional: false
+                ),
               ],
               metadata: nil
             )

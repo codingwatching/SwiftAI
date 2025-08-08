@@ -9,19 +9,19 @@ public enum Schema: Sendable, Equatable {
   case object(properties: [String: Property], metadata: Metadata?)
 
   /// An array containing items of a specific schema.
-  indirect case array(items: Schema, constraints: [ArrayConstraint], metadata: Metadata?)
+  indirect case array(items: Schema, constraints: [AnyArrayConstraint], metadata: Metadata?)
 
   /// A string value with optional constraints.
-  case string(constraints: [StringConstraint], metadata: Metadata?)
+  case string(constraints: [Constraint<String>], metadata: Metadata?)
 
   /// An integer value with optional constraints.
-  case integer(constraints: [IntConstraint], metadata: Metadata?)
+  case integer(constraints: [Constraint<Int>], metadata: Metadata?)
 
   /// A floating-point number with optional constraints.
-  case number(constraints: [DoubleConstraint], metadata: Metadata?)
+  case number(constraints: [Constraint<Double>], metadata: Metadata?)
 
   /// A boolean value with optional constraints.
-  case boolean(constraints: [BooleanConstraint], metadata: Metadata?)
+  case boolean(constraints: [Constraint<Bool>], metadata: Metadata?)
 
   /// A union type that can match any of the provided schemas.
   indirect case anyOf(schemas: [Schema], metadata: Metadata?)

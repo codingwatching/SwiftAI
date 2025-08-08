@@ -65,10 +65,10 @@ public macro Generable(description: String? = nil) =
 /// ```swift
 /// @Generable
 /// struct User {
-///   @Guide("The user's full name")
+///   @Guide(description: "The user's full name")
 ///   let name: String
 ///
-///   @Guide("User's age in years")
+///   @Guide(description: "User's age in years")
 ///   let age: Int
 /// }
 /// ```
@@ -78,22 +78,22 @@ public macro Generable(description: String? = nil) =
 /// ```swift
 /// @Generable
 /// struct Product {
-///   @Guide("Product identifier", .pattern("[A-Z]{3}-\\d{4}"))
+///   @Guide(description: "Product identifier", .pattern("[A-Z]{3}-\\d{4}"))
 ///   let sku: String
 ///
-///   @Guide("Price in USD", .range(0.01...9999.99))
+///   @Guide(description: "Price in USD", .range(0.01...9999.99))
 ///   let price: Double
 ///
-///   @Guide("Quantity in stock", .minimum(0))
+///   @Guide(description: "Quantity in stock", .minimum(0))
 ///   let quantity: Int
 /// }
 /// ```
 @attached(peer)
-public macro Guide(_ description: String) =
+public macro Guide(description: String) =
   #externalMacro(module: "SwiftAIMacros", type: "GuideMacro")
 
 @attached(peer)
-public macro Guide<T>(_ description: String? = nil, _ constraints: Constraint<T>...) =
+public macro Guide<T>(description: String? = nil, _ constraints: Constraint<T>...) =
   #externalMacro(module: "SwiftAIMacros", type: "GuideMacro")
 
 // MARK: - Basic Type Conformances

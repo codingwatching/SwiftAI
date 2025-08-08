@@ -5,10 +5,7 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-struct GuideInfo {
-  let description: String
-  // TODO: Suppport constraints.
-}
+// TODO: If @Guide is attached to a non generable field then it should throw an error.
 
 public struct GenerableMacro: ExtensionMacro {
   public static func expansion(
@@ -44,6 +41,15 @@ public struct GenerableMacro: ExtensionMacro {
   }
 }
 
+struct GuideParams {
+  // The user provided description in the @Guide macro.
+  let description: String?
+
+  // The syntax nodes for the constraints attached to a property.
+  // For example, `.minLength(3)`
+  let constraints: [ExprSyntax]
+}
+
 private func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
   -> [DictionaryElementSyntax]
 {
@@ -75,6 +81,8 @@ private func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
       let propertyName = pattern.identifier.text
       let isOptional = type.is(OptionalTypeSyntax.self)
 
+      try validateNotArrayOfOptional(type: type, propertyName: propertyName)
+
       // Parse @Guide attributes for this property
       let guideInfo = parseGuideAttributes(for: property)
       let schemaExpr = makeSchemaExpression(for: type, guideInfo: guideInfo)
@@ -94,7 +102,7 @@ private func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
   return propertyExpressions
 }
 
-private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = nil)
+private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? = nil)
   -> ExprSyntax
 {
   let typeName = type.trimmed.description
@@ -108,11 +116,13 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = 
   if let arrayType = type.as(ArrayTypeSyntax.self) {
     let elementSchema = makeSchemaExpression(for: arrayType.element)
     let metadataExpr = makeMetadataExpression(from: guideInfo)
+    let constraintsExpr = makeConstraintsExpression(
+      from: guideInfo, isArray: true, elementType: arrayType.element)
 
     return ExprSyntax(
       FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
         LabeledExprSyntax(label: "items", expression: elementSchema)
-        LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
+        LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
         LabeledExprSyntax(label: "metadata", expression: metadataExpr)
       }
     )
@@ -129,9 +139,10 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = 
   // Handle basic types with constraints and metadata
   if let schemaKind = typeToSchemaKind[typeName] {
     let metadataExpr = makeMetadataExpression(from: guideInfo)
+    let constraintsExpr = makeConstraintsExpression(from: guideInfo)
     return ExprSyntax(
       FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
-        LabeledExprSyntax(label: "constraints", expression: ExprSyntax("[]"))
+        LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
         LabeledExprSyntax(label: "metadata", expression: metadataExpr)
       }
     )
@@ -142,38 +153,106 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideInfo? = 
   }
 }
 
-private func parseGuideAttributes(for property: VariableDeclSyntax) -> GuideInfo? {
+private func parseGuideAttributes(for property: VariableDeclSyntax) -> GuideParams? {
   // Look for @Guide attributes on this property
   for attribute in property.attributes {
     if case .attribute(let attr) = attribute,
       let identifierType = attr.attributeName.as(IdentifierTypeSyntax.self),
       identifierType.name.text == "Guide"
     {
+      // TODO: This handles only one @Guide per property. If multiple @Guide attributes are allowed, this needs to be adjusted.
+      guard let arguments = attr.arguments?.as(LabeledExprListSyntax.self),
+        !arguments.isEmpty
+      else {
+        return nil
+      }
 
-      // Parse the description from the first argument
-      if let arguments = attr.arguments?.as(LabeledExprListSyntax.self),
-        let firstArg = arguments.first,
-        let stringLiteral = firstArg.expression.as(StringLiteralExprSyntax.self),
-        let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
-      {
+      var description: String? = nil
+      var constraints: [ExprSyntax] = []
 
-        let description = String(segment.content.text)
-        return GuideInfo(description: description)
+      // Parse labeled arguments
+      for arg in arguments {
+        if let label = arg.label?.text {
+          if label == "description" {
+            if let stringLiteral = arg.expression.as(StringLiteralExprSyntax.self),
+              let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
+            {
+              let desc = String(segment.content.text)
+              description = desc.isEmpty ? nil : desc
+            }
+          }
+        } else {
+          // Unlabeled arguments are constraints
+          constraints.append(arg.expression)
+        }
+      }
+
+      // Only return GuideInfo if we have constraints or a description
+      if !constraints.isEmpty || description != nil {
+        return GuideParams(description: description, constraints: constraints)
       }
     }
   }
   return nil
 }
 
-private func makeMetadataExpression(from guideInfo: GuideInfo?) -> ExprSyntax {
-  guard let guideInfo = guideInfo else {
+private func makeConstraintsExpression(
+  from guideInfo: GuideParams?,
+  isArray: Bool = false,
+  elementType: TypeSyntax? = nil
+) -> ExprSyntax {
+  guard let guideInfo = guideInfo, !guideInfo.constraints.isEmpty else {
+    return ExprSyntax("[]")
+  }
+
+  let elements = guideInfo.constraints.enumerated().map { (index, constraint) in
+    let expression: ExprSyntax = {
+      if isArray, let elementType = elementType {
+        let typeName = elementType.trimmed.description
+        return ExprSyntax("AnyArrayConstraint(Constraint<[\(raw: typeName)]>\(constraint))")
+      } else {
+        return constraint
+      }
+    }()
+    return ArrayElementSyntax(
+      expression: expression,
+      trailingComma: index < guideInfo.constraints.count - 1 ? .commaToken() : nil
+    )
+  }
+
+  return ExprSyntax(ArrayExprSyntax(elements: ArrayElementListSyntax(elements)))
+}
+
+private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {
+  // Handle optional types by checking their wrapped type
+  if let optionalType = type.as(OptionalTypeSyntax.self) {
+    try validateNotArrayOfOptional(type: optionalType.wrappedType, propertyName: propertyName)
+    return
+  }
+
+  // Check if this is an array type with optional elements
+  if let arrayType = type.as(ArrayTypeSyntax.self) {
+    if arrayType.element.is(OptionalTypeSyntax.self) {
+      let elementTypeName =
+        arrayType.element.as(OptionalTypeSyntax.self)?.wrappedType.trimmed.description ?? "Unknown"
+      throw GenerableMacroError.arrayOfOptionalType(
+        propertyName: propertyName, elementType: elementTypeName)
+    }
+  }
+}
+
+private func makeMetadataExpression(from guideInfo: GuideParams?) -> ExprSyntax {
+  guard let guideInfo = guideInfo,
+    let description = guideInfo.description,
+    !description.isEmpty
+  else {
     return ExprSyntax("nil")
   }
 
   return ExprSyntax(
     FunctionCallExprSyntax(callee: ExprSyntax("Schema.Metadata")) {
       LabeledExprSyntax(
-        label: "description", expression: ExprSyntax(literal: guideInfo.description))
+        label: "description", expression: ExprSyntax(literal: description))
     }
   )
 }
@@ -188,6 +267,9 @@ enum GenerableMacroError: Error, CustomStringConvertible {
   /// A property lacks an explicit type annotation and relies on type inference
   case missingTypeAnnotation(propertyName: String)
 
+  /// Arrays of optional types are not supported
+  case arrayOfOptionalType(propertyName: String, elementType: String)
+
   var description: String {
     switch self {
     case .notAStruct:
@@ -198,6 +280,9 @@ enum GenerableMacroError: Error, CustomStringConvertible {
     case .missingTypeAnnotation(let propertyName):
       return
         "Property '\(propertyName)' must have an explicit type annotation. Use 'let \(propertyName): Type' instead of relying on type inference."
+    case .arrayOfOptionalType(let propertyName, let elementType):
+      return
+        "Property '\(propertyName)' cannot be an array of optional types '[\(elementType)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead."
     }
   }
 }

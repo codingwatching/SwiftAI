@@ -9,3 +9,6 @@ DerivedData/
 Package.resolved
 CLAUDE.md
 docs/
+
+# Playground executable - keep local only
+Sources/SwiftAIPlayground/

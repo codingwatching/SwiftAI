@@ -14,7 +14,11 @@ let package = Package(
     .library(
       name: "SwiftAI",
       targets: ["SwiftAI"]
-    )
+    ),
+    .executable(
+      name: "SwiftAIPlayground",
+      targets: ["SwiftAIPlayground"]
+    ),
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0"),
@@ -43,6 +47,11 @@ let package = Package(
         "SwiftAIMacros",
         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
       ],
+    ),
+    .executableTarget(
+      name: "SwiftAIPlayground",
+      dependencies: ["SwiftAI"],
+      path: "Sources/SwiftAIPlayground"
     ),
   ]
 )

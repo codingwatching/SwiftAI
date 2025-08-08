@@ -11,7 +11,7 @@
   "lineBreakBeforeEachArgument" : false,
   "lineBreakBeforeEachGenericRequirement" : false,
   "prioritizeKeepingFunctionOutputTogether" : false,
-  "indentConditionalCompilationBlocks" : true,
+  "indentConditionalCompilationBlocks" : false,
   "lineBreakAroundMultilineExpressionChainComponents" : false,
   "rules" : {
     "AllPublicDeclarationsHaveDocumentation" : false,

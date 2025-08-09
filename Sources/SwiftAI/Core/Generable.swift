@@ -101,6 +101,8 @@ public macro Guide<T>(description: String? = nil, _ constraints: Constraint<T>..
 /// String conforms to Generable for simple text generation use cases.
 extension String: Generable {
   public static var schema: Schema {
-    .string(constraints: [], metadata: nil)
+    .string(constraints: [])
   }
 }
+
+// TODO: Do we need to support more basic types like Int, Double, etc.?

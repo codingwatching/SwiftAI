@@ -6,30 +6,35 @@ import Foundation
 /// including type information, validation constraints, and metadata to guide generation.
 public enum Schema: Sendable, Equatable {
   /// An object with defined properties.
-  case object(properties: [String: Property], metadata: Metadata?)
-
-  /// An array containing items of a specific schema.
-  indirect case array(items: Schema, constraints: [AnyArrayConstraint], metadata: Metadata?)
-
-  /// A string value with optional constraints.
-  case string(constraints: [Constraint<String>], metadata: Metadata?)
-
-  /// An integer value with optional constraints.
-  case integer(constraints: [Constraint<Int>], metadata: Metadata?)
-
-  /// A floating-point number with optional constraints.
-  case number(constraints: [Constraint<Double>], metadata: Metadata?)
-
-  /// A boolean value with optional constraints.
-  case boolean(constraints: [Constraint<Bool>], metadata: Metadata?)
+  case object(name: String, description: String?, properties: [String: Property])
 
   /// A union type that can match any of the provided schemas.
-  indirect case anyOf(schemas: [Schema], metadata: Metadata?)
+  indirect case anyOf(name: String, description: String?, schemas: [Schema])
+
+  /// An array containing items of a specific schema.
+  indirect case array(items: Schema, constraints: [AnyArrayConstraint])
+
+  /// A string value with optional constraints.
+  case string(constraints: [Constraint<String>])
+
+  /// An integer value with optional constraints.
+  case integer(constraints: [Constraint<Int>])
+
+  /// A floating-point number with optional constraints.
+  case number(constraints: [Constraint<Double>])
+
+  /// A boolean value with optional constraints.
+  case boolean(constraints: [Constraint<Bool>])
+
+  // TODO: Add support to object references and recursive schemas.
 
   /// Represents a property within an object schema.
   public struct Property: Sendable, Equatable {
     /// The schema that defines this property's structure.
     public let schema: Schema
+
+    /// Provides context for this property within the parent object.
+    public let description: String?
 
     /// Whether this property is optional in the parent object.
     public let isOptional: Bool
@@ -38,29 +43,12 @@ public enum Schema: Sendable, Equatable {
     ///
     /// - Parameters:
     ///   - schema: The schema that defines this property's structure
+    ///   - description: Optional description for this property
     ///   - isOptional: Whether this property is optional in the parent object
-    public init(schema: Schema, isOptional: Bool) {
+    public init(schema: Schema, description: String?, isOptional: Bool) {
       self.schema = schema
-      self.isOptional = isOptional
-    }
-  }
-
-  /// Metadata for documenting schemas.
-  public struct Metadata: Sendable, Equatable {
-    /// A short, human-readable title for the schema.
-    public let title: String?
-
-    /// A detailed description explaining the purpose and usage of the schema.
-    public let description: String?
-
-    /// Creates new metadata with optional title and description.
-    ///
-    /// - Parameters:
-    ///   - title: A short, human-readable title for the schema
-    ///   - description: A detailed description explaining the purpose and usage
-    public init(title: String? = nil, description: String? = nil) {
-      self.title = title
       self.description = description
+      self.isOptional = isOptional
     }
   }
 }

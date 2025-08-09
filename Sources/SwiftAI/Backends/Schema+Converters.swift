@@ -14,65 +14,62 @@ extension Schema {
   fileprivate func toDynamicGenerationSchema() -> DynamicGenerationSchema {
     // TODO: Add comprehensive error handling for schema conversion
     switch self {
-    case .object(let properties, let metadata):
-      return convertObject(properties: properties, metadata: metadata)
+    case .object(let name, let description, let properties):
+      return convertObject(name: name, description: description, properties: properties)
 
-    case .array(let items, let constraints, let metadata):
-      return convertArray(items: items, constraints: constraints, metadata: metadata)
+    case .array(let items, let constraints):
+      return convertArray(items: items, constraints: constraints)
 
-    case .string(_, _):
+    case .string(_):
       // TODO: Convert string constraints to guides
       return DynamicGenerationSchema(type: String.self, guides: [])
 
-    case .integer(_, _):
+    case .integer(_):
       // TODO: Convert integer constraints to guides
       return DynamicGenerationSchema(type: Int.self, guides: [])
 
-    case .number(_, _):
+    case .number(_):
       // TODO: Convert number constraints to guides
       return DynamicGenerationSchema(type: Double.self, guides: [])
 
-    case .boolean(_, _):
+    case .boolean(_):
       // TODO: Convert boolean constraints to guides
       return DynamicGenerationSchema(type: Bool.self, guides: [])
 
-    case .anyOf(let schemas, let metadata):
-      return convertAnyOf(schemas: schemas, metadata: metadata)
+    case .anyOf(let name, let description, let schemas):
+      return convertAnyOf(name: name, description: description, schemas: schemas)
     }
   }
 }
 
 @available(iOS 26.0, macOS 26.0, *)
 private func convertObject(
-  properties: [String: Schema.Property],
-  metadata: Schema.Metadata?
+  name: String,
+  description: String?,
+  properties: [String: Schema.Property]
 ) -> DynamicGenerationSchema {
-  let dynamicProperties = properties.map { name, property in
-    DynamicGenerationSchema.Property(
-      name: name,
-      description: nil,  // FIXME: We need a description.
-      schema: property.schema.toDynamicGenerationSchema(),
-      isOptional: property.isOptional
-    )
-  }
-
   return DynamicGenerationSchema(
-    name: metadata?.title ?? "Object",  // FIXME: We should always have a name.
-    description: metadata?.description,
-    properties: dynamicProperties
+    name: name,
+    description: description,
+    properties: properties.map { name, property in
+      DynamicGenerationSchema.Property(
+        name: name,
+        description: property.description,
+        schema: property.schema.toDynamicGenerationSchema(),
+        isOptional: property.isOptional
+      )
+    }
   )
 }
 
 @available(iOS 26.0, macOS 26.0, *)
 private func convertArray(
   items: Schema,
-  constraints: [AnyArrayConstraint],
-  metadata: Schema.Metadata?
+  constraints: [AnyArrayConstraint]
 ) -> DynamicGenerationSchema {
   // TODO: Convert array constraints (minimumElements, maximumElements)
-  let itemSchema = items.toDynamicGenerationSchema()
   return DynamicGenerationSchema(
-    arrayOf: itemSchema,
+    arrayOf: items.toDynamicGenerationSchema(),
     minimumElements: nil,
     maximumElements: nil
   )
@@ -80,13 +77,14 @@ private func convertArray(
 
 @available(iOS 26.0, macOS 26.0, *)
 private func convertAnyOf(
-  schemas: [Schema],
-  metadata: Schema.Metadata?
+  name: String,
+  description: String?,
+  schemas: [Schema]
 ) -> DynamicGenerationSchema {
   let convertedSchemas = schemas.map { $0.toDynamicGenerationSchema() }
   return DynamicGenerationSchema(
-    name: metadata?.title ?? "AnyOf",  // FIXME: We should always have a name.
-    description: metadata?.description,
+    name: name,
+    description: description,
     anyOf: convertedSchemas
   )
 }

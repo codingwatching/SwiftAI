@@ -12,7 +12,7 @@ final class GenerableMacroTests: XCTestCase {
   func testAllBasicTypes() throws {
     assertMacroExpansion(
       """
-      @Generable
+      @Generable(description: "A struct with all basic types")
       struct AllTypes {
         let stringField: String
         let intField: Int
@@ -43,61 +43,61 @@ final class GenerableMacroTests: XCTestCase {
         extension AllTypes: Generable {
           public static var schema: Schema {
             .object(
+              name: "AllTypes",
+              description: nil,
               properties: [
                 "stringField": Schema.Property(
-                  schema: .string(constraints: [], metadata: nil),
+                  schema: .string(constraints: []),
+                  description: nil,
                   isOptional: false
                 ),
                 "intField": Schema.Property(
-                  schema: .integer(constraints: [], metadata: nil),
+                  schema: .integer(constraints: []),
+                  description: nil,
                   isOptional: false
                 ),
                 "doubleField": Schema.Property(
-                  schema: .number(constraints: [], metadata: nil),
+                  schema: .number(constraints: []),
+                  description: nil,
                   isOptional: false
                 ),
                 "boolField": Schema.Property(
-                  schema: .boolean(constraints: [], metadata: nil),
+                  schema: .boolean(constraints: []),
+                  description: nil,
                   isOptional: false
                 ),
                 "optionalString": Schema.Property(
-                  schema: .string(constraints: [], metadata: nil),
+                  schema: .string(constraints: []),
+                  description: nil,
                   isOptional: true
                 ),
                 "optionalInt": Schema.Property(
-                  schema: .integer(constraints: [], metadata: nil),
+                  schema: .integer(constraints: []),
+                  description: nil,
                   isOptional: true
                 ),
                 "arrayOfStrings": Schema.Property(
-                  schema: .array(
-                    items: .string(constraints: [], metadata: nil),
-                    constraints: [],
-                    metadata: nil
-                  ),
+                  schema: .array(items: .string(constraints: []), constraints: []),
+                  description: nil,
                   isOptional: false
                 ),
                 "arrayOfInts": Schema.Property(
-                  schema: .array(
-                    items: .integer(constraints: [], metadata: nil),
-                    constraints: [],
-                    metadata: nil
-                  ),
+                  schema: .array(items: .integer(constraints: []), constraints: []),
+                  description: nil,
                   isOptional: false
                 ),
                 "optionalArrayOfBools": Schema.Property(
-                  schema: .array(
-                    items: .boolean(constraints: [], metadata: nil),
-                    constraints: [],
-                    metadata: nil
-                  ),
+                  schema: .array(items: .boolean(constraints: []), constraints: []),
+                  description: nil,
                   isOptional: true
                 ),
                 "customType": Schema.Property(
                   schema: CustomStruct.schema,
+                  description: nil,
                   isOptional: false
                 ),
-              ],
-              metadata: nil
+              ]
+
             )
           }
         }
@@ -125,13 +125,16 @@ final class GenerableMacroTests: XCTestCase {
         extension User: Generable {
           public static var schema: Schema {
             .object(
+              name: "User",
+              description: nil,
               properties: [
                 "name": Schema.Property(
-                  schema: .string(constraints: [], metadata: nil),
+                  schema: .string(constraints: []),
+                  description: nil,
                   isOptional: false
                 )
-              ],
-              metadata: nil
+              ]
+
             )
           }
         }
@@ -173,7 +176,7 @@ final class GenerableMacroTests: XCTestCase {
         @Guide(.pattern("[A-Z]+"), .minLength(5))
         let name: String
         
-        @Guide(description: "User age", .minimum(18), .maximum(100))
+        @Guide(description: "User age in years", .minimum(18), .maximum(100))
         let age: Int
         
         @Guide(.minimum(0.0))
@@ -188,7 +191,7 @@ final class GenerableMacroTests: XCTestCase {
           @Guide(.pattern("[A-Z]+"), .minLength(5))
           let name: String
           
-          @Guide(description: "User age", .minimum(18), .maximum(100))
+          @Guide(description: "User age in years", .minimum(18), .maximum(100))
           let age: Int
           
           @Guide(.minimum(0.0))
@@ -201,38 +204,37 @@ final class GenerableMacroTests: XCTestCase {
         extension ConstrainedFields: Generable {
           public static var schema: Schema {
             .object(
+              name: "ConstrainedFields",
+              description: nil,
               properties: [
                 "name": Schema.Property(
-                  schema: .string(
-                    constraints: [.pattern("[A-Z]+"), .minLength(5)],
-                    metadata: nil
-                  ),
+                  schema: .string(constraints: [.pattern("[A-Z]+"), .minLength(5)]),
+                  description: nil,
                   isOptional: false
                 ),
                 "age": Schema.Property(
-                  schema: .integer(
-                    constraints: [.minimum(18), .maximum(100)],
-                    metadata: Schema.Metadata(description: "User age")
-                  ),
+                  schema: .integer(constraints: [.minimum(18), .maximum(100)]),
+                  description: "User age in years",
                   isOptional: false
                 ),
                 "score": Schema.Property(
-                  schema: .number(constraints: [.minimum(0.0)], metadata: nil),
+                  schema: .number(constraints: [.minimum(0.0)]),
+                  description: nil,
                   isOptional: true
                 ),
                 "tags": Schema.Property(
                   schema: .array(
-                    items: .string(constraints: [], metadata: nil),
+                    items: .string(constraints: []),
                     constraints: [
                       AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
                       AnyArrayConstraint(Constraint<[String]>.element(.minLength(2))),
-                    ],
-                    metadata: Schema.Metadata(description: "Tags array")
+                    ]
                   ),
+                  description: "Tags array",
                   isOptional: false
                 ),
-              ],
-              metadata: nil
+              ]
+
             )
           }
         }

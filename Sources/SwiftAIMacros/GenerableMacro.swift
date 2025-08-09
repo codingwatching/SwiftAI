@@ -20,18 +20,22 @@ public struct GenerableMacro: ExtensionMacro {
       throw GenerableMacroError.notAStruct
     }
 
+    let typeName = type.trimmed.description
     let propertyExprs = try makePropertyExpressions(from: structDecl)
+    // TODO: Extract description from @Generable macro if provided
 
     let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): Generable") {
       try VariableDeclSyntax("public static var schema: Schema") {
         """
         .object(
+          name: "\(raw: typeName)",
+          description: nil,
           properties: \(DictionaryExprSyntax {
               for propertyExpr in propertyExprs {
                 propertyExpr
               }
-            }),
-          metadata: nil
+            })
+
         )
         """
       }
@@ -87,10 +91,18 @@ private func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
       let guideInfo = parseGuideAttributes(for: property)
       let schemaExpr = makeSchemaExpression(for: type, guideInfo: guideInfo)
 
+      let descriptionExpr: ExprSyntax =
+        if let desc = guideInfo?.description {
+          ExprSyntax(literal: desc)
+        } else {
+          ExprSyntax("nil")
+        }
+
       let propertyExpr = DictionaryElementSyntax(
         key: ExprSyntax(literal: propertyName),
         value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
           LabeledExprSyntax(label: "schema", expression: schemaExpr)
+          LabeledExprSyntax(label: "description", expression: descriptionExpr)
           LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
         }
       )
@@ -115,7 +127,6 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? 
   // Handle array types
   if let arrayType = type.as(ArrayTypeSyntax.self) {
     let elementSchema = makeSchemaExpression(for: arrayType.element)
-    let metadataExpr = makeMetadataExpression(from: guideInfo)
     let constraintsExpr = makeConstraintsExpression(
       from: guideInfo, isArray: true, elementType: arrayType.element)
 
@@ -123,7 +134,6 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? 
       FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
         LabeledExprSyntax(label: "items", expression: elementSchema)
         LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
-        LabeledExprSyntax(label: "metadata", expression: metadataExpr)
       }
     )
   }
@@ -136,14 +146,12 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? 
     "Bool": ".boolean",
   ]
 
-  // Handle basic types with constraints and metadata
+  // Handle basic types with constraints
   if let schemaKind = typeToSchemaKind[typeName] {
-    let metadataExpr = makeMetadataExpression(from: guideInfo)
     let constraintsExpr = makeConstraintsExpression(from: guideInfo)
     return ExprSyntax(
       FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
         LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
-        LabeledExprSyntax(label: "metadata", expression: metadataExpr)
       }
     )
   } else {
@@ -239,22 +247,6 @@ private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) 
         propertyName: propertyName, elementType: elementTypeName)
     }
   }
-}
-
-private func makeMetadataExpression(from guideInfo: GuideParams?) -> ExprSyntax {
-  guard let guideInfo = guideInfo,
-    let description = guideInfo.description,
-    !description.isEmpty
-  else {
-    return ExprSyntax("nil")
-  }
-
-  return ExprSyntax(
-    FunctionCallExprSyntax(callee: ExprSyntax("Schema.Metadata")) {
-      LabeledExprSyntax(
-        label: "description", expression: ExprSyntax(literal: description))
-    }
-  )
 }
 
 enum GenerableMacroError: Error, CustomStringConvertible {

@@ -2,6 +2,8 @@ import Foundation
 import SwiftAI
 import Testing
 
+// TODO: Revist this test file and see if we need more tests, if we can improve the structure, or if we can remove some tests.
+
 @Generable
 struct PrimitiveTypes {
   @Guide(description: "str field")
@@ -19,26 +21,26 @@ struct PrimitiveTypes {
 
 @Test func schemaGeneration_primitiveTypes() throws {
   let expectedSchema = Schema.object(
+    name: "PrimitiveTypes",
+    description: nil,
     properties: [
       "str": Schema.Property(
-        schema: .string(
-          constraints: [],
-          metadata: .init(description: "str field")),
+        schema: .string(constraints: []),
+        description: "str field",
         isOptional: false),
       "int": Schema.Property(
-        schema: .integer(
-          constraints: [], metadata: .init(description: "int field")),
+        schema: .integer(constraints: []),
+        description: "int field",
         isOptional: false),
       "double": Schema.Property(
-        schema: .number(
-          constraints: [], metadata: .init(description: "double field")),
+        schema: .number(constraints: []),
+        description: "double field",
         isOptional: false),
       "bool": Schema.Property(
-        schema: .boolean(
-          constraints: [], metadata: .init(description: "bool field")),
+        schema: .boolean(constraints: []),
+        description: "bool field",
         isOptional: false),
-    ],
-    metadata: nil
+    ]
   )
 
   #expect(PrimitiveTypes.schema == expectedSchema)
@@ -61,26 +63,26 @@ struct OptionalPrimitiveTypes {
 
 @Test func schemaGeneration_optionalPrimitiveTypes() throws {
   let expectedSchema = Schema.object(
+    name: "OptionalPrimitiveTypes",
+    description: nil,
     properties: [
       "optStr": Schema.Property(
-        schema: .string(
-          constraints: [],
-          metadata: .init(description: "optional str field")),
+        schema: .string(constraints: []),
+        description: "optional str field",
         isOptional: true),
       "optInt": Schema.Property(
-        schema: .integer(
-          constraints: [], metadata: .init(description: "optional int field")),
+        schema: .integer(constraints: []),
+        description: "optional int field",
         isOptional: true),
       "optDouble": Schema.Property(
-        schema: .number(
-          constraints: [], metadata: .init(description: "optional double field")),
+        schema: .number(constraints: []),
+        description: "optional double field",
         isOptional: true),
       "optBool": Schema.Property(
-        schema: .boolean(
-          constraints: [], metadata: .init(description: "optional bool field")),
+        schema: .boolean(constraints: []),
+        description: "optional bool field",
         isOptional: true),
-    ],
-    metadata: nil
+    ]
   )
 
   #expect(OptionalPrimitiveTypes.schema == expectedSchema)
@@ -97,21 +99,22 @@ struct ArrayTypes {
 
 @Test func arrayTypesSupport() throws {
   let expectedSchema = Schema.object(
+    name: "ArrayTypes",
+    description: nil,
     properties: [
       "strs": Schema.Property(
         schema: .array(
-          items: .string(constraints: [], metadata: nil),
-          constraints: [],
-          metadata: Schema.Metadata(description: "Simple string array")),
+          items: .string(constraints: []),
+          constraints: []),
+        description: "Simple string array",
         isOptional: false),
       "optionalArrayOfInts": Schema.Property(
         schema: .array(
-          items: .integer(constraints: [], metadata: nil),
-          constraints: [],
-          metadata: Schema.Metadata(description: "Optional number array")),
+          items: .integer(constraints: []),
+          constraints: []),
+        description: "Optional number array",
         isOptional: true),
-    ],
-    metadata: nil
+    ]
   )
 
   #expect(ArrayTypes.schema == expectedSchema)
@@ -137,39 +140,40 @@ struct Constraints {
 
 @Test func constrainedTypesSupport() throws {
   let expectedSchema = Schema.object(
+    name: "Constraints",
+    description: nil,
     properties: [
       "str": Schema.Property(
         schema: .string(
-          constraints: [.pattern("[A-Z]+"), .minLength(7)],
-          metadata: nil),
+          constraints: [.pattern("[A-Z]+"), .minLength(7)]),
+        description: nil,
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.minimum(0), .maximum(100)],
-          metadata: nil),
+          constraints: [.minimum(0), .maximum(100)]),
+        description: nil,
         isOptional: true),
       "double": Schema.Property(
         schema: .number(
-          constraints: [.range(0.01...9999.99)],
-          metadata: nil),
+          constraints: [.range(0.01...9999.99)]),
+        description: nil,
         isOptional: false),
       "bool": Schema.Property(
         schema: .boolean(
-          constraints: [.constant(true)],
-          metadata: nil),
+          constraints: [.constant(true)]),
+        description: nil,
         isOptional: false),
       "arrayOfStrs": Schema.Property(
         schema: .array(
-          items: .string(constraints: [], metadata: nil),
+          items: .string(constraints: []),
           constraints: [
             AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
             AnyArrayConstraint(Constraint<[String]>.maximumCount(10)),
             AnyArrayConstraint(Constraint<[String]>.element(.pattern("^[A-Z]{3}$"))),
-          ],
-          metadata: nil),
+          ]),
+        description: nil,
         isOptional: false),
-    ],
-    metadata: nil
+    ]
   )
 
   #expect(Constraints.schema == expectedSchema)
@@ -192,33 +196,38 @@ struct DescriptionsWithConstraints {
 
 @Test func descriptionsWithConstraintsSupport() throws {
   let expectedSchema = Schema.object(
+    name: "DescriptionsWithConstraints",
+    description: nil,
     properties: [
       "str": Schema.Property(
         schema: .string(
-          constraints: [.pattern("^[A-Z][a-z]+$"), .minLength(3)],
-          metadata: Schema.Metadata(description: "str field with constraints")),
+          constraints: [.pattern("^[A-Z][a-z]+$"), .minLength(3)]
+        ),
+        description: "str field with constraints",
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.minimum(18), .maximum(100)],
-          metadata: Schema.Metadata(description: "int field with constraints")),
+          constraints: [.minimum(18), .maximum(100)]
+        ),
+        description: "int field with constraints",
         isOptional: false),
       "double": Schema.Property(
         schema: .number(
-          constraints: [.minimum(0.0)],
-          metadata: Schema.Metadata(description: "double field with constraints")),
+          constraints: [.minimum(0.0)]
+        ),
+        description: "double field with constraints",
         isOptional: true),
       "strs": Schema.Property(
         schema: .array(
-          items: .string(constraints: [], metadata: nil),
+          items: .string(constraints: []),
           constraints: [
             AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
             AnyArrayConstraint(Constraint<[String]>.element(.minLength(2))),
-          ],
-          metadata: Schema.Metadata(description: "string array with constraints")),
+          ]
+        ),
+        description: "string array with constraints",
         isOptional: false),
-    ],
-    metadata: nil
+    ]
   )
 
   #expect(DescriptionsWithConstraints.schema == expectedSchema)
@@ -250,26 +259,28 @@ struct CustomTypes {
 
 @Test func customTypesSupport() throws {
   let expectedSchema = Schema.object(
+    name: "CustomTypes",
+    description: nil,
     properties: [
       "str": Schema.Property(
-        schema: .string(
-          constraints: [],
-          metadata: Schema.Metadata(description: "main str field")),
+        schema: .string(constraints: []),
+        description: "main str field",
         isOptional: false),
       "nested": Schema.Property(
         schema: NestedType.schema,
+        description: "required nested type",
         isOptional: false),
       "optNested": Schema.Property(
         schema: NestedType.schema,
+        description: "optional nested type",
         isOptional: true),
       "nestedArray": Schema.Property(
         schema: .array(
           items: NestedType.schema,
-          constraints: [],
-          metadata: Schema.Metadata(description: "array of nested types")),
+          constraints: []),
+        description: "array of nested types",
         isOptional: false),
-    ],
-    metadata: nil
+    ]
   )
 
   #expect(CustomTypes.schema == expectedSchema)

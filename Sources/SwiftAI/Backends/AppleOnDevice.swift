@@ -43,19 +43,24 @@ public struct SystemLLM: LLM {
     let session = LanguageModelSession(model: model)
 
     do {
-      // Handle different return types
-      if T.self != String.self {
-        fatalError("Unsupported return type: \(T.self). Only String is currently supported.")
+      if T.self == String.self {
+        let reply = try await generateText(
+          session: session,
+          prompt: prompt,
+          messages: messages
+        )
+        guard let typedReply = reply as? LLMReply<T> else {
+          throw LLMError.generalError("Type mismatch: Expected LLMReply<\(T.self)>")
+        }
+        return typedReply
+      } else {
+        return try await generateStructuredOutput(
+          session: session,
+          prompt: prompt,
+          messages: messages,
+          type: type
+        )
       }
-
-      let response = try await session.respond(to: prompt)
-      guard let content = response.content as? T else {
-        throw LLMError.generalError("Unexpected response type")
-      }
-      // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
-      let updatedHistory = messages + [AIMessage(chunks: [.text(response.content)])]
-
-      return LLMReply(content: content, history: updatedHistory)
     } catch let error as LanguageModelSession.GenerationError {
       throw mapAppleError(error)
     } catch {
@@ -89,8 +94,41 @@ public struct SystemLLM: LLM {
     return FoundationModels.Prompt(content)
   }
 
-  // TODO: Implement schema conversion for structured output
-  // private func convertSchemaToAppleSchema(_ schema: Schema) throws -> GenerationSchema
+  private func generateText(
+    session: LanguageModelSession,
+    prompt: FoundationModels.Prompt,
+    messages: [any Message],
+  ) async throws -> LLMReply<String> {
+    let response = try await session.respond(to: prompt)
+    let content = response.content
+
+    // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
+    let updatedHistory = messages + [AIMessage(chunks: [.text(content)])]
+    return LLMReply(content: content, history: updatedHistory)
+  }
+
+  private func generateStructuredOutput<T: Generable>(
+    session: LanguageModelSession,
+    prompt: FoundationModels.Prompt,
+    messages: [any Message],
+    type: T.Type
+  ) async throws -> LLMReply<T> {
+    let foundationSchema = try T.schema.toGenerationSchema()
+    let response = try await session.respond(to: prompt, schema: foundationSchema)
+
+    guard let jsonData = response.content.jsonString.data(using: .utf8) else {
+      throw LLMError.generalError("Failed to convert JSON string to Data")
+    }
+    let content = try JSONDecoder().decode(T.self, from: jsonData)
+
+    // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
+    // For now, we'll use a placeholder representation of the structured content
+    let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+    let structuredMessage = AIMessage(chunks: [.structured(jsonString)])
+    let updatedHistory = messages + [structuredMessage]
+
+    return LLMReply(content: content, history: updatedHistory)
+  }
 
   private func mapAppleError(_ error: LanguageModelSession.GenerationError) -> LLMError {
     // TODO: Implement proper error mapping when LLMError is fully defined

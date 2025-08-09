@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:SwiftAI}",
+            "name": "Debug SwiftAIPlayground",
+            "program": "${workspaceFolder:SwiftAI}/.build/debug/SwiftAIPlayground",
+            "preLaunchTask": "swift: Build Debug SwiftAIPlayground"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:SwiftAI}",
+            "name": "Release SwiftAIPlayground",
+            "program": "${workspaceFolder:SwiftAI}/.build/release/SwiftAIPlayground",
+            "preLaunchTask": "swift: Build Release SwiftAIPlayground"
+        }
+    ]
+}

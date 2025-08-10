@@ -9,27 +9,20 @@ import Foundation
 ///
 /// ```swift
 /// struct WeatherTool: Tool {
-///   struct Arguments: Generable {
-///     let city: String
-///     let units: String = "celsius"
-///   }
-///
 ///   @Generable
-///   struct WeatherData {
-///     @Guide("The current temperature in degrees Celsius")
-///     let temperature: Int
-///
-///     @Guide("A brief description of the current weather conditions")
-///     let conditions: String
+///   struct Arguments {
+///     let city: String
+///     let units: String
 ///   }
 ///
-///   let name = "get_weather"
 ///   let description = "Get current weather conditions for a specified city"
 ///
-///   func call(arguments: Arguments) async throws -> WeatherData {
+///   func call(arguments: Arguments) async throws -> String {
 ///     // Fetch weather data from API
-///     return WeatherData(temperature: 22, conditions: "Sunny")
+///     return "Weather in \(arguments.city): 22°C, \(arguments.units)"
 ///   }
+///
+///   // name and parameters are provided automatically via default implementations
 /// }
 /// ```
 public protocol Tool: Sendable {
@@ -37,18 +30,21 @@ public protocol Tool: Sendable {
   associatedtype Arguments: Generable
 
   /// The output data returned by this tool.
-  associatedtype Output: Sendable  // TODO: This should be PromptRepresentable, but we need to define that protocol first.
+  associatedtype Output: PromptRepresentable
 
-  /// A unique identifier for this tool, used by language models to reference it.
-  ///
-  /// Should follow snake_case convention (e.g., "get_weather", "search_contacts").
-  var name: String { get }  // TODO: Add a default implementation that returns the type name in snake_case.
+  /// A unique and descriptive name for this tool used by a language model to reference it.
+  /// For example `get_weather`, `search`, `book_flight`, etc.
+  var name: String { get }
 
-  /// A natural language description explaining when and how to use this tool.
-  ///
-  /// Should clearly describe the tool's purpose, expected inputs, and output format
-  /// to help language models understand when to invoke it.
+  /// A natural language description that provides context about this tool to a language model.
   var description: String { get }
+
+  // TODO: Revisit the naming of this property.
+  /// The specification of the parameters this tool accepts.
+  ///
+  /// Describes the structure and constraints of the arguments that can be passed
+  /// to this tool, enabling language models to generate valid tool calls.
+  static var parameters: Schema { get }
 
   /// Executes the tool with the provided arguments.
   ///
@@ -56,4 +52,41 @@ public protocol Tool: Sendable {
   /// - Returns: The result of the tool execution
   /// - Throws: Any errors that occur during tool execution
   func call(arguments: Arguments) async throws -> Output
+
+  // TODO: Revisit the type used here. Do we need more structured data?
+  /// Executes the tool from encoded arguments.
+  ///
+  /// This method is useful when you have tool arguments as JSON data, such as from
+  /// language model tool calls or external API responses. The JSON data will be
+  /// decoded into the tool's Arguments type before execution.
+  ///
+  /// - Parameter data: JSON-encoded arguments for the tool
+  /// - Returns: The result of the tool execution
+  /// - Throws: Any errors that occur during argument parsing or tool execution
+  func call(_ data: Data) async throws -> any PromptRepresentable
+}
+
+// MARK: - Default Implementations
+
+extension Tool where Arguments: Generable {
+  /// Default implementation of the tool's name.
+  /// Uses the type name directly.
+  /// For example, `GetWeatherTool` becomes `GetWeatherTool`.
+  public var name: String {
+    String(describing: Self.self)
+  }
+
+  /// Default implementation of parameters using the Arguments schema.
+  public static var parameters: Schema {
+    Arguments.schema
+  }
+
+  /// Default implementation of the JSON call method.
+  /// Decodes the JSON data into Arguments and calls the typed method.
+  public func call(_ data: Data) async throws -> any PromptRepresentable {
+    let decoder = JSONDecoder()
+    // TODO: We should probably throw a SwiftAI error if decoding fails.
+    let arguments = try decoder.decode(Arguments.self, from: data)
+    return try await call(arguments: arguments)
+  }
 }

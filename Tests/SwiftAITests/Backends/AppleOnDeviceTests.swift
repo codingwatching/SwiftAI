@@ -173,4 +173,53 @@ func structuredOutput_NestedObjects_Content() async throws {
   )
   #expect(reply.content == expected)
 }
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func threadMaintainsConversationContext() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  // Create a new thread for conversation
+  var thread = systemLLM.makeThread(tools: [], messages: [])
+
+  // Turn 1: Introduce name
+  let reply1 = try await systemLLM.reply(
+    to: "Hi my name is Achraf",
+    returning: String.self,
+    in: &thread,
+    options: .default
+  )
+
+  #expect(!reply1.content.isEmpty)
+  #expect(reply1.history.count == 2)  // User message + AI response
+  #expect(reply1.history[0].role == Role.user)
+  #expect(reply1.history[1].role == Role.ai)
+
+  // Turn 2: Ask for name recall
+  let reply2 = try await systemLLM.reply(
+    to: "What's my name?",
+    returning: String.self,
+    in: &thread,
+    options: .default
+  )
+
+  #expect(!reply2.content.isEmpty)
+  #expect(reply2.content.contains("Achraf"))  // Should remember the name
+  #expect(reply2.history.count == 2)  // Current exchange only
+
+  // Turn 3: Request structured output with name context
+  let reply3 = try await systemLLM.reply(
+    to: "Create a SimpleResponse with my name in the message, count 1, and isValid true",
+    returning: SimpleResponse.self,
+    in: &thread,
+    options: .default
+  )
+
+  #expect(reply3.content.message.contains("Achraf"))  // Should include name in structured response
+  #expect(reply3.content.count == 1)
+  #expect(reply3.content.isValid == true)
+}
 #endif

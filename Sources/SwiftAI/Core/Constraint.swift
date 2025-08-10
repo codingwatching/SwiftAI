@@ -5,6 +5,8 @@ public struct Constraint<Value>: Sendable, Equatable {
   internal let kind: ConstraintKind
 
   internal init(kind: ConstraintKind) {
+    // TODO: The fact that the init is internal means that no external code can create new constraints.
+    //  Revisit this decision.
     self.kind = kind
   }
 }
@@ -19,7 +21,13 @@ public struct AnyArrayConstraint: Sendable, Equatable {
    */
 
   public init<Element>(_ constraint: Constraint<[Element]>) {
+    // TODO: Check that constraint.kind is an `array` constraint.
     self.kind = constraint.kind
+  }
+
+  internal init(_ kind: ConstraintKind) {
+    // TODO: Check that constraint.kind is an `array` constraint.
+    self.kind = kind
   }
 }
 
@@ -50,15 +58,6 @@ extension Constraint where Value == String {
     Constraint(kind: .string(.anyOf(options)))
   }
 
-  /// Constrains the minimum length of the string.
-  public static func minLength(_ length: Int) -> Constraint<String> {
-    Constraint(kind: .string(.len(min: length, max: nil)))
-  }
-
-  /// Constrains the maximum length of the string.
-  public static func maxLength(_ length: Int) -> Constraint<String> {
-    Constraint(kind: .string(.len(min: nil, max: length)))
-  }
 }
 
 // MARK: - Integer Constraints
@@ -152,20 +151,13 @@ public enum ArrayConstraint: Sendable, Equatable {
 /// Constraints that can be applied to string values.
 public enum StringConstraint: Sendable, Equatable {
   /// Requires the string to match a regular expression pattern.
-  case pattern(String)
+  case pattern(String)  // TODO: Consider accepting a Regex object. It's safer.
 
   /// Requires the string to be exactly the specified value.
   case constant(String)
 
   /// Requires the string to be one of the specified options.
   case anyOf([String])
-
-  /// Constrains the length of the string.
-  ///
-  /// - Parameters:
-  ///   - min: The minimum length (nil for no minimum)
-  ///   - max: The maximum length (nil for no maximum)
-  case len(min: Int?, max: Int?)
 }
 
 /// Constraints that can be applied to integer values.

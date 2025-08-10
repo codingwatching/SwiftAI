@@ -149,9 +149,8 @@ struct Address: Equatable {
   let zipCode: Int
 }
 
-// FIXME: This test is currently disabled because the the conversion to FoundationModels.GenerationSchema is not complete.
 @available(iOS 26.0, macOS 26.0, *)
-@Test("System LLM with nested structured output", .disabled())
+@Test("System LLM with nested structured output")
 func structuredOutput_NestedObjects_Content() async throws {
   let systemLLM = SystemLLM()
 

@@ -122,7 +122,7 @@ struct ArrayTypes {
 
 @Generable
 struct Constraints {
-  @Guide(.pattern("[A-Z]+"), .minLength(7))
+  @Guide(.pattern("[A-Z]+"))
   let str: String
 
   @Guide(.minimum(0), .maximum(100))
@@ -145,7 +145,7 @@ struct Constraints {
     properties: [
       "str": Schema.Property(
         schema: .string(
-          constraints: [.pattern("[A-Z]+"), .minLength(7)]),
+          constraints: [.pattern("[A-Z]+")]),
         description: nil,
         isOptional: false),
       "int": Schema.Property(
@@ -181,7 +181,7 @@ struct Constraints {
 
 @Generable
 struct DescriptionsWithConstraints {
-  @Guide(description: "str field with constraints", .pattern("^[A-Z][a-z]+$"), .minLength(3))
+  @Guide(description: "str field with constraints", .pattern("^[A-Z][a-z]+$"))
   let str: String
 
   @Guide(description: "int field with constraints", .minimum(18), .maximum(100))
@@ -190,7 +190,7 @@ struct DescriptionsWithConstraints {
   @Guide(description: "double field with constraints", .minimum(0.0))
   let double: Double?
 
-  @Guide(description: "string array with constraints", .minimumCount(1), .element(.minLength(2)))
+  @Guide(description: "string array with constraints", .minimumCount(1), .element(.pattern(".+")))
   let strs: [String]
 }
 
@@ -201,7 +201,7 @@ struct DescriptionsWithConstraints {
     properties: [
       "str": Schema.Property(
         schema: .string(
-          constraints: [.pattern("^[A-Z][a-z]+$"), .minLength(3)]
+          constraints: [.pattern("^[A-Z][a-z]+$")]
         ),
         description: "str field with constraints",
         isOptional: false),
@@ -222,7 +222,7 @@ struct DescriptionsWithConstraints {
           items: .string(constraints: []),
           constraints: [
             AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[String]>.element(.minLength(2))),
+            AnyArrayConstraint(Constraint<[String]>.element(.pattern(".+"))),
           ]
         ),
         description: "string array with constraints",

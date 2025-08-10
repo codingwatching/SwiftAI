@@ -18,10 +18,153 @@ import FoundationModels
 }
 
 @available(iOS 26.0, macOS 26.0, *)
+@Test func stringPatternConstraintConversion() throws {
+  let schema = Schema.string(constraints: [.pattern("^[A-Z][a-z]+$")])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "string")
+  #expect(json["pattern"] as? String == "^[A-Z][a-z]+$")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func stringConstantConstraintConversion() throws {
+  let schema = Schema.string(constraints: [.constant("hello")])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "string")
+  // FoundationModels represents constants as single-value enums
+  let enumValues = json["enum"] as? [String]
+  #expect(enumValues == ["hello"])
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func stringAnyOfConstraintConversion() throws {
+  let schema = Schema.string(constraints: [.anyOf(["red", "green", "blue"])])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "string")
+  let enumValues = json["enum"] as? [String]
+  #expect(enumValues?.sorted() == ["blue", "green", "red"])
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func stringMultipleConstraintsConversion() throws {
+  let constraints: [Constraint<String>] = [
+    .pattern("^[A-Z]"),
+    .anyOf(["Alpha", "Beta", "Gamma"]),
+  ]
+  let schema = Schema.string(constraints: constraints)
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "string")
+  #expect(json["pattern"] as? String == "^[A-Z]")
+  let enumValues = json["enum"] as? [String]
+  #expect(enumValues?.sorted() == ["Alpha", "Beta", "Gamma"])
+}
+
+@available(iOS 26.0, macOS 26.0, *)
 @Test func primitiveIntegerConversion() throws {
   let schema = Schema.integer(constraints: [])
   let json = try schema.toGenerationSchema().json()
   #expect(json["type"] as? String == "integer")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func integerMinimumConstraintConversion() throws {
+  let schema = Schema.integer(constraints: [.minimum(10)])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "integer")
+  #expect(json["minimum"] as? Int == 10)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func integerMaximumConstraintConversion() throws {
+  let schema = Schema.integer(constraints: [.maximum(100)])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "integer")
+  #expect(json["maximum"] as? Int == 100)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func integerRangeConstraintConversion() throws {
+  let schema = Schema.integer(constraints: [.range(10...100)])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "integer")
+  #expect(json["minimum"] as? Int == 10)
+  #expect(json["maximum"] as? Int == 100)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func integerMultipleConstraintsConversion() throws {
+  let constraints: [Constraint<Int>] = [
+    .minimum(5),
+    .maximum(50),
+  ]
+  let schema = Schema.integer(constraints: constraints)
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "integer")
+  #expect(json["minimum"] as? Int == 5)
+  #expect(json["maximum"] as? Int == 50)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func primitiveNumberConversion() throws {
+  let schema = Schema.number(constraints: [])
+  let json = try schema.toGenerationSchema().json()
+  #expect(json["type"] as? String == "number")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func numberMinimumConstraintConversion() throws {
+  let schema = Schema.number(constraints: [.minimum(10.5)])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "number")
+  #expect(json["minimum"] as? Double == 10.5)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func numberMaximumConstraintConversion() throws {
+  let schema = Schema.number(constraints: [.maximum(100.0)])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "number")
+  #expect(json["maximum"] as? Double == 100.0)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func numberRangeConstraintConversion() throws {
+  let schema = Schema.number(constraints: [.range(10.5...100.0)])
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "number")
+  #expect(json["minimum"] as? Double == 10.5)
+  #expect(json["maximum"] as? Double == 100.0)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func numberMultipleConstraintsConversion() throws {
+  let constraints: [Constraint<Double>] = [
+    .minimum(5.25),
+    .maximum(50.75),
+  ]
+  let schema = Schema.number(constraints: constraints)
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "number")
+  #expect(json["minimum"] as? Double == 5.25)
+  #expect(json["maximum"] as? Double == 50.75)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func primitiveBooleanConversion() throws {
+  let schema = Schema.boolean(constraints: [])
+  let json = try schema.toGenerationSchema().json()
+  #expect(json["type"] as? String == "boolean")
 }
 
 @available(iOS 26.0, macOS 26.0, *)
@@ -109,6 +252,159 @@ import FoundationModels
   let nestedItems = items?["items"] as? [String: Any]
   #expect(nestedItems != nil)
   #expect(nestedItems?["type"] as? String == "integer")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayMinimumCountConstraintConversion() throws {
+  let schema = Schema.array(
+    items: .string(constraints: []),
+    constraints: [AnyArrayConstraint(.minimumCount(3) as Constraint<[String]>)]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+  #expect(json["minItems"] as? Int == 3)
+  #expect(json["maxItems"] == nil)
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "string")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayMaximumCountConstraintConversion() throws {
+  let schema = Schema.array(
+    items: .string(constraints: []),
+    constraints: [AnyArrayConstraint(.maximumCount(10) as Constraint<[String]>)]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+  #expect(json["minItems"] == nil)
+  #expect(json["maxItems"] as? Int == 10)
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "string")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayCountConstraintConversion() throws {
+  let schema = Schema.array(
+    items: .string(constraints: []),
+    constraints: [AnyArrayConstraint(.count(5) as Constraint<[String]>)]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+  #expect(json["minItems"] as? Int == 5)
+  #expect(json["maxItems"] as? Int == 5)
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "string")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayRangeCountConstraintConversion() throws {
+  let schema = Schema.array(
+    items: .integer(constraints: []),
+    constraints: [
+      AnyArrayConstraint(.minimumCount(2) as Constraint<[Int]>),
+      AnyArrayConstraint(.maximumCount(8) as Constraint<[Int]>),
+    ]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+  #expect(json["minItems"] as? Int == 2)
+  #expect(json["maxItems"] as? Int == 8)
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "integer")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayElementConstraintConversion() throws {
+  let schema = Schema.array(
+    items: .string(constraints: []),
+    constraints: [AnyArrayConstraint(.element(.pattern("^[A-Z][a-z]+$")) as Constraint<[String]>)]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "string")
+  #expect(items?["pattern"] as? String == "^[A-Z][a-z]+$")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayElementIntegerConstraintConversion() throws {
+  let schema = Schema.array(
+    items: .integer(constraints: []),
+    constraints: [AnyArrayConstraint(.element(.range(10...100)) as Constraint<[Int]>)]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "integer")
+  #expect(items?["minimum"] as? Int == 10)
+  #expect(items?["maximum"] as? Int == 100)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayMultipleElementConstraintsConversion() throws {
+  let schema = Schema.array(
+    items: .string(constraints: [.anyOf(["red", "green", "blue"])]),
+    constraints: [
+      AnyArrayConstraint(.element(.pattern("^[a-z]+$")) as Constraint<[String]>),
+      AnyArrayConstraint(.element(.pattern(".{3,}")) as Constraint<[String]>),
+    ]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "string")
+
+  // Original constraints from schema
+  let enumValues = items?["enum"] as? [String]
+  #expect(enumValues?.sorted() == ["blue", "green", "red"])
+
+  // Element constraints applied - last constraint wins when multiple patterns exist
+  #expect(items?["pattern"] as? String == ".{3,}")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func arrayCountAndElementConstraintsConversion() throws {
+  let schema = Schema.array(
+    items: .number(constraints: []),
+    constraints: [
+      AnyArrayConstraint(.minimumCount(1) as Constraint<[Double]>),
+      AnyArrayConstraint(.maximumCount(5) as Constraint<[Double]>),
+      AnyArrayConstraint(.element(.minimum(0.0)) as Constraint<[Double]>),
+      AnyArrayConstraint(.element(.maximum(100.0)) as Constraint<[Double]>),
+    ]
+  )
+  let json = try schema.toGenerationSchema().json()
+
+  #expect(json["type"] as? String == "array")
+  #expect(json["minItems"] as? Int == 1)
+  #expect(json["maxItems"] as? Int == 5)
+
+  let items = json["items"] as? [String: Any]
+  #expect(items != nil)
+  #expect(items?["type"] as? String == "number")
+  #expect(items?["minimum"] as? Double == 0.0)
+  #expect(items?["maximum"] as? Double == 100.0)
 }
 
 @available(iOS 26.0, macOS 26.0, *)

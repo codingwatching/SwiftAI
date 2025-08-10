@@ -6,6 +6,7 @@ import Foundation
 /// Requires iOS / macOS 26+ and Apple Intelligence enabled.
 @available(iOS 26.0, macOS 26.0, *)
 public struct SystemLLM: LLM {
+  public typealias Thread = FoundationLanguageModelThread
   private let model: SystemLanguageModel
 
   public init() {
@@ -18,6 +19,19 @@ public struct SystemLLM: LLM {
   /// - Low battery
   public var isAvailable: Bool {
     model.isAvailable
+  }
+
+  public func makeThread(tools: [any Tool], messages: [any Message])
+    -> FoundationLanguageModelThread
+  {
+    // TODO: Convert messages to FoundationModels.Transcript and initialize session
+    let emptyTranscript = FoundationModels.Transcript()
+    let session = LanguageModelSession(
+      model: model,
+      transcript: emptyTranscript
+    )
+    // TODO: Initialize session with tools.
+    return FoundationLanguageModelThread(session: session)
   }
 
   public func reply<T: Generable>(
@@ -37,30 +51,53 @@ public struct SystemLLM: LLM {
       throw LLMError.generalError("Tool calling not yet supported")
     }
 
+    guard messages.count == 1 else {
+      throw LLMError.generalError(
+        "System LLM currently only supports a single message in the history for generation.")
+    }
+
     // TODO: The correct approach is to convert messages to FoundationModels.Transcript,
     //   then rehydrate a FoundationModels.LanguageModelSession using that transcript.
-    let prompt = try convertMessagesToPrompt(messages)
+    let userMessage = UserMessage(chunks: messages.first!.chunks)
+    let prompt = convertMessageToPrompt(userMessage)
     let session = LanguageModelSession(model: model)
 
     do {
-      if T.self == String.self {
-        let reply = try await generateText(
-          session: session,
-          prompt: prompt,
-          messages: messages
-        )
-        guard let typedReply = reply as? LLMReply<T> else {
-          throw LLMError.generalError("Type mismatch: Expected LLMReply<\(T.self)>")
-        }
-        return typedReply
-      } else {
-        return try await generateStructuredOutput(
-          session: session,
-          prompt: prompt,
-          messages: messages,
-          type: type
-        )
-      }
+      return try await generateResponse(
+        session: session,
+        prompt: prompt,
+        inputMessage: userMessage,
+        type: type
+      )
+    } catch let error as LanguageModelSession.GenerationError {
+      throw mapAppleError(error)
+    } catch {
+      throw LLMError.generalError("Generation failed: \(error)")
+    }
+  }
+
+  public func reply<T: Generable>(
+    to prompt: any PromptRepresentable,
+    returning type: T.Type,
+    in thread: inout FoundationLanguageModelThread,
+    options: LLMReplyOptions
+  ) async throws -> LLMReply<T> {
+    // TODO: Implement tool support
+    // TODO: Implement LLMReplyOptions support (temperature, maxTokens, etc.)
+
+    guard isAvailable else {
+      throw LLMError.generalError("Model unavailable")
+    }
+
+    let userMessage = UserMessage(chunks: prompt.chunks)
+    let foundationPrompt = convertMessageToPrompt(userMessage)
+    do {
+      return try await generateResponse(
+        session: thread.session,
+        prompt: foundationPrompt,
+        inputMessage: userMessage,
+        type: type
+      )
     } catch let error as LanguageModelSession.GenerationError {
       throw mapAppleError(error)
     } catch {
@@ -70,16 +107,10 @@ public struct SystemLLM: LLM {
 
   // MARK: - Private Methods
 
-  private func convertMessagesToPrompt(_ messages: [any Message]) throws
+  private func convertMessageToPrompt(_ message: any Message)
     -> FoundationModels.Prompt
   {
-    // TODO: Support multiple messages in the history.
-    assert(
-      messages.count == 1,
-      "System LLM currently only supports a single message in the history for generation.")
-    let firstMessage = messages.first!
-
-    let content = firstMessage.chunks.compactMap { chunk in
+    let content = message.chunks.compactMap { chunk in
       switch chunk {
       case .text(let text):
         return text
@@ -93,26 +124,36 @@ public struct SystemLLM: LLM {
 
     return FoundationModels.Prompt(content)
   }
+}
 
-  private func generateText(
-    session: LanguageModelSession,
-    prompt: FoundationModels.Prompt,
-    messages: [any Message],
-  ) async throws -> LLMReply<String> {
-    let response = try await session.respond(to: prompt)
+/// A thread that maintains the conversation state of Apple's on-device language model.
+@available(iOS 26.0, macOS 26.0, *)
+public final class FoundationLanguageModelThread: @unchecked Sendable {
+  internal let session: LanguageModelSession
+
+  internal init(session: LanguageModelSession) {
+    self.session = session
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+private func generateResponse<T: Generable>(
+  session: LanguageModelSession,
+  prompt: FoundationModels.Prompt,
+  inputMessage: UserMessage,
+  type: T.Type
+) async throws -> LLMReply<T> {
+  if T.self == String.self {
+    let response = try await session.respond(to: prompt, generating: String.self)
     let content = response.content
+    guard let typedContent = content as? T else {
+      throw LLMError.generalError("Type mismatch: Expected \(T.self)")
+    }
 
     // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
-    let updatedHistory = messages + [AIMessage(chunks: [.text(content)])]
-    return LLMReply(content: content, history: updatedHistory)
-  }
-
-  private func generateStructuredOutput<T: Generable>(
-    session: LanguageModelSession,
-    prompt: FoundationModels.Prompt,
-    messages: [any Message],
-    type: T.Type
-  ) async throws -> LLMReply<T> {
+    let aiMessage = AIMessage(chunks: [.text(content)])
+    return LLMReply(content: typedContent, history: [inputMessage, aiMessage])
+  } else {
     let foundationSchema = try T.schema.toGenerationSchema()
     let response = try await session.respond(to: prompt, schema: foundationSchema)
 
@@ -122,17 +163,15 @@ public struct SystemLLM: LLM {
     let content = try JSONDecoder().decode(T.self, from: jsonData)
 
     // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
-    // For now, we'll use a placeholder representation of the structured content
     let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
-    let structuredMessage = AIMessage(chunks: [.structured(jsonString)])
-    let updatedHistory = messages + [structuredMessage]
-
-    return LLMReply(content: content, history: updatedHistory)
+    let aiMessage = AIMessage(chunks: [.structured(jsonString)])
+    return LLMReply(content: content, history: [inputMessage, aiMessage])
   }
+}
 
-  private func mapAppleError(_ error: LanguageModelSession.GenerationError) -> LLMError {
-    // TODO: Implement proper error mapping when LLMError is fully defined
-    return .generalError("Apple generation error: \(error)")
-  }
+@available(iOS 26.0, macOS 26.0, *)
+private func mapAppleError(_ error: LanguageModelSession.GenerationError) -> LLMError {
+  // TODO: Implement proper error mapping when LLMError is fully defined
+  return .generalError("Apple generation error: \(error)")
 }
 #endif

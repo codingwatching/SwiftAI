@@ -10,17 +10,21 @@ import Foundation
 /// ```swift
 /// let chat = Chat(with: llm, tools: [weatherTool])
 /// let response = try await chat.send("What's the weather like?")
-/// print(response)
+/// print(response.content)
 /// ```
-public actor Chat {
+public actor Chat<LLMType: LLM> {
   /// The conversation history including all messages exchanged.
   public private(set) var messages: [any Message]
 
   /// The language model used for generating responses.
-  public let llm: any LLM
+  public let llm: LLMType
 
   /// The tools available for the LLM to use during the conversation.
   public let tools: [any Tool]
+
+  /// The conversation thread for LLMs that support threading.
+  /// Nil for stateless LLMs (NullThread).
+  private var thread: LLMType.Thread?
 
   /// Creates a new chat instance with the specified LLM and tools.
   ///
@@ -28,10 +32,14 @@ public actor Chat {
   ///   - llm: The language model to use for generating responses
   ///   - tools: The tools available for the LLM to use (defaults to empty array)
   ///   - initialMessages: Initial conversation history (defaults to empty array)
-  public init(with llm: any LLM, tools: [any Tool] = [], initialMessages: [any Message] = []) {
+  public init(with llm: LLMType, tools: [any Tool] = [], initialMessages: [any Message] = []) {
     self.llm = llm
     self.tools = tools
     self.messages = initialMessages
+
+    // Initialize thread for LLMs that support threading (non-NullThread)
+    let createdThread = llm.makeThread(tools: tools, messages: initialMessages)
+    self.thread = (createdThread is NullThread) ? nil : createdThread
   }
 
   // TODO: Add an init with a system prompt PromptBuilder to allow constructing.
@@ -48,21 +56,28 @@ public actor Chat {
     returning type: T.Type = String.self,
     options: LLMReplyOptions = .default
   ) async throws -> T {
-    let userMessage = UserMessage(chunks: prompt.chunks)
-    messages.append(userMessage)
-
-    // TODO: This will be very inefficient for on device models because the model
-    //  will have to reprocess the entire history each time.
-    let reply = try await llm.reply(
-      to: messages,
-      tools: tools,
-      returning: type,
-      options: options
-    )
-
-    messages = reply.history
-
-    return reply.content
+    if let thread {
+      var currentThread = thread
+      let reply = try await llm.reply(
+        to: prompt,
+        returning: type,
+        in: &currentThread,
+        options: options
+      )
+      self.thread = currentThread
+      self.messages = reply.history
+      return reply.content
+    } else {
+      let userMessage = UserMessage(chunks: prompt.chunks)
+      let reply = try await llm.reply(
+        to: messages + [userMessage],
+        tools: tools,
+        returning: type,
+        options: options
+      )
+      self.messages = reply.history
+      return reply.content
+    }
   }
 
   /// Sends a prompt constructed with PromptBuilder to the LLM and returns the generated response.

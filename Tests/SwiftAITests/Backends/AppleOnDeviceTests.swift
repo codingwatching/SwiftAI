@@ -15,14 +15,9 @@ import Testing
     return  // Test passes by skipping
   }
 
-  let reply: LLMReply<String>
-  do {
-    reply = try await systemLLM.reply(
-      to: [UserMessage(text: "Say hello in exactly one word.")],
-    )
-  } catch {
-    throw error
-  }
+  let reply = try await systemLLM.reply(
+    to: [UserMessage(text: "Say hello in exactly one word.")],
+  )
 
   #expect(!reply.content.isEmpty)
   #expect(reply.history.count == 2)
@@ -222,4 +217,270 @@ func structuredOutput_NestedObjects_Content() async throws {
   #expect(reply3.content.count == 1)
   #expect(reply3.content.isValid == true)
 }
+
+// MARK: - Tool Calling Tests
+
+/// Mock tool for testing tool calling functionality
+final class MockCalculatorTool: @unchecked Sendable, Tool {
+  @Generable
+  struct Arguments {
+    @Guide(
+      description: "The operation to perform", .anyOf(["add", "subtract", "multiply", "divide"]))
+    let operation: String
+    let a: Double
+    let b: Double
+  }
+
+  let name = "calculator"
+  let description = "Performs basic arithmetic operations"
+
+  private(set) var callHistory: [Arguments] = []
+  var wasCalledWith: Arguments?
+
+  func resetCallHistory() {
+    callHistory.removeAll()
+    wasCalledWith = nil
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    callHistory.append(arguments)
+    wasCalledWith = arguments
+
+    switch arguments.operation {
+    case "add":
+      return "Result: \(arguments.a + arguments.b)"
+    case "multiply":
+      return "Result: \(arguments.a * arguments.b)"
+    case "subtract":
+      return "Result: \(arguments.a - arguments.b)"
+    case "divide":
+      guard arguments.b != 0 else {
+        throw LLMError.generalError("Division by zero")
+      }
+      return "Result: \(arguments.a / arguments.b)"
+    default:
+      throw LLMError.generalError("Unsupported operation: \(arguments.operation)")
+    }
+  }
+}
+
+final class MockWeatherTool: @unchecked Sendable, Tool {
+  @Generable
+  struct Arguments {
+    let city: String
+    @Guide(description: "Unit for temperature", .anyOf(["celsius", "fahrenheit"]))
+    let unit: String?
+  }
+
+  let name = "get_weather"
+  let description = "Gets the current weather for a city"
+
+  private(set) var callHistory: [Arguments] = []
+  var wasCalledWith: Arguments?
+
+  func resetCallHistory() {
+    callHistory.removeAll()
+    wasCalledWith = nil
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    callHistory.append(arguments)
+    wasCalledWith = arguments
+
+    let unit = arguments.unit ?? "celsius"
+    return "Weather in \(arguments.city): 22°\(unit == "fahrenheit" ? "F" : "C"), sunny"
+  }
+}
+
+@Generable
+struct CalculationResult: Equatable {
+  let calculation: String
+  let result: Double
+}
+
+final class FailingTool: @unchecked Sendable, Tool {
+  @Generable
+  struct Arguments {
+    let input: String
+  }
+
+  let name = "failing_tool"
+  let description = "A tool that always fails"
+
+  private(set) var callHistory: [Arguments] = []
+  var wasCalledWith: Arguments?
+
+  func resetCallHistory() {
+    callHistory.removeAll()
+    wasCalledWith = nil
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    callHistory.append(arguments)
+    wasCalledWith = arguments
+
+    throw LLMError.generalError("Tool execution failed deliberately")
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func toolCalling_BasicCalculation() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let calculatorTool = MockCalculatorTool()
+
+  let _ = try await systemLLM.reply(
+    to: [UserMessage(text: "Calculate 15 + 27 using the calculator tool")],
+    tools: [calculatorTool],
+    returning: String.self
+  )
+
+  // Verify the calculator tool was called with correct arguments
+  #expect(calculatorTool.wasCalledWith != nil)
+  if let args = calculatorTool.wasCalledWith {
+    #expect(args.operation == "add")
+    #expect(args.a == 15.0)
+    #expect(args.b == 27.0)
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func toolCalling_MultipleTools() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let calculatorTool = MockCalculatorTool()
+  let weatherTool = MockWeatherTool()
+
+  let _ = try await systemLLM.reply(
+    to: [UserMessage(text: "What's the weather in New York?")],
+    tools: [calculatorTool, weatherTool],
+    returning: String.self
+  )
+
+  // Verify the weather tool was called and calculator tool was not
+  #expect(weatherTool.wasCalledWith != nil)
+  #expect(calculatorTool.wasCalledWith == nil)
+
+  if let args = weatherTool.wasCalledWith {
+    #expect(args.city == "New York")
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func toolCalling_WithStructuredOutput() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let calculatorTool = MockCalculatorTool()
+
+  let reply: LLMReply<CalculationResult> = try await systemLLM.reply(
+    to: [UserMessage(text: "Calculate 10 * 5 and return the result in the specified format")],
+    tools: [calculatorTool],
+    returning: CalculationResult.self
+  )
+
+  // Verify the calculator tool was called with correct arguments
+  #expect(calculatorTool.wasCalledWith != nil)
+  if let args = calculatorTool.wasCalledWith {
+    #expect(args.operation == "multiply")
+    #expect(args.a == 10.0)
+    #expect(args.b == 5.0)
+  }
+
+  // Also verify structured output contains expected result
+  #expect(!reply.content.calculation.isEmpty)
+  #expect(reply.content.result == 50.0)
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func toolCalling_ThreadedConversation() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let calculatorTool = MockCalculatorTool()
+  let weatherTool = MockWeatherTool()
+
+  // Create thread with tools
+  var thread = systemLLM.makeThread(tools: [calculatorTool, weatherTool], messages: [])
+
+  // First interaction: calculator
+  let _ = try await systemLLM.reply(
+    to: "Calculate 5 + 3",
+    returning: String.self,
+    in: &thread,
+    options: .default
+  )
+
+  // Verify calculator was called correctly
+  #expect(calculatorTool.wasCalledWith != nil)
+  if let args = calculatorTool.wasCalledWith {
+    #expect(args.operation == "add")
+    #expect(args.a == 5.0)
+    #expect(args.b == 3.0)
+  }
+
+  // Reset call history for second test
+  calculatorTool.resetCallHistory()
+
+  // Second interaction: weather (should maintain context)
+  let _ = try await systemLLM.reply(
+    to: "Now tell me about the weather in Paris",
+    returning: String.self,
+    in: &thread,
+    options: .default
+  )
+
+  // Verify weather tool was called and calculator was not called again
+  #expect(weatherTool.wasCalledWith != nil)
+  #expect(calculatorTool.wasCalledWith == nil)
+
+  if let args = weatherTool.wasCalledWith {
+    #expect(args.city == "Paris")
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func toolCalling_ErrorHandling() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let failingTool = FailingTool()
+
+  // Test that tool errors are properly handled
+  do {
+    let _ = try await systemLLM.reply(
+      to: [UserMessage(text: "Use the failing_tool with input 'test'")],
+      tools: [failingTool],
+      returning: String.self
+    )
+    Issue.record("Expected tool execution to fail, but it succeeded.")
+  } catch {
+    // Verify the failing tool was called with correct arguments before failing
+    #expect(failingTool.wasCalledWith != nil)
+    if let args = failingTool.wasCalledWith {
+      #expect(args.input == "test")
+    }
+
+    // Tool errors should be wrapped in LLMError
+    #expect(error is LLMError)
+  }
+}
+
 #endif

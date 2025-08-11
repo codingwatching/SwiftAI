@@ -13,7 +13,7 @@ public struct SystemLLM: LLM {
     self.model = SystemLanguageModel.default
   }
 
-  /// Whether the the system model is available.
+  /// Whether the system model is available.
   /// The model can be unavailable for various reasons, such as:
   /// - Apple Intelligence not enabled on the device
   /// - Low battery
@@ -21,16 +21,19 @@ public struct SystemLLM: LLM {
     model.isAvailable
   }
 
-  public func makeThread(tools: [any Tool], messages: [any Message])
-    -> FoundationLanguageModelThread
-  {
+  public func makeThread(
+    tools: [any Tool],
+    messages: [any Message]
+  ) -> FoundationLanguageModelThread {
     // TODO: Convert messages to FoundationModels.Transcript and initialize session
     let emptyTranscript = FoundationModels.Transcript()
+    let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
+
     let session = LanguageModelSession(
       model: model,
+      tools: foundationTools,
       transcript: emptyTranscript
     )
-    // TODO: Initialize session with tools.
     return FoundationLanguageModelThread(session: session)
   }
 
@@ -40,15 +43,11 @@ public struct SystemLLM: LLM {
     returning type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    // TODO: Implement tool support
     // TODO: Implement LLMReplyOptions support (temperature, maxTokens, etc.)
 
     guard isAvailable else {
+      // TODO: Throw a more specific error
       throw LLMError.generalError("Model unavailable")
-    }
-
-    guard tools.isEmpty else {
-      throw LLMError.generalError("Tool calling not yet supported")
     }
 
     guard messages.count == 1 else {
@@ -60,7 +59,9 @@ public struct SystemLLM: LLM {
     //   then rehydrate a FoundationModels.LanguageModelSession using that transcript.
     let userMessage = UserMessage(chunks: messages.first!.chunks)
     let prompt = convertMessageToPrompt(userMessage)
-    let session = LanguageModelSession(model: model)
+
+    let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
+    let session = LanguageModelSession(model: model, tools: foundationTools)
 
     do {
       return try await generateResponse(
@@ -82,10 +83,10 @@ public struct SystemLLM: LLM {
     in thread: inout FoundationLanguageModelThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    // TODO: Implement tool support
     // TODO: Implement LLMReplyOptions support (temperature, maxTokens, etc.)
 
     guard isAvailable else {
+      // TODO: Throw a more specific error
       throw LLMError.generalError("Model unavailable")
     }
 
@@ -114,18 +115,18 @@ public struct SystemLLM: LLM {
       switch chunk {
       case .text(let text):
         return text
-      case .structured(_):
-        fatalError("Structured messages not supported yet")
-      case .toolCall:
-        // TODO: Handle tool calls when tool support is added
-        fatalError("Tool calls not supported yet")
+      case .structured(let structuredText):
+        return structuredText
+      case .toolCall(let toolCall):
+        return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments)"
       }
-    }.joined(separator: "")
+    }.joined(separator: "\n")  // TODO: Revisit the separator.
 
     return FoundationModels.Prompt(content)
   }
 }
 
+// TODO: What are the implications of using @unchecked Sendable.
 /// A thread that maintains the conversation state of Apple's on-device language model.
 @available(iOS 26.0, macOS 26.0, *)
 public final class FoundationLanguageModelThread: @unchecked Sendable {

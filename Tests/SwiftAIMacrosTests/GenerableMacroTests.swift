@@ -40,7 +40,7 @@ final class GenerableMacroTests: XCTestCase {
           let customType: CustomStruct
         }
 
-        extension AllTypes: Generable {
+        extension AllTypes: SwiftAI.Generable {
           public static var schema: Schema {
             .object(
               name: "AllTypes",
@@ -122,7 +122,7 @@ final class GenerableMacroTests: XCTestCase {
           let isActive: Bool = true
         }
 
-        extension User: Generable {
+        extension User: SwiftAI.Generable {
           public static var schema: Schema {
             .object(
               name: "User",
@@ -201,7 +201,7 @@ final class GenerableMacroTests: XCTestCase {
           let tags: [String]
         }
 
-        extension ConstrainedFields: Generable {
+        extension ConstrainedFields: SwiftAI.Generable {
           public static var schema: Schema {
             .object(
               name: "ConstrainedFields",

@@ -24,7 +24,7 @@ public struct GenerableMacro: ExtensionMacro {
     let propertyExprs = try makePropertyExpressions(from: structDecl)
     // TODO: Extract description from @Generable macro if provided
 
-    let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): Generable") {
+    let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): SwiftAI.Generable") {
       try VariableDeclSyntax("public static var schema: Schema") {
         """
         .object(

@@ -10,5 +10,8 @@ Package.resolved
 CLAUDE.md
 docs/
 
+# Environment variables
+.env
+
 # Playground executable - keep local only
 Sources/SwiftAIPlayground/

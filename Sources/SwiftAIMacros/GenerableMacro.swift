@@ -217,7 +217,7 @@ private func makeConstraintsExpression(
     let expression: ExprSyntax = {
       if isArray, let elementType = elementType {
         let typeName = elementType.trimmed.description
-        return ExprSyntax("AnyArrayConstraint(Constraint<[\(raw: typeName)]>\(constraint))")
+        return ExprSyntax("AnyArrayConstraint(Constraint<[\(raw: typeName)]>\(constraint.trimmed))")
       } else {
         return constraint
       }
@@ -293,6 +293,7 @@ private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
   configuration.lineLength = 80
   configuration.lineBreakBeforeEachArgument = true
   configuration.respectsExistingLineBreaks = false
+  configuration.spacesAroundRangeFormationOperators = true
 
   let formatter = SwiftFormatter(configuration: configuration)
 

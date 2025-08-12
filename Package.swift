@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 5.10
 
 import CompilerPluginSupport
 import PackageDescription
@@ -21,8 +21,8 @@ let package = Package(
     ),
   ],
   dependencies: [
-    .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0"),
-    .package(url: "https://github.com/apple/swift-format.git", from: "509.0.0"),
+    .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.0"),
+    .package(url: "https://github.com/apple/swift-format.git", from: "510.0.0"),
   ],
   targets: [
     .target(

@@ -226,8 +226,8 @@ final class GenerableMacroTests: XCTestCase {
                   schema: .array(
                     items: .string(constraints: []),
                     constraints: [
-                      AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
-                      AnyArrayConstraint(Constraint<[String]>.element(.minLength(2))),
+                      AnyArrayConstraint(Constraint<[String]> .minimumCount(1)),
+                      AnyArrayConstraint(Constraint<[String]> .element(.minLength(2))),
                     ]
                   ),
                   description: "Tags array",

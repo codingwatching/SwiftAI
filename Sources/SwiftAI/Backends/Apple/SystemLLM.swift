@@ -2,83 +2,189 @@
 import FoundationModels
 import Foundation
 
-/// Apple's on-device LLM.
-/// Requires iOS / macOS 26+ and Apple Intelligence enabled.
+/// Apple's on-device language model integration.
+///
+/// SystemLLM provides access to Apple's on-device language model, enabling privacy-focused
+/// AI features that run entirely on the user's device without sending data to servers.
+///
+/// ## Key Features
+///
+/// - **On-device processing**: All inference happens locally, ensuring user privacy
+/// - **Tool calling**: Full support for function calling with automatic tool integration
+/// - **Structured output**: Generate typed Swift objects with comprehensive schema support
+/// - **Conversation threads**: Maintain stateful conversations with automatic context management
+/// - **Hybrid compatibility**: Seamlessly integrates with SwiftAI's model-agnostic API
+///
+/// ## Requirements
+///
+/// - iOS 26.0+ or macOS 26.0+
+/// - Apple Intelligence enabled on the device
+/// - Sufficient battery level (Apple may disable the model on low battery)
+///
+/// ## Usage Examples
+///
+/// ### Basic Text Generation
+///
+/// ```swift
+/// let systemLLM = SystemLLM()
+///
+/// let response = try await llm.reply(
+///   to: "What is the capital of France?",
+///   returning: String.self
+/// )
+///
+/// print(response.content) // "Paris"
+/// ```
+///
+/// ### Structured Output Generation
+///
+/// ```swift
+/// @Generable
+/// struct CityInfo {
+///   let name: String
+///   let country: String
+///   let population: Int
+/// }
+/// let cityData = try await llm.reply(
+///   to: "Tell me about Tokyo",
+///   returning: CityInfo.self
+/// )
+///
+/// print(cityData.content.name)       // "Tokyo"
+/// print(cityData.content.population) // 13960000
+/// ```
+///
+/// ### Tool Calling
+///
+/// ```swift
+/// struct WeatherTool: Tool {
+///   let description = "Get current weather for a city"
+///
+///   @Generable
+///   struct Arguments {
+///     let city: String
+///   }
+///
+///   func call(arguments: Arguments) async throws -> String {
+///     // Your weather API logic here
+///     return "It's 72°F and sunny in \(arguments.city)"
+///   }
+/// }
+///
+/// let weatherTool = WeatherTool()
+/// let response = try await llm.reply(
+///   to: "What's the weather like in San Francisco?",
+///   tools: [weatherTool],
+///   returning: String.self
+/// )
+/// ```
+///
+/// ### Threaded Conversations
+///
+/// ```swift
+/// var thread = try systemLLM.makeThread(tools: [], messages: [])
+///
+/// let reply1 = try await systemLLM.reply(
+///   to: "My name is Alice",
+///   in: &thread
+/// )
+///
+/// let reply2 = try await systemLLM.reply(
+///   to: "What's my name?", // Will remember "Alice"
+///   in: &thread
+/// )
+/// ```
+///
+/// - Note: Always check `isAvailable` before making inference calls and handle errors appropriately.
 @available(iOS 26.0, macOS 26.0, *)
 public struct SystemLLM: LLM {
   public typealias Thread = FoundationLanguageModelThread
+
   private let model: SystemLanguageModel
 
   public init() {
     self.model = SystemLanguageModel.default
   }
 
-  /// Whether the system model is available.
-  /// The model can be unavailable for various reasons, such as:
-  /// - Apple Intelligence not enabled on the device
-  /// - Low battery
+  /// Indicates whether Apple's on-device language model is currently available for use.
+  ///
+  /// The model availability depends on several factors controlled by Apple Intelligence:
+  ///
+  /// - **Device compatibility**: iOS 26.0+ or macOS 26.0+ with Apple Intelligence support.
+  /// - **User settings**: Apple Intelligence must be enabled in device settings.
+  /// - **System resources**: Sufficient battery level and available memory.
+  /// - **Regional availability**: Apple Intelligence may not be available in all regions.
   public var isAvailable: Bool {
     model.isAvailable
   }
 
+  // TODO: Add throwing documentation, and if any requirements on the messages.
+
+  /// Creates a new conversation thread with the specified tools and initial message history,
+  ///
+  /// The thread enables conversation continuation by passing it to `reply`, preserving
+  /// context and tool availability across turns.
+  ///
+  /// - Parameters:
+  ///   - tools: Array of tools available for the conversation. Tools are automatically
+  ///            integrated into the conversation context and can be called by the model
+  ///   - messages: Initial conversation history to seed the thread. Can be empty for
+  ///               new conversations or contain previous messages to continue a conversation
+  ///
+  /// - Returns: A `FoundationLanguageModelThread` that maintains conversation state
   public func makeThread(
     tools: [any Tool],
     messages: [any Message]
-  ) -> FoundationLanguageModelThread {
-    // TODO: Convert messages to FoundationModels.Transcript and initialize session
-    let emptyTranscript = FoundationModels.Transcript()
-    let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
-
-    let session = LanguageModelSession(
+  ) throws -> FoundationLanguageModelThread {  // TODO: Can we make this method non throwable?
+    return try FoundationLanguageModelThread(
       model: model,
-      tools: foundationTools,
-      transcript: emptyTranscript
+      tools: tools,
+      messages: messages
     )
-    return FoundationLanguageModelThread(session: session)
   }
 
+  /// Generates a response to a conversation using Apple's on-device language model.
   public func reply<T: Generable>(
     to messages: [any Message],
     tools: [any Tool],
     returning type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    // TODO: Implement LLMReplyOptions support (temperature, maxTokens, etc.)
-
-    guard isAvailable else {
-      // TODO: Throw a more specific error
-      throw LLMError.generalError("Model unavailable")
+    guard let lastMessage = messages.last, lastMessage.role == .user else {
+      throw LLMError.generalError("Conversation must end with a UserMessage")
     }
 
-    guard messages.count == 1 else {
-      throw LLMError.generalError(
-        "System LLM currently only supports a single message in the history for generation.")
-    }
+    // Split conversation: context (prefix) and the user prompt (last message)
+    let contextMessages = Array(messages.dropLast())
 
-    // TODO: The correct approach is to convert messages to FoundationModels.Transcript,
-    //   then rehydrate a FoundationModels.LanguageModelSession using that transcript.
-    let userMessage = UserMessage(chunks: messages.first!.chunks)
-    let prompt = convertMessageToPrompt(userMessage)
+    // Create thread with context
+    var thread = try makeThread(tools: tools, messages: contextMessages)
 
-    let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
-    let session = LanguageModelSession(model: model, tools: foundationTools)
-
-    do {
-      return try await generateResponse(
-        session: session,
-        prompt: prompt,
-        inputMessage: userMessage,
-        type: type
-      )
-    } catch let error as LanguageModelSession.GenerationError {
-      throw mapAppleError(error)
-    } catch {
-      throw LLMError.generalError("Generation failed: \(error)")
-    }
+    // Use the threaded reply method
+    return try await reply(
+      to: lastMessage,
+      returning: type,
+      in: &thread,
+      options: options
+    )
   }
 
+  /// Generates a response within an existing conversation thread
+  ///
+  /// This method continues an established conversation by generating a response to a new prompt
+  /// while maintaining the full conversation context stored in the thread. The thread automatically
+  /// accumulates the conversation history across multiple interactions.
+  ///
+  /// - Parameters:
+  ///   - prompt: The user's prompt represented as any `PromptRepresentable` (typically a string)
+  ///   - type: The expected return type conforming to `Generable`
+  ///   - thread: The conversation thread to continue. **This will be modified** to include
+  ///             the new user prompt and AI response in its conversation history
+  ///   - options: Generation options (currently not implemented - will be added in future versions)
+  ///
+  /// - Returns: An `LLMReply<T>` containing the generated content and complete conversation history
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: any PromptRepresentable,  // TODO: This should probably be a UserMessage to avoid `reply(to: AIMessage(...))`
     returning type: T.Type,
     in thread: inout FoundationLanguageModelThread,
     options: LLMReplyOptions
@@ -91,12 +197,10 @@ public struct SystemLLM: LLM {
     }
 
     let userMessage = UserMessage(chunks: prompt.chunks)
-    let foundationPrompt = convertMessageToPrompt(userMessage)
     do {
       return try await generateResponse(
         session: thread.session,
-        prompt: foundationPrompt,
-        inputMessage: userMessage,
+        userMessage: userMessage,
         type: type
       )
     } catch let error as LanguageModelSession.GenerationError {
@@ -105,69 +209,74 @@ public struct SystemLLM: LLM {
       throw LLMError.generalError("Generation failed: \(error)")
     }
   }
-
-  // MARK: - Private Methods
-
-  private func convertMessageToPrompt(_ message: any Message)
-    -> FoundationModels.Prompt
-  {
-    let content = message.chunks.compactMap { chunk in
-      switch chunk {
-      case .text(let text):
-        return text
-      case .structured(let structuredText):
-        return structuredText
-      case .toolCall(let toolCall):
-        return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments)"
-      }
-    }.joined(separator: "\n")  // TODO: Revisit the separator.
-
-    return FoundationModels.Prompt(content)
-  }
 }
 
-// TODO: What are the implications of using @unchecked Sendable.
-/// A thread that maintains the conversation state of Apple's on-device language model.
+/// A conversation thread that maintains stateful interactions with Apple's on-device language model.
 @available(iOS 26.0, macOS 26.0, *)
 public final class FoundationLanguageModelThread: @unchecked Sendable {
+  /// The underlying Apple FoundationModels session that maintains conversation state.
   internal let session: LanguageModelSession
 
-  internal init(session: LanguageModelSession) {
-    self.session = session
+  internal init(
+    model: SystemLanguageModel,
+    tools: [any Tool],
+    messages: [any Message]
+  ) throws {
+    let transcript = try FoundationModels.Transcript(messages: messages, tools: tools)
+    let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
+
+    self.session = LanguageModelSession(
+      model: model,
+      tools: foundationTools,
+      transcript: transcript
+    )
   }
 }
 
 @available(iOS 26.0, macOS 26.0, *)
 private func generateResponse<T: Generable>(
   session: LanguageModelSession,
-  prompt: FoundationModels.Prompt,
-  inputMessage: UserMessage,
+  userMessage: any Message,
   type: T.Type
 ) async throws -> LLMReply<T> {
+  let prompt = toFoundationPrompt(message: userMessage)
+
+  let content: T?
   if T.self == String.self {
     let response = try await session.respond(to: prompt, generating: String.self)
-    let content = response.content
-    guard let typedContent = content as? T else {
-      throw LLMError.generalError("Type mismatch: Expected \(T.self)")
-    }
-
-    // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
-    let aiMessage = AIMessage(chunks: [.text(content)])
-    return LLMReply(content: typedContent, history: [inputMessage, aiMessage])
+    content = response.content as? T
   } else {
     let foundationSchema = try T.schema.toGenerationSchema()
     let response = try await session.respond(to: prompt, schema: foundationSchema)
-
     guard let jsonData = response.content.jsonString.data(using: .utf8) else {
       throw LLMError.generalError("Failed to convert JSON string to Data")
     }
-    let content = try JSONDecoder().decode(T.self, from: jsonData)
-
-    // TODO: The correct approach is to convert FoundationModels.Transcript back to SwiftAI's Message format.
-    let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
-    let aiMessage = AIMessage(chunks: [.structured(jsonString)])
-    return LLMReply(content: content, history: [inputMessage, aiMessage])
+    content = try JSONDecoder().decode(T.self, from: jsonData)
   }
+
+  guard let content else {
+    throw LLMError.generalError("Type mismatch: Expected \(T.self)")
+  }
+
+  let messages = try session.transcript.messages
+  return LLMReply(content: content, history: messages)
+
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+private func toFoundationPrompt(message: any Message) -> FoundationModels.Prompt {
+  let content = message.chunks.compactMap { chunk in
+    switch chunk {
+    case .text(let text):
+      return text
+    case .structured(let json):
+      return json
+    case .toolCall(let toolCall):
+      return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments)"
+    }
+  }.joined(separator: "\n")  // TODO: Revisit the separator.
+
+  return FoundationModels.Prompt(content)
 }
 
 @available(iOS 26.0, macOS 26.0, *)

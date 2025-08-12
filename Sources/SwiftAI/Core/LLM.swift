@@ -36,12 +36,17 @@ public protocol LLM: Model {
   /// tools during generation to access external data or perform computations.
   ///
   /// - Parameters:
-  ///   - messages: The conversation history to send to the LLM
+  ///   - messages: The conversation history to send to the LLM. Must end with a UserMessage.
   ///   - tools: An array of tools available for the LLM to use during generation
   ///   - type: The expected return type conforming to `Generable`
   ///   - options: Configuration options for the LLM request
   /// - Returns: An `LLMReply` containing the generated response and conversation history
-  /// - Throws: An error if the request fails or the response cannot be parsed
+  /// - Throws: An error if the request fails, the response cannot be parsed, or the conversation doesn't end with a UserMessage
+  ///
+  /// ## Important
+  ///
+  /// The conversation history must end with a UserMessage. The LLM will use all previous messages
+  /// as context and respond to the final UserMessage.
   ///
   /// ## Usage Example
   ///
@@ -73,16 +78,17 @@ public protocol LLM: Model {
   ///   - messages: Initial conversation history to seed the thread.
   ///
   /// - Returns: A new thread instance initialized with the provided conversation history.
+  /// - Throws: An error if the thread cannot be created (e.g. invalid tools or messages).
   ///
   /// Each thread maintains independent conversation state. Multiple threads
   /// can exist simultaneously for parallel conversations:
   ///
   /// ```swift
   /// let llm = MyLLM()
-  /// let customerThread = llm.makeThread(tools: [], messages: [])
-  /// let supportThread = llm.makeThread(tools: [], messages: existingHistory)
+  /// let customerThread = try llm.makeThread(tools: [], messages: [])
+  /// let supportThread = try llm.makeThread(tools: [], messages: existingHistory)
   /// ```
-  func makeThread(tools: [any Tool], messages: [any Message]) -> Thread
+  func makeThread(tools: [any Tool], messages: [any Message]) throws -> Thread
 
   /// Generates a response to a prompt within a conversation thread.
   ///
@@ -132,7 +138,7 @@ public final class NullThread: Sendable {}
 
 extension LLM where Thread == NullThread {
   /// Default implementation for stateless LLMs.
-  public func makeThread(tools: [any Tool], messages: [any Message]) -> NullThread {
+  public func makeThread(tools: [any Tool], messages: [any Message]) throws -> NullThread {
     return NullThread()
   }
 

@@ -14,7 +14,7 @@ import Foundation
 ///   AIMessage(text: "The weather is sunny and 25°C.")
 /// ]
 /// ```
-public protocol Message: Sendable, Equatable {
+public protocol Message: Sendable, Equatable, PromptRepresentable {
   /// Indicates the sender's function within a conversation.
   var role: Role { get }
 

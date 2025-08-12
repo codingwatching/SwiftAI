@@ -178,7 +178,7 @@ func structuredOutput_NestedObjects_Content() async throws {
   }
 
   // Create a new thread for conversation
-  var thread = systemLLM.makeThread(tools: [], messages: [])
+  var thread = try systemLLM.makeThread(tools: [], messages: [])
 
   // Turn 1: Introduce name
   let reply1 = try await systemLLM.reply(
@@ -203,7 +203,7 @@ func structuredOutput_NestedObjects_Content() async throws {
 
   #expect(!reply2.content.isEmpty)
   #expect(reply2.content.contains("Achraf"))  // Should remember the name
-  #expect(reply2.history.count == 2)  // Current exchange only
+  #expect(reply2.history.count == 4)  // Full conversation history: User1 + AI1 + User2 + AI2
 
   // Turn 3: Request structured output with name context
   let reply3 = try await systemLLM.reply(
@@ -394,8 +394,7 @@ final class FailingTool: @unchecked Sendable, Tool {
   #expect(calculatorTool.wasCalledWith != nil)
   if let args = calculatorTool.wasCalledWith {
     #expect(args.operation == "multiply")
-    #expect(args.a == 10.0)
-    #expect(args.b == 5.0)
+    #expect([args.a, args.b].sorted() == [5.0, 10.0])
   }
 
   // Also verify structured output contains expected result
@@ -415,7 +414,7 @@ final class FailingTool: @unchecked Sendable, Tool {
   let weatherTool = MockWeatherTool()
 
   // Create thread with tools
-  var thread = systemLLM.makeThread(tools: [calculatorTool, weatherTool], messages: [])
+  var thread = try systemLLM.makeThread(tools: [calculatorTool, weatherTool], messages: [])
 
   // First interaction: calculator
   let _ = try await systemLLM.reply(
@@ -481,6 +480,130 @@ final class FailingTool: @unchecked Sendable, Tool {
     // Tool errors should be wrapped in LLMError
     #expect(error is LLMError)
   }
+}
+
+// MARK: - Phase 6 Tests: Complex Conversation Scenarios
+
+@Generable
+struct ConversationSummary: Equatable {
+  @Guide(description: "List of cities mentioned in weather queries")
+  let citiesMentioned: [String]
+
+  @Guide(description: "Summary of the conversation flow in 2-3 sentences")
+  let conversationSummary: String
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func systemLLM_ComplexConversationHistory_StructuredAnalysis() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let messages: [any Message] = [
+    SystemMessage(
+      text:
+        "You are a helpful assistant that can perform calculations and provide weather information. Always be accurate and detailed in your responses."
+    ),
+    UserMessage(text: "Please calculate 15 + 27 for me"),
+    AIMessage(chunks: [
+      .text("I'll calculate that for you using the calculator tool."),
+      .toolCall(
+        ToolCall(
+          id: "call-1",
+          toolName: "calculator",
+          arguments: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
+        )),
+    ]),
+    SwiftAI.ToolOutput(
+      id: "call-1",
+      toolName: "calculator",
+      chunks: [.text("Result: 42.0")]
+    ),
+    AIMessage(chunks: [
+      .text("The calculation is complete."),
+      .structured(#"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#),
+    ]),
+    UserMessage(text: "Now tell me about the weather in Paris"),
+    AIMessage(chunks: [
+      .text("Let me check the weather in Paris for you."),
+      .toolCall(
+        ToolCall(
+          id: "call-2",
+          toolName: "get_weather",
+          arguments: #"{"city": "Paris", "unit": "celsius"}"#
+        )),
+    ]),
+    SwiftAI.ToolOutput(
+      id: "call-2",
+      toolName: "get_weather",
+      chunks: [.text("Weather in Paris: 22°C, sunny")]
+    ),
+    AIMessage(
+      text:
+        "The weather in Paris is currently 22°C and sunny. Perfect weather for outdoor activities!"),
+    UserMessage(
+      text:
+        "Please analyze our entire conversation and provide a structured summary including the number of calculations, cities mentioned, results, and any failures that occurred."
+    ),
+  ]
+
+  let reply = try await systemLLM.reply(
+    to: messages,
+    tools: [MockCalculatorTool(), MockWeatherTool()],
+    returning: ConversationSummary.self
+  )
+
+  let summary = reply.content
+  #expect(summary.citiesMentioned.contains("Paris"), "Should identify Paris as mentioned city")
+  #expect(!summary.conversationSummary.isEmpty, "Should provide conversation summary")
+  #expect(summary.conversationSummary.count > 20, "Summary should be substantial")
+
+  #expect(
+    reply.history.count >= messages.count + 1,
+    "Should contain full history plus new response")
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+@Test func systemLLM_HistorySeeding_ConversationContinuity() async throws {
+  let systemLLM = SystemLLM()
+
+  guard systemLLM.isAvailable else {
+    return  // Skip test if Apple Intelligence not available
+  }
+
+  let weatherTool = MockWeatherTool()
+
+  // First inference: Start a conversation about weather
+  let initialConversation: [any Message] = [
+    SystemMessage(text: "You are a helpful weather assistant."),
+    UserMessage(text: "What's the weather like in Tokyo?"),
+  ]
+  let firstReply = try await systemLLM.reply(
+    to: initialConversation,
+    tools: [weatherTool],
+  )
+
+  #expect(!firstReply.content.isEmpty)
+  #expect(firstReply.history.count == 5)  // System + User + Tool Call + Tool Output + AI
+
+  // Seed the complete history from first reply into second call
+  let historyBasedConversation =
+    firstReply.history + [
+      UserMessage(text: "Which city did I ask about in our conversation?")
+    ]
+  let secondReply = try await systemLLM.reply(
+    to: historyBasedConversation,
+    tools: [weatherTool]
+  )
+
+  // Verify the LLM remembers the city from the conversation history
+  #expect(secondReply.content.contains("Tokyo"), "Should remember Tokyo was mentioned")
+  // Verify conversation continuity - second reply should build on first
+  #expect(
+    secondReply.history.count >= historyBasedConversation.count + 1,
+    "Should preserve full conversation flow")
 }
 
 #endif

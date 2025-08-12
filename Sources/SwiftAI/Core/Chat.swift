@@ -32,13 +32,15 @@ public actor Chat<LLMType: LLM> {
   ///   - llm: The language model to use for generating responses
   ///   - tools: The tools available for the LLM to use (defaults to empty array)
   ///   - initialMessages: Initial conversation history (defaults to empty array)
-  public init(with llm: LLMType, tools: [any Tool] = [], initialMessages: [any Message] = []) {
+  /// - Throws: An error if thread creation fails for the provided messages or tools
+  public init(with llm: LLMType, tools: [any Tool] = [], initialMessages: [any Message] = []) throws
+  {
     self.llm = llm
     self.tools = tools
     self.messages = initialMessages
 
     // Initialize thread for LLMs that support threading (non-NullThread)
-    let createdThread = llm.makeThread(tools: tools, messages: initialMessages)
+    let createdThread = try llm.makeThread(tools: tools, messages: initialMessages)
     self.thread = (createdThread is NullThread) ? nil : createdThread
   }
 

@@ -88,9 +88,9 @@ public struct OpenAILLM: LLM {
   ///
   /// - Parameters:
   ///   - prompt: The user's prompt
-  ///   - type: The expected return type (must be String in Phase 1)
+  ///   - type: The expected return type
   ///   - thread: The conversation thread (will be modified)
-  ///   - options: Generation options (not used in Phase 1)
+  ///   - options: Generation options
   ///
   /// - Returns: The model's response and updated conversation history
   public func reply<T: Generable>(
@@ -99,10 +99,6 @@ public struct OpenAILLM: LLM {
     in thread: inout OpenAIThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    // FIXME: (Phase 1) Only support String generation
-    guard T.self == String.self else {
-      throw LLMError.generalError("Only String generation is supported in Phase 1")
-    }
 
     let userMessage = UserMessage(chunks: prompt.chunks)
 
@@ -114,14 +110,23 @@ public struct OpenAILLM: LLM {
       previousResponseID = responseID
     } else {
       // Start a new conversation with the user message.
-      let updatedMessages = thread.messages + [userMessage]
-      input = toInputFormat(updatedMessages)
+      input = toInputFormat(thread.messages + [userMessage])
       previousResponseID = nil
     }
+
+    // Configure structured output if needed
+    let textConfig = try {
+      if type == String.self {
+        return CreateModelResponseQuery.TextResponseConfigurationOptions.text
+      }
+      return try .jsonSchema(makeStructuredOutputConfig(for: type))
+    }()
+
     let query = CreateModelResponseQuery(
       input: input,
       model: model,
-      previousResponseId: previousResponseID
+      previousResponseId: previousResponseID,
+      text: textConfig
     )
 
     let content: T
@@ -134,18 +139,33 @@ public struct OpenAILLM: LLM {
       throw LLMError.generalError("OpenAI API error: \(error)")
     }
 
+    // Create appropriate AI message based on response type
+    let aiMessage: AIMessage
+    if T.self == String.self {
+      aiMessage = AIMessage(text: content as! String)  // FIXME: Avoid forced unwrapping
+    } else {
+      // For structured types, encode to JSON for storage
+      do {
+        let encoder = JSONEncoder()
+        let jsonData = try encoder.encode(content)
+        let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
+        aiMessage = AIMessage(chunks: [.structured(jsonString)])
+      } catch {
+        throw LLMError.generalError("Failed to encode structured response for storage: \(error)")
+      }
+    }
+
     // Update thread with new user message and response ID using functional API
     thread =
       thread
       .withNewMessage(userMessage)
-      .withNewMessage(AIMessage(text: content as! String))  // FIXME: Don't use as!
+      .withNewMessage(aiMessage)
       .withNewResponseID(responseID)
 
     return LLMReply(
       content: content,
       history: thread.messages
     )
-
   }
 }
 
@@ -176,9 +196,9 @@ extension OpenAILLM {
     _ response: ResponseObject,
     type: T.Type
   ) throws -> T {
-    // Extract text content from the response output
+    // Extract text content from the response output.
+    // TODO: Re-read OpenAI docs and check if we are reading the response correctly.
     var responseText = ""
-
     for outputItem in response.output {
       switch outputItem {
       case .outputMessage(let outputMessage):
@@ -187,6 +207,7 @@ extension OpenAILLM {
           case .OutputTextContent(let textContent):
             responseText += textContent.text
           case .RefusalContent(let refusalContent):
+            // TODO: Use a specific error type for refusals.
             throw LLMError.generalError("Request was refused: \(refusalContent.refusal)")
           }
         }
@@ -196,11 +217,22 @@ extension OpenAILLM {
       }
     }
 
-    // TODO: Support non text.
-    guard let content = responseText as? T else {
-      throw LLMError.generalError("Failed to convert response to expected type")
+    // Handle String types directly.
+    if type == String.self {
+      guard let content = responseText as? T else {
+        throw LLMError.generalError("Failed to convert response text to String")
+      }
+      return content
     }
 
-    return content
+    // For structured types, parse JSON response.
+    do {
+      let jsonData = responseText.data(using: .utf8) ?? Data()
+      let decoder = JSONDecoder()
+      return try decoder.decode(T.self, from: jsonData)
+    } catch {
+      throw LLMError.generalError(
+        "Failed to decode structured response: \(error.localizedDescription)")
+    }
   }
 }

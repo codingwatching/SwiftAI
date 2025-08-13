@@ -102,7 +102,7 @@ extension Constraint where Value == Double {
 
 extension Constraint where Value == Bool {
   /// Requires the boolean to be exactly the specified value.
-  public static func constant(_ value: Bool) -> Constraint<Bool> {
+  public static func constant(_ value: Bool) -> Constraint<Bool> {  // TODO: Should we keep this constraint?
     Constraint(kind: .boolean(.constant(value)))
   }
 }

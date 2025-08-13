@@ -71,6 +71,8 @@ public protocol LLM: Model {
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 
+  // TODO: Provide defaults for `makeThread`
+
   /// Creates a new thread for maintaining conversation context.
   ///
   /// - Parameters:
@@ -89,6 +91,8 @@ public protocol LLM: Model {
   /// let supportThread = try llm.makeThread(tools: [], messages: existingHistory)
   /// ```
   func makeThread(tools: [any Tool], messages: [any Message]) throws -> Thread
+
+  // TODO: Provide defaults for `reply(to:returning:in:options:)`
 
   /// Generates a response to a prompt within a conversation thread.
   ///

@@ -264,12 +264,6 @@ swift test
 
 SwiftAI is released under the MIT License. See [LICENSE](LICENSE) for details.
 
-## 📞 Support
-
-- 📚 [Documentation](https://swiftai.dev/docs)
-- 💬 [Discord Community](https://discord.gg/swiftai)
-- 🐛 [Issue Tracker](https://github.com/your-org/SwiftAI/issues)
-
 ---
 
 Built with ❤️ for the Swift community

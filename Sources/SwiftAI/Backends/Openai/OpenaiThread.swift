@@ -1,13 +1,13 @@
 import Foundation
 import OpenAI
 
-/// Maintains the state of a conversation with an OpenAI language model.
-public final class OpenAIThread: Sendable {
+/// Maintains the state of a conversation with an Openai language model.
+public final class OpenaiThread: Sendable {
   let messages: [any Message]
   let previousResponseID: String?
   let tools: [any SwiftAI.Tool]
 
-  var openAiTools: [FunctionTool] {
+  var openaiTools: [FunctionTool] {
     get throws {
       return try tools.map { tool in
         FunctionTool(
@@ -31,15 +31,15 @@ public final class OpenAIThread: Sendable {
   }
 
   /// Returns a new thread with an additional message appended to the conversation history.
-  func withNewMessage(_ message: any Message) -> OpenAIThread {
+  func withNewMessage(_ message: any Message) -> OpenaiThread {
     let updatedMessages = messages + [message]
-    return OpenAIThread(
+    return OpenaiThread(
       messages: updatedMessages, previousResponseID: previousResponseID, tools: tools)
   }
 
   /// Returns a new thread with an updated response ID.
-  func withNewResponseID(_ responseID: String) -> OpenAIThread {
-    return OpenAIThread(messages: messages, previousResponseID: responseID, tools: tools)
+  func withNewResponseID(_ responseID: String) -> OpenaiThread {
+    return OpenaiThread(messages: messages, previousResponseID: responseID, tools: tools)
   }
 
   func execute(toolCall: ToolCall) async throws -> ToolOutput {

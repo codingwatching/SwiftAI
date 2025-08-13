@@ -3,12 +3,12 @@ import Testing
 
 @testable import SwiftAI
 
-@Suite("OpenAI LLM Integration Tests")
-struct OpenAILLMIntegrationTests {
+@Suite("Openai LLM Integration Tests")
+struct OpenaiLLMIntegrationTests {
 
   @Test("Basic text generation", .enabled(if: apiKeyIsPresent()))
   func testBasicTextGeneration() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let response = try await llm.reply(
       to: [UserMessage(text: "What is 2+2? Answer with just the number.")],
@@ -25,7 +25,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Conversation with system prompt", .enabled(if: apiKeyIsPresent()))
   func testConversationWithSystemPrompt() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let messages: [any Message] = [
       SystemMessage(text: "You are a helpful math tutor. Always show your work."),
@@ -49,7 +49,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Threaded conversation", .enabled(if: apiKeyIsPresent()))
   func testThreadedConversation() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     // Create thread with initial context
     var thread = try llm.makeThread(
@@ -82,7 +82,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Error handling for invalid request", .enabled(if: apiKeyIsPresent()))
   func testErrorHandling() async throws {
-    let llm = OpenAILLM(model: "invalid-model-name-12345")
+    let llm = OpenaiLLM(model: "invalid-model-name-12345")
 
     let messages: [any Message] = [
       UserMessage(text: "Hello")
@@ -101,11 +101,11 @@ struct OpenAILLMIntegrationTests {
   @Test("API key validation")
   func testApiKeyValidation() {
     // Test with explicit API key
-    let llmWithKey = OpenAILLM(apiToken: "test-key", model: "gpt-4.1-nano")
+    let llmWithKey = OpenaiLLM(apiToken: "test-key", model: "gpt-4.1-nano")
     #expect(llmWithKey.isAvailable == true)
 
     // Test with empty API key
-    let llmWithoutKey = OpenAILLM(apiToken: "", model: "gpt-4.1-nano")
+    let llmWithoutKey = OpenaiLLM(apiToken: "", model: "gpt-4.1-nano")
     #expect(llmWithoutKey.isAvailable == false)
   }
 
@@ -113,7 +113,7 @@ struct OpenAILLMIntegrationTests {
   func testEnvironmentVariableLoading() {
     // This test checks that the environment variable is read
     // The actual value depends on the test environment
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let hasEnvKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil
     #expect(llm.isAvailable == hasEnvKey)
@@ -121,7 +121,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Structured output generation", .enabled(if: apiKeyIsPresent()))
   func testStructuredOutput() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let response = try await llm.reply(
       to: [
@@ -141,7 +141,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Threaded structured output conversation", .enabled(if: apiKeyIsPresent()))
   func testThreadedStructuredOutput() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     // Create thread with initial context
     var thread = try llm.makeThread(
@@ -173,7 +173,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("All constraint types with @Guide", .enabled(if: apiKeyIsPresent()))
   func testAllConstraintTypes() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let response = try await llm.reply(
       to: [
@@ -223,11 +223,11 @@ struct OpenAILLMIntegrationTests {
   }
 
   // MARK: - Tool Calling Tests
-  // TODO: Refactor tests later so that tool calling tests can be run over all backends (OpenAI + Apple on-device)
+  // TODO: Refactor tests later so that tool calling tests can be run over all backends (Openai + Apple on-device)
 
   @Test("Basic calculation with tool calling", .enabled(if: apiKeyIsPresent()))
   func testToolCallingBasicCalculation() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
     let calculatorTool = MockCalculatorTool()
 
     let _ = try await llm.reply(
@@ -247,7 +247,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Multiple tools available - correct tool selection", .enabled(if: apiKeyIsPresent()))
   func testToolCallingMultipleTools() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
@@ -269,7 +269,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Tool calling with structured output", .enabled(if: apiKeyIsPresent()))
   func testToolCallingWithStructuredOutput() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
     let calculatorTool = MockCalculatorTool()
 
     let reply: LLMReply<CalculationResult> = try await llm.reply(
@@ -293,7 +293,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Threaded conversation with tool calling", .enabled(if: apiKeyIsPresent()))
   func testToolCallingThreadedConversation() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
@@ -337,7 +337,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Tool error handling", .enabled(if: apiKeyIsPresent()))
   func testToolCallingErrorHandling() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
     let failingTool = FailingTool()
 
     // Test that tool errors are properly handled
@@ -363,7 +363,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("Complex conversation history with structured analysis", .enabled(if: apiKeyIsPresent()))
   func testComplexConversationHistoryStructuredAnalysis() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let messages: [any Message] = [
       SystemMessage(
@@ -433,7 +433,7 @@ struct OpenAILLMIntegrationTests {
 
   @Test("History seeding for conversation continuity", .enabled(if: apiKeyIsPresent()))
   func testHistorySeedingConversationContinuity() async throws {
-    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let llm = OpenaiLLM(model: "gpt-4.1-nano")
     let weatherTool = MockWeatherTool()
 
     // First inference: Start a conversation about weather
@@ -535,7 +535,7 @@ struct ComprehensiveProfile {
 
 // MARK: - Test Helpers
 
-/// Check if OpenAI API key is available for integration tests
+/// Check if Openai API key is available for integration tests
 private func apiKeyIsPresent() -> Bool {
   return ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil
 }

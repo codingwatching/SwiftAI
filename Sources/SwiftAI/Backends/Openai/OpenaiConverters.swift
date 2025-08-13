@@ -7,7 +7,7 @@ extension CreateModelResponseQuery.Input {
   /// Creates an Input from SwiftAI messages, properly handling tool calls.
   static func from(_ messages: [any Message]) throws -> CreateModelResponseQuery.Input {
     return .inputItemList(
-      try messages.flatMap { try $0.asOpenAiInputItems }
+      try messages.flatMap { try $0.asOpenaiInputItems }
     )
   }
 }
@@ -15,23 +15,23 @@ extension CreateModelResponseQuery.Input {
 // MARK: - Default Implementation
 
 extension Message {
-  fileprivate var asOpenAiInputItems: [InputItem] {
+  fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
       if let userMessage = self as? UserMessage {
-        return try userMessage.asOpenAiInputItems
+        return try userMessage.asOpenaiInputItems
       } else if let systemMessage = self as? SystemMessage {
-        return try systemMessage.asOpenAiInputItems
+        return try systemMessage.asOpenaiInputItems
       } else if let aiMessage = self as? AIMessage {
-        return try aiMessage.asOpenAiInputItems
+        return try aiMessage.asOpenaiInputItems
       } else if let toolOutput = self as? ToolOutput {
-        return toolOutput.asOpenAiInputItems
+        return toolOutput.asOpenaiInputItems
       } else {
         return []  // TODO: This is unsafe. We should use a sealed hierarchy for messages.
       }
     }
   }
 
-  fileprivate var asOpenAIEasyInputMessage: EasyInputMessage {
+  fileprivate var asOpenaiEasyInputMessage: EasyInputMessage {
     get throws {
       let role: EasyInputMessage.RolePayload =
         switch self.role {
@@ -43,7 +43,7 @@ extension Message {
           .assistant
         case .toolOutput:
           throw LLMError.generalError(
-            "Tool output messages should be converted using asOpenAiInputItems, not asOpenAIEasyInputMessage"
+            "Tool output messages should be converted using asOpenaiInputItems, not asOpenaiEasyInputMessage"
           )
         }
 
@@ -52,7 +52,7 @@ extension Message {
         case .text(let text):
           return text
         case .structured(let json):
-          return json  // TODO: We should look if we can send structured content to OpenAI.
+          return json  // TODO: We should look if we can send structured content to Openai.
         case .toolCall(_):
           return nil  // Tool calls are handled separately in InputItems
         }
@@ -69,23 +69,23 @@ extension Message {
 // MARK: - Message Type Implementations
 
 extension UserMessage {
-  fileprivate var asOpenAiInputItems: [InputItem] {
+  fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
-      return [.inputMessage(try asOpenAIEasyInputMessage)]
+      return [.inputMessage(try asOpenaiEasyInputMessage)]
     }
   }
 }
 
 extension SystemMessage {
-  fileprivate var asOpenAiInputItems: [InputItem] {
+  fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
-      return [.inputMessage(try asOpenAIEasyInputMessage)]
+      return [.inputMessage(try asOpenaiEasyInputMessage)]
     }
   }
 }
 
 extension AIMessage {
-  fileprivate var asOpenAiInputItems: [InputItem] {
+  fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
       var items: [InputItem] = []
 
@@ -100,7 +100,7 @@ extension AIMessage {
       }
 
       if hasNonToolContent {
-        items.append(.inputMessage(try asOpenAIEasyInputMessage))
+        items.append(.inputMessage(try asOpenaiEasyInputMessage))
       }
 
       // Extract tool calls from the message and add each as a separate FunctionToolCall item
@@ -129,7 +129,7 @@ extension AIMessage {
 }
 
 extension ToolOutput {
-  fileprivate var asOpenAiInputItems: [InputItem] {
+  fileprivate var asOpenaiInputItems: [InputItem] {
     // TODO: This log is repeated several times in the codebase. Refactor it.
     let outputText = chunks.compactMap { chunk in
       switch chunk {
@@ -156,7 +156,7 @@ extension ToolOutput {
 
 // MARK: - Schema Conversion
 
-/// Converts SwiftAI Schema to OpenAI JSONSchema format.
+/// Converts SwiftAI Schema to Openai JSONSchema format.
 func convertSchemaToJSONSchema(
   _ schema: Schema,
   isOptional: Bool = false,
@@ -206,7 +206,7 @@ private func convertObjectSchema(
     .type(.object),
     .title(name),
     .properties(jsonProperties),
-    // OpenAI requires that every property in the object schema must be listed as required.
+    // Openai requires that every property in the object schema must be listed as required.
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     .required(Array(properties.keys)),
     // additionalProperties must be false.
@@ -230,7 +230,7 @@ private func convertStringSchema(
   var fields: [JSONSchemaField] = []
 
   if isOptional {
-    // OpenAI emulates optional fields using a union type with "null".
+    // Openai emulates optional fields using a union type with "null".
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     fields.append(.type(.types(["string", "null"])))
   } else {
@@ -268,7 +268,7 @@ private func convertIntegerSchema(
   var fields: [JSONSchemaField] = []
 
   if isOptional {
-    // OpenAI emulates optional fields using a union type with "null".
+    // Openai emulates optional fields using a union type with "null".
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     fields.append(.type(.types(["integer", "null"])))
   } else {
@@ -278,7 +278,7 @@ private func convertIntegerSchema(
   let extraConstraints = extraConstraints.map { Constraint<Int>(kind: $0) }
   let allConstraints = constraints + extraConstraints
   // TODO: Support integer constraints.
-  // For now skipping them because the underlying SDK converts them to Decimal and OpenAI fails at decoding them.
+  // For now skipping them because the underlying SDK converts them to Decimal and Openai fails at decoding them.
   _ = allConstraints
 
   return JSONSchema(fields: fields)
@@ -292,7 +292,7 @@ private func convertNumberSchema(
   var fields: [JSONSchemaField] = []
 
   if isOptional {
-    // OpenAI emulates optional fields using a union type with "null".
+    // Openai emulates optional fields using a union type with "null".
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     fields.append(.type(.types(["number", "null"])))
   } else {
@@ -303,7 +303,7 @@ private func convertNumberSchema(
   let extraConstraints = extraConstraints.map { Constraint<Double>(kind: $0) }
   let allConstraints = constraints + extraConstraints
   // TODO: Support double constraints.
-  // For now skipping them because the underlying SDK converts them to Decimal and OpenAI fails at decoding them.
+  // For now skipping them because the underlying SDK converts them to Decimal and Openai fails at decoding them.
   _ = allConstraints
 
   return JSONSchema(fields: fields)
@@ -315,7 +315,7 @@ private func convertBooleanSchema(
   extraConstraints: [ConstraintKind]
 ) -> JSONSchema {
   if isOptional {
-    // OpenAI emulates optional fields using a union type with "null".
+    // Openai emulates optional fields using a union type with "null".
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     return JSONSchema(fields: [.type(.types(["boolean", "null"]))])
   } else {
@@ -332,7 +332,7 @@ private func convertArraySchema(
 
   // Handle optional types with union ["array", "null"]
   if isOptional {
-    // OpenAI emulates optional fields using a union type with "null".
+    // Openai emulates optional fields using a union type with "null".
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     fields.append(.type(.types(["array", "null"])))
   } else {
@@ -400,12 +400,12 @@ private func extractTypeDescription(from schema: Schema) -> String? {
   }
 }
 
-/// Creates structured output configuration for OpenAI API from SwiftAI Schema.
+/// Creates structured output configuration for Openai API from SwiftAI Schema.
 func makeStructuredOutputConfig<T: Generable>(for type: T.Type) throws
   -> CreateModelResponseQuery.TextResponseConfigurationOptions.OutputFormat
   .StructuredOutputsConfig
 {
-  // TODO: Check that T is a struct (Root must be a struct ; OpenAI requires an object as a root).
+  // TODO: Check that T is a struct (Root must be a struct ; Openai requires an object as a root).
 
   let schema = type.schema
   let jsonSchema = try convertSchemaToJSONSchema(schema)
@@ -420,7 +420,7 @@ func makeStructuredOutputConfig<T: Generable>(for type: T.Type) throws
     )
 }
 
-/// Converts SwiftAI Tools to OpenAI FunctionTool format for function calling.
+/// Converts SwiftAI Tools to Openai FunctionTool format for function calling.
 ///
 /// Learn more: https://platform.openai.com/docs/guides/function-calling
 func convertTools(_ tools: [any SwiftAI.Tool]) throws -> [FunctionTool] {
@@ -435,7 +435,7 @@ func convertTools(_ tools: [any SwiftAI.Tool]) throws -> [FunctionTool] {
   }
 }
 
-// MARK: - OpenAI Response Extensions
+// MARK: - Openai Response Extensions
 
 extension ResponseObject {
   var asSwiftAIMessage: AIMessage {

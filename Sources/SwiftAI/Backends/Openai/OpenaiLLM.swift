@@ -1,20 +1,20 @@
 import Foundation
 import OpenAI
 
-/// OpenAI language model integration using the Response API.
-public struct OpenAILLM: LLM {
-  public typealias Thread = OpenAIThread
+/// Openai's language model integration using the Response API.
+public struct OpenaiLLM: LLM {
+  public typealias Thread = OpenaiThread
 
   private let client: OpenAIProtocol
   private let model: String
   private let hasApiToken: Bool
 
-  /// Creates a new OpenAI LLM instance.
+  /// Creates a new Openai LLM instance.
   ///
   /// - Parameters:
-  ///   - apiToken: Your OpenAI API token. If nil, will try to read from OPENAI_API_KEY environment variable.
+  ///   - apiToken: Your Openai API token. If nil, will try to read from OPENAI_API_KEY environment variable.
   ///   - model: The model to use (e.g., "gpt-4", "gpt-3.5-turbo")
-  ///   - baseURL: The URL of the API endpoint where requests are sent. If not set, defaults to OpenAI's API endpoint.
+  ///   - baseURL: The URL of the API endpoint where requests are sent. If not set, defaults to Openai's API endpoint.
   ///   - timeoutInterval: Request timeout in seconds (default: 60.0)
   public init(
     apiToken: String? = nil, model: String, baseURL: String? = nil,
@@ -48,12 +48,12 @@ public struct OpenAILLM: LLM {
   ///   - tools: Tools available for the conversation
   ///   - messages: Initial conversation history
   ///
-  /// - Returns: A new OpenAI thread for stateful conversations
-  public func makeThread(tools: [any Tool], messages: [any Message]) throws -> OpenAIThread {
-    return OpenAIThread(messages: messages, tools: tools)
+  /// - Returns: A new Openai thread for stateful conversations
+  public func makeThread(tools: [any Tool], messages: [any Message]) throws -> OpenaiThread {
+    return OpenaiThread(messages: messages, tools: tools)
   }
 
-  /// Generates a response to a conversation using OpenAI's Response API.
+  /// Generates a response to a conversation using Openai's Response API.
   ///
   /// - Parameters:
   ///   - messages: The conversation history. Must end with a UserMessage.
@@ -96,7 +96,7 @@ public struct OpenAILLM: LLM {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout OpenAIThread,
+    in thread: inout OpenaiThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
 
@@ -132,14 +132,14 @@ public struct OpenAILLM: LLM {
         model: model,
         previousResponseId: previousResponseID,
         text: textConfig,
-        tools: try thread.openAiTools.map { .functionTool($0) }
+        tools: try thread.openaiTools.map { .functionTool($0) }
       )
 
       let response: ResponseObject = try await {
         do {
           return try await client.responses.createResponse(query: query)
         } catch {
-          throw LLMError.generalError("OpenAI API error: \(error)")
+          throw LLMError.generalError("Openai API error: \(error)")
         }
       }()
 

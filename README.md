@@ -151,7 +151,7 @@ Different AI models have different strengths. SwiftAI makes switching seamless:
 // Choose your model based on availability
 let llm: any LLM = {
   let systemLLM = SystemLLM()
-  return systemLLM.isAvailable ? systemLLM : OpenAILLM(apiKey: "your-api-key")
+  return systemLLM.isAvailable ? systemLLM : OpenaiLLM(apiKey: "your-api-key")
 }()
 
 // Same code works with any model
@@ -162,7 +162,7 @@ print(response.content)
 **What's new here?**
 
 - `SystemLLM` runs on-device (private, fast, free)
-- `OpenAILLM` uses the cloud (more capable, requires API key)
+- `OpenaiLLM` uses the cloud (more capable, requires API key)
 - `isAvailable` checks if the on-device model is ready
 - Same `reply()` method works with any LLM
 
@@ -233,14 +233,14 @@ Constraints ensure the AI follows your business rules.
 | Structured data | `reply(to:returning:)` | `reply(to: "...", returning: MyStruct.self)` |
 | Function calling | `reply(to:tools:)` | `reply(to: "...", tools: [myTool])` |
 | Conversation | `Chat` | `chat.send("Hello")` |
-| Model switching | `any LLM` | `SystemLLM()` or `OpenAILLM()` |
+| Model switching | `any LLM` | `SystemLLM()` or `OpenaiLLM()` |
 
 ## 🔧 Supported Models
 
 | Model | Type | Privacy | Capabilities | Cost |
 |-------|------|---------|--------------|------|
 | **SystemLLM** | On-device | 🔒 Private | Good | 🆓 Free |
-| **OpenAILLM** | Cloud API | ⚠️ Shared | Excellent | 💰 Paid |
+| **OpenaiLLM** | Cloud API | ⚠️ Shared | Excellent | 💰 Paid |
 | **CustomLLM** | Your choice | Your choice | Your choice | Your choice |
 
 ## 📖 Examples

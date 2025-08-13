@@ -74,7 +74,7 @@ extension ContentChunk {
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript.Segment {
   /// Converts a `FoundationModels.Transcript.Segment` to a `SwiftAI.ContentChunk`.
-  var contentChunk: ContentChunk {
+  var contentChunk: ContentChunk? {
     switch self {
     case .text(let textSegment):
       return .text(textSegment.content)
@@ -83,7 +83,8 @@ extension Transcript.Segment {
       return .structured(structuredSegment.content.jsonString)
 
     @unknown default:
-      fatalError("Unhandled case in Transcript.Segment switch")
+      assertionFailure("Unknown case in Transcript.Segment switch")
+      return nil
     }
   }
 }
@@ -240,15 +241,15 @@ extension Transcript.Entry {
     get throws {
       switch self {
       case .instructions(let instructions):
-        let chunks = instructions.segments.map { $0.contentChunk }
+        let chunks = instructions.segments.compactMap { $0.contentChunk }
         return SystemMessage(chunks: chunks)
 
       case .prompt(let prompt):
-        let chunks = prompt.segments.map { $0.contentChunk }
+        let chunks = prompt.segments.compactMap { $0.contentChunk }
         return UserMessage(chunks: chunks)
 
       case .response(let response):
-        let chunks = response.segments.map { $0.contentChunk }
+        let chunks = response.segments.compactMap { $0.contentChunk }
         return AIMessage(chunks: chunks)
 
       case .toolCalls(let toolCalls):
@@ -263,7 +264,7 @@ extension Transcript.Entry {
         return AIMessage(chunks: chunks)
 
       case .toolOutput(let toolOutput):
-        let chunks = toolOutput.segments.map { $0.contentChunk }
+        let chunks = toolOutput.segments.compactMap { $0.contentChunk }
         return SwiftAI.ToolOutput(
           id: toolOutput.id,
           toolName: toolOutput.toolName,

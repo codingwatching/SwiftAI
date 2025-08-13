@@ -131,7 +131,7 @@ struct Constraints {
   @Guide(.range(0.01...9999.99))
   let double: Double
 
-  @Guide(.constant(true))
+  @Guide<Bool>
   let bool: Bool
 
   @Guide(.minimumCount(1), .maximumCount(10), .element(.pattern("^[A-Z]{3}$")))
@@ -160,7 +160,7 @@ struct Constraints {
         isOptional: false),
       "bool": Schema.Property(
         schema: .boolean(
-          constraints: [.constant(true)]),
+          constraints: []),
         description: nil,
         isOptional: false),
       "arrayOfStrs": Schema.Property(

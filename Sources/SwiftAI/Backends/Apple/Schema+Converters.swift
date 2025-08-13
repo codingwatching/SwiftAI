@@ -6,34 +6,30 @@ import Foundation
 extension Schema {
   /// Converts self to FoundationModels.GenerationSchema.
   public func toGenerationSchema() throws -> GenerationSchema {
-    let dynamicSchema = self.toDynamicGenerationSchema()
+    let dynamicSchema = try self.toDynamicGenerationSchema()
     // TODO: Think if we need to catch errors here and change them to our own abstractions.
     return try GenerationSchema(root: dynamicSchema, dependencies: [])
   }
 
   fileprivate func toDynamicGenerationSchema(extraConstraints: [ConstraintKind] = [])
-    -> DynamicGenerationSchema
+    throws -> DynamicGenerationSchema
   {
     // TODO: Add comprehensive error handling for schema conversion
     switch self {
     case .object(let name, let description, let properties):
-      guard extraConstraints.isEmpty else {
-        // TODO: Replace fatalError with proper error handling system
-        fatalError(
-          "Object schemas don't support extra constraints, but received: \(extraConstraints)")
-      }
-      return convertObject(name: name, description: description, properties: properties)
+      assert(extraConstraints.isEmpty, "Object schemas don't support extra constraints")
+      return try convertObject(name: name, description: description, properties: properties)
 
     case .array(let items, let constraints):
       let extraArrayConstraints = extraConstraints.map { AnyArrayConstraint($0) }
-      return convertArray(
+      return try convertArray(
         items: items,
         constraints: constraints + extraArrayConstraints
       )
 
     case .string(let constraints):
       let extraStringConstraints = extraConstraints.map { Constraint<String>(kind: $0) }
-      let guides = convertStringConstraints(constraints + extraStringConstraints)
+      let guides = try convertStringConstraints(constraints + extraStringConstraints)
       return DynamicGenerationSchema(type: String.self, guides: guides)
 
     case .integer(let constraints):
@@ -46,22 +42,13 @@ extension Schema {
       let guides = convertDoubleConstraints(constraints + extraDoubleConstraints)
       return DynamicGenerationSchema(type: Double.self, guides: guides)
 
-    case .boolean(_):
-      // FoundationModels doesn't support boolean constraints
-      if !extraConstraints.isEmpty {
-        // TODO: Replace fatalError with proper error handling system
-        fatalError(
-          "Boolean schemas don't support extra constraints, but received: \(extraConstraints)")
-      }
+    case .boolean:
+      assert(extraConstraints.isEmpty, "Boolean schemas don't support extra constraints")
       return DynamicGenerationSchema(type: Bool.self, guides: [])
 
     case .anyOf(let name, let description, let schemas):
-      if !extraConstraints.isEmpty {
-        // TODO: Replace fatalError with proper error handling system
-        fatalError(
-          "AnyOf schemas don't support extra constraints, but received: \(extraConstraints)")
-      }
-      return convertAnyOf(name: name, description: description, schemas: schemas)
+      assert(extraConstraints.isEmpty, "AnyOf schemas don't support extra constraints")
+      return try convertAnyOf(name: name, description: description, schemas: schemas)
     }
   }
 }
@@ -71,15 +58,15 @@ private func convertObject(
   name: String,
   description: String?,
   properties: [String: Schema.Property]
-) -> DynamicGenerationSchema {
+) throws -> DynamicGenerationSchema {
   return DynamicGenerationSchema(
     name: name,
     description: description,
-    properties: properties.map { name, property in
+    properties: try properties.map { name, property throws in
       DynamicGenerationSchema.Property(
         name: name,
         description: property.description,
-        schema: property.schema.toDynamicGenerationSchema(),
+        schema: try property.schema.toDynamicGenerationSchema(),
         isOptional: property.isOptional
       )
     }
@@ -90,7 +77,7 @@ private func convertObject(
 private func convertArray(
   items: Schema,
   constraints: [AnyArrayConstraint]
-) -> DynamicGenerationSchema {
+) throws -> DynamicGenerationSchema {
   // TODO: ARRAY ELEMENT CONSTRAINTS DESIGN DECISION
   // We have two options for handling `.element(constraint)` array constraints:
   //
@@ -124,12 +111,11 @@ private func convertArray(
         elementConstraints.append(constraintKind)
       }
     default:
-      // TODO: Replace fatalError with proper error handling system
-      fatalError("Non-array constraint found in array constraints: \(constraint.kind)")
+      assertionFailure("Non-array constraint found in array constraints: \(constraint.kind)")
     }
   }
 
-  let itemsSchema = items.toDynamicGenerationSchema(extraConstraints: elementConstraints)
+  let itemsSchema = try items.toDynamicGenerationSchema(extraConstraints: elementConstraints)
   return DynamicGenerationSchema(
     arrayOf: itemsSchema,
     minimumElements: minCount,
@@ -142,8 +128,8 @@ private func convertAnyOf(
   name: String,
   description: String?,
   schemas: [Schema]
-) -> DynamicGenerationSchema {
-  let convertedSchemas = schemas.map { $0.toDynamicGenerationSchema() }
+) throws -> DynamicGenerationSchema {
+  let convertedSchemas = try schemas.map { try $0.toDynamicGenerationSchema() }
   return DynamicGenerationSchema(
     name: name,
     description: description,
@@ -156,7 +142,7 @@ private func convertAnyOf(
 @available(iOS 26.0, macOS 26.0, *)
 private func convertStringConstraints(
   _ constraints: [Constraint<String>]
-) -> [GenerationGuide<String>] {
+) throws -> [GenerationGuide<String>] {
   var guides: [GenerationGuide<String>] = []
 
   for constraint in constraints {
@@ -164,12 +150,7 @@ private func convertStringConstraints(
     case .string(let stringConstraint):
       switch stringConstraint {
       case .pattern(let regex):
-        do {
-          guides.append(.pattern(try Regex(regex)))
-        } catch {
-          // TODO: Replace with proper error handling system - for now skip invalid regex
-          fatalError("Invalid regex pattern: \(regex). Error: \(error)")
-        }
+        guides.append(.pattern(try Regex(regex)))
       case .constant(let value):
         guides.append(.constant(value))
       case .anyOf(let options):

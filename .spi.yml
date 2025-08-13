@@ -1,0 +1,6 @@
+version: 1
+builder:
+  documentation_targets: [SwiftAI] # DocC docs for the main library target
+  skip_platforms:
+    - watchos
+    - tvos

@@ -221,6 +221,255 @@ struct OpenAILLMIntegrationTests {
     // Optional fields
     #expect(response.content.description == nil)
   }
+
+  // MARK: - Tool Calling Tests
+  // TODO: Refactor tests later so that tool calling tests can be run over all backends (OpenAI + Apple on-device)
+
+  @Test("Basic calculation with tool calling", .enabled(if: apiKeyIsPresent()))
+  func testToolCallingBasicCalculation() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let calculatorTool = MockCalculatorTool()
+
+    let _ = try await llm.reply(
+      to: [UserMessage(text: "Calculate 15 + 27 using the calculator tool")],
+      tools: [calculatorTool],
+      returning: String.self,
+      options: LLMReplyOptions()
+    )
+
+    // Verify the calculator tool was called with correct arguments
+    #expect(calculatorTool.wasCalledWith != nil)
+    if let args = calculatorTool.wasCalledWith {
+      #expect(args.operation == "add")
+      #expect([args.a, args.b].sorted() == [15.0, 27.0])
+    }
+  }
+
+  @Test("Multiple tools available - correct tool selection", .enabled(if: apiKeyIsPresent()))
+  func testToolCallingMultipleTools() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let calculatorTool = MockCalculatorTool()
+    let weatherTool = MockWeatherTool()
+
+    let _ = try await llm.reply(
+      to: [UserMessage(text: "What's the weather in New York?")],
+      tools: [calculatorTool, weatherTool],
+      returning: String.self,
+      options: LLMReplyOptions()
+    )
+
+    // Verify the weather tool was called and calculator tool was not
+    #expect(weatherTool.wasCalledWith != nil)
+    #expect(calculatorTool.wasCalledWith == nil)
+
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "New York")
+    }
+  }
+
+  @Test("Tool calling with structured output", .enabled(if: apiKeyIsPresent()))
+  func testToolCallingWithStructuredOutput() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let calculatorTool = MockCalculatorTool()
+
+    let reply: LLMReply<CalculationResult> = try await llm.reply(
+      to: [UserMessage(text: "Calculate 10 * 5 and return the result in the specified format")],
+      tools: [calculatorTool],
+      returning: CalculationResult.self,
+      options: LLMReplyOptions()
+    )
+
+    // Verify the calculator tool was called with correct arguments
+    #expect(calculatorTool.wasCalledWith != nil)
+    if let args = calculatorTool.wasCalledWith {
+      #expect(args.operation == "multiply")
+      #expect([args.a, args.b].sorted() == [5.0, 10.0])
+    }
+
+    // Also verify structured output contains expected result
+    #expect(!reply.content.calculation.isEmpty)
+    #expect(reply.content.result == 50.0)
+  }
+
+  @Test("Threaded conversation with tool calling", .enabled(if: apiKeyIsPresent()))
+  func testToolCallingThreadedConversation() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let calculatorTool = MockCalculatorTool()
+    let weatherTool = MockWeatherTool()
+
+    // Create thread with tools
+    var thread = try llm.makeThread(tools: [calculatorTool, weatherTool], messages: [])
+
+    // First interaction: calculator
+    let _ = try await llm.reply(
+      to: "Calculate 5 + 3",
+      returning: String.self,
+      in: &thread,
+      options: LLMReplyOptions()
+    )
+
+    // Verify calculator was called correctly
+    #expect(calculatorTool.wasCalledWith != nil)
+    if let args = calculatorTool.wasCalledWith {
+      #expect(args.operation == "add")
+      #expect([args.a, args.b].sorted() == [3.0, 5.0])
+    }
+
+    // Reset call history for second test
+    calculatorTool.resetCallHistory()
+
+    // Second interaction: weather (should maintain context)
+    let _ = try await llm.reply(
+      to: "Now tell me about the weather in Paris",
+      returning: String.self,
+      in: &thread,
+      options: LLMReplyOptions()
+    )
+
+    // Verify weather tool was called and calculator was not called again
+    #expect(weatherTool.wasCalledWith != nil)
+    #expect(calculatorTool.wasCalledWith == nil)
+
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "Paris")
+    }
+  }
+
+  @Test("Tool error handling", .enabled(if: apiKeyIsPresent()))
+  func testToolCallingErrorHandling() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let failingTool = FailingTool()
+
+    // Test that tool errors are properly handled
+    do {
+      let _ = try await llm.reply(
+        to: [UserMessage(text: "Use the failing_tool with input 'test'")],
+        tools: [failingTool],
+        returning: String.self,
+        options: LLMReplyOptions()
+      )
+      Issue.record("Expected tool execution to fail, but it succeeded.")
+    } catch {
+      // Verify the failing tool was called with correct arguments before failing
+      #expect(failingTool.wasCalledWith != nil)
+      if let args = failingTool.wasCalledWith {
+        #expect(args.input == "test")
+      }
+
+      // Tool errors should be wrapped in LLMError
+      #expect(error is LLMError)
+    }
+  }
+
+  @Test("Complex conversation history with structured analysis", .enabled(if: apiKeyIsPresent()))
+  func testComplexConversationHistoryStructuredAnalysis() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+
+    let messages: [any Message] = [
+      SystemMessage(
+        text:
+          "You are a helpful assistant that can perform calculations and provide weather information. Always be accurate and detailed in your responses."
+      ),
+      UserMessage(text: "Please calculate 15 + 27 for me"),
+      AIMessage(chunks: [
+        .text("I'll calculate that for you using the calculator tool."),
+        .toolCall(
+          ToolCall(
+            id: "call-1",
+            toolName: "calculator",
+            arguments: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
+          )),
+      ]),
+      SwiftAI.ToolOutput(
+        id: "call-1",
+        toolName: "calculator",
+        chunks: [.text("Result: 42.0")]
+      ),
+      AIMessage(chunks: [
+        .text("The calculation is complete."),
+        .structured(#"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#),
+      ]),
+      UserMessage(text: "Now tell me about the weather in Paris"),
+      AIMessage(chunks: [
+        .text("Let me check the weather in Paris for you."),
+        .toolCall(
+          ToolCall(
+            id: "call-2",
+            toolName: "get_weather",
+            arguments: #"{"city": "Paris", "unit": "celsius"}"#
+          )),
+      ]),
+      SwiftAI.ToolOutput(
+        id: "call-2",
+        toolName: "get_weather",
+        chunks: [.text("Weather in Paris: 22°C, sunny")]
+      ),
+      AIMessage(
+        text:
+          "The weather in Paris is currently 22°C and sunny. Perfect weather for outdoor activities!"
+      ),
+      UserMessage(
+        text:
+          "Please analyze our entire conversation and provide a structured summary including cities mentioned and conversation flow."
+      ),
+    ]
+
+    let reply = try await llm.reply(
+      to: messages,
+      tools: [MockCalculatorTool(), MockWeatherTool()],
+      returning: ConversationSummary.self,
+      options: LLMReplyOptions()
+    )
+
+    let summary = reply.content
+    #expect(summary.citiesMentioned.contains("Paris"), "Should identify Paris as mentioned city")
+    #expect(!summary.conversationSummary.isEmpty, "Should provide conversation summary")
+    #expect(summary.conversationSummary.count > 20, "Summary should be substantial")
+
+    #expect(
+      reply.history.count >= messages.count + 1,
+      "Should contain full history plus new response")
+  }
+
+  @Test("History seeding for conversation continuity", .enabled(if: apiKeyIsPresent()))
+  func testHistorySeedingConversationContinuity() async throws {
+    let llm = OpenAILLM(model: "gpt-4.1-nano")
+    let weatherTool = MockWeatherTool()
+
+    // First inference: Start a conversation about weather
+    let initialConversation: [any Message] = [
+      SystemMessage(text: "You are a helpful weather assistant."),
+      UserMessage(text: "What's the weather like in Tokyo?"),
+    ]
+    let firstReply = try await llm.reply(
+      to: initialConversation,
+      tools: [weatherTool],
+      returning: String.self,
+      options: LLMReplyOptions()
+    )
+
+    #expect(!firstReply.content.isEmpty)
+    #expect(firstReply.history.count >= 4)  // System + User + AI with tool call + Tool Output + AI
+
+    // Seed the complete history from first reply into second call
+    let historyBasedConversation =
+      firstReply.history + [
+        UserMessage(text: "Which city did I ask about in our conversation?")
+      ]
+    let secondReply = try await llm.reply(
+      to: historyBasedConversation,
+      tools: [weatherTool],
+      returning: String.self,
+      options: LLMReplyOptions()
+    )
+
+    // Verify the LLM remembers the city from the conversation history
+    #expect(secondReply.content.contains("Tokyo"), "Should remember Tokyo was mentioned")
+    // Verify conversation continuity - second reply should build on first
+    #expect(
+      secondReply.history.count >= historyBasedConversation.count + 1,
+      "Should preserve full conversation flow")
+  }
 }
 
 // MARK: - Test Types

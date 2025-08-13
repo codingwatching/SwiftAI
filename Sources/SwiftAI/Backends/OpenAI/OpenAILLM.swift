@@ -45,12 +45,12 @@ public struct OpenAILLM: LLM {
   /// Creates a new conversation thread for maintaining context.
   ///
   /// - Parameters:
-  ///   - tools: Tools available for the conversation (not used in Phase 1)
+  ///   - tools: Tools available for the conversation
   ///   - messages: Initial conversation history
   ///
   /// - Returns: A new OpenAI thread for stateful conversations
   public func makeThread(tools: [any Tool], messages: [any Message]) throws -> OpenAIThread {
-    return OpenAIThread(messages: messages)
+    return OpenAIThread(messages: messages, tools: tools)
   }
 
   /// Generates a response to a conversation using OpenAI's Response API.
@@ -102,19 +102,20 @@ public struct OpenAILLM: LLM {
 
     let userMessage = UserMessage(chunks: prompt.chunks)
 
-    let input: CreateModelResponseQuery.Input
-    let previousResponseID: String?
+    var input: CreateModelResponseQuery.Input
+    var previousResponseID: String?
+
     if let responseID = thread.previousResponseID {
       // Continue from previous response.
-      input = toInputFormat([userMessage])
+      input = try CreateModelResponseQuery.Input.from([userMessage])
       previousResponseID = responseID
     } else {
       // Start a new conversation with the user message.
-      input = toInputFormat(thread.messages + [userMessage])
+      input = try CreateModelResponseQuery.Input.from(thread.messages + [userMessage])
       previousResponseID = nil
     }
 
-    // Configure structured output if needed
+    // Configure structured output if needed.
     let textConfig = try {
       if type == String.self {
         return CreateModelResponseQuery.TextResponseConfigurationOptions.text
@@ -122,45 +123,72 @@ public struct OpenAILLM: LLM {
       return try .jsonSchema(makeStructuredOutputConfig(for: type))
     }()
 
-    let query = CreateModelResponseQuery(
-      input: input,
-      model: model,
-      previousResponseId: previousResponseID,
-      text: textConfig
-    )
+    // Add user message to thread first.
+    thread = thread.withNewMessage(userMessage)
+
+    repeat {
+      let query = CreateModelResponseQuery(
+        input: input,
+        model: model,
+        previousResponseId: previousResponseID,
+        text: textConfig,
+        tools: try thread.openAiTools.map { .functionTool($0) }
+      )
+
+      let response: ResponseObject = try await {
+        do {
+          return try await client.responses.createResponse(query: query)
+        } catch {
+          throw LLMError.generalError("OpenAI API error: \(error)")
+        }
+      }()
+
+      // Convert response to AIMessage
+      let aiMsg = try {
+        do {
+          return try response.asSwiftAIMessage
+        } catch {
+          throw LLMError.generalError("Failed to convert response to AIMessage: \(error)")
+        }
+      }()
+
+      thread = thread.withNewMessage(aiMsg).withNewResponseID(response.id)
+
+      let funcCalls = aiMsg.functionCalls
+
+      if !funcCalls.isEmpty {
+        var outputToolMessages = [ToolOutput]()
+        for toolCall in funcCalls {
+          // TODO: Consider sending the error to the LLM.
+          let toolOutput = try await thread.execute(toolCall: toolCall)
+          thread = thread.withNewMessage(toolOutput)
+          outputToolMessages.append(toolOutput)
+        }
+
+        input = try CreateModelResponseQuery.Input.from(outputToolMessages)
+        previousResponseID = response.id
+      }
+    } while !(thread.messages.last is AIMessage)
+
+    // Extract final content from the last AI message
+    guard let finalAIMessage = thread.messages.last as? AIMessage else {
+      throw LLMError.generalError("Final message should be an AIMessage")
+    }
 
     let content: T
-    let responseID: String
-    do {
-      let response = try await client.responses.createResponse(query: query)
-      content = try processResponse(response, type: type)
-      responseID = response.id
-    } catch {
-      throw LLMError.generalError("OpenAI API error: \(error)")
-    }
-
-    // Create appropriate AI message based on response type
-    let aiMessage: AIMessage
     if T.self == String.self {
-      aiMessage = AIMessage(text: content as! String)  // FIXME: Avoid forced unwrapping
+      content = finalAIMessage.text as! T  // FIXME: Avoid forced unwrapping
     } else {
-      // For structured types, encode to JSON for storage
+      // For structured types, parse JSON from text content
       do {
-        let encoder = JSONEncoder()
-        let jsonData = try encoder.encode(content)
-        let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
-        aiMessage = AIMessage(chunks: [.structured(jsonString)])
+        let jsonData = finalAIMessage.text.data(using: .utf8) ?? Data()
+        let decoder = JSONDecoder()
+        content = try decoder.decode(T.self, from: jsonData)
       } catch {
-        throw LLMError.generalError("Failed to encode structured response for storage: \(error)")
+        throw LLMError.generalError(
+          "Failed to decode structured response: \(error.localizedDescription)")
       }
     }
-
-    // Update thread with new user message and response ID using functional API
-    thread =
-      thread
-      .withNewMessage(userMessage)
-      .withNewMessage(aiMessage)
-      .withNewResponseID(responseID)
 
     return LLMReply(
       content: content,
@@ -169,70 +197,32 @@ public struct OpenAILLM: LLM {
   }
 }
 
-/// A conversation thread that maintains OpenAI conversation state.
-public final class OpenAIThread: Sendable {
-  internal let messages: [any Message]
-  internal let previousResponseID: String?
-
-  internal init(messages: [any Message] = [], previousResponseID: String? = nil) {
-    self.messages = messages
-    self.previousResponseID = previousResponseID
-  }
-
-  /// Returns a new thread with an additional message appended to the conversation history.
-  internal func withNewMessage(_ message: any Message) -> OpenAIThread {
-    let updatedMessages = messages + [message]
-    return OpenAIThread(messages: updatedMessages, previousResponseID: previousResponseID)
-  }
-
-  /// Returns a new thread with an updated response ID.
-  internal func withNewResponseID(_ responseID: String) -> OpenAIThread {
-    return OpenAIThread(messages: messages, previousResponseID: responseID)
-  }
-}
-
-extension OpenAILLM {
-  private func processResponse<T: Generable>(
-    _ response: ResponseObject,
-    type: T.Type
-  ) throws -> T {
-    // Extract text content from the response output.
-    // TODO: Re-read OpenAI docs and check if we are reading the response correctly.
-    var responseText = ""
-    for outputItem in response.output {
-      switch outputItem {
-      case .outputMessage(let outputMessage):
-        for content in outputMessage.content {
-          switch content {
-          case .OutputTextContent(let textContent):
-            responseText += textContent.text
-          case .RefusalContent(let refusalContent):
-            // TODO: Use a specific error type for refusals.
-            throw LLMError.generalError("Request was refused: \(refusalContent.refusal)")
-          }
-        }
-      default:
-        // TODO: Handle function calls and other output types.
-        fatalError("Unexpected output item type: \(outputItem)")
+extension AIMessage {
+  /// Extracts function calls from this AIMessage.
+  ///
+  /// This computed property can be used anywhere in the codebase to extract
+  /// tool calls from AI messages, making it reusable and testable.
+  fileprivate var functionCalls: [ToolCall] {
+    chunks.compactMap { chunk in
+      if case .toolCall(let toolCall) = chunk {
+        return toolCall
       }
+      return nil
     }
+  }
 
-    // Handle String types directly.
-    if type == String.self {
-      guard let content = responseText as? T else {
-        throw LLMError.generalError("Failed to convert response text to String")
+  // TODO: This code logic is replicated a few times in the codebase. Refactor it.
+  /// Convenience property that contains the aggregated text output from all output texts chunks.
+  fileprivate var text: String {
+    chunks.compactMap { chunk in
+      switch chunk {
+      case .text(let text):
+        return text
+      case .structured(let json):
+        return json
+      case .toolCall(_):
+        return nil
       }
-      return content
-    }
-
-    // For structured types, parse JSON response.
-    do {
-      let jsonData = responseText.data(using: .utf8) ?? Data()
-      let decoder = JSONDecoder()
-      return try decoder.decode(T.self, from: jsonData)
-    } catch {
-      throw LLMError.generalError(
-        "Failed to decode structured response: \(error.localizedDescription)")
-    }
+    }.joined(separator: "\n")  // TODO: Revisit the separator choice.
   }
 }

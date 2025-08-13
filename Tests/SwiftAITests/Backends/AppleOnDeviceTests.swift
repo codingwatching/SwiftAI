@@ -427,8 +427,7 @@ final class FailingTool: @unchecked Sendable, Tool {
   #expect(calculatorTool.wasCalledWith != nil)
   if let args = calculatorTool.wasCalledWith {
     #expect(args.operation == "add")
-    #expect(args.a == 5.0)
-    #expect(args.b == 3.0)
+    #expect([args.a, args.b].sorted() == [3.0, 5.0])
   }
 
   // Reset call history for second test

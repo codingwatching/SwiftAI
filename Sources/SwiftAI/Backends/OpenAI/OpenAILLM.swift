@@ -223,6 +223,6 @@ extension AIMessage {
       case .toolCall(_):
         return nil
       }
-    }.joined(separator: "\n")  // TODO: Revisit the separator choice.
+    }.joined(separator: "")
   }
 }

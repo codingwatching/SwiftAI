@@ -118,7 +118,7 @@ import Testing
       toolName: "fake_tool",
       chunks: [.text("Sunny, 25°C")]
     ),
-    AIMessage(text: "The weather is sunny and 25°C."),
+    AIMessage(text: "The weather is sunny and 25°C.")
   ]
 
   #expect(actualMessages.count == expectedMessages.count)

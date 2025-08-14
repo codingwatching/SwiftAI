@@ -10,7 +10,7 @@ import Testing
 
   let messages: [any Message] = [
     SystemMessage(text: "You are a helpful assistant"),
-    UserMessage(text: "Hello!"),
+    UserMessage(text: "Hello!")
   ]
 
   let reply = try await fakeLLM.reply(to: messages)

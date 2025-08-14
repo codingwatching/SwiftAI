@@ -211,7 +211,7 @@ private func convertObjectSchema(
     .required(Array(properties.keys)),
     // additionalProperties must be false.
     // https://platform.openai.com/docs/guides/structured-outputs#additionalproperties-false-must-always-be-set-in-objects
-    .additionalProperties(JSONSchema.boolean(false)),
+    .additionalProperties(JSONSchema.boolean(false))
 
   ]
 

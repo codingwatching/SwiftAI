@@ -39,7 +39,7 @@ struct PrimitiveTypes {
       "bool": Schema.Property(
         schema: .boolean(constraints: []),
         description: "bool field",
-        isOptional: false),
+        isOptional: false)
     ]
   )
 
@@ -81,7 +81,7 @@ struct OptionalPrimitiveTypes {
       "optBool": Schema.Property(
         schema: .boolean(constraints: []),
         description: "optional bool field",
-        isOptional: true),
+        isOptional: true)
     ]
   )
 
@@ -113,7 +113,7 @@ struct ArrayTypes {
           items: .integer(constraints: []),
           constraints: []),
         description: "Optional number array",
-        isOptional: true),
+        isOptional: true)
     ]
   )
 
@@ -169,10 +169,10 @@ struct Constraints {
           constraints: [
             AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
             AnyArrayConstraint(Constraint<[String]>.maximumCount(10)),
-            AnyArrayConstraint(Constraint<[String]>.element(.pattern("^[A-Z]{3}$"))),
+            AnyArrayConstraint(Constraint<[String]>.element(.pattern("^[A-Z]{3}$")))
           ]),
         description: nil,
-        isOptional: false),
+        isOptional: false)
     ]
   )
 
@@ -222,11 +222,11 @@ struct DescriptionsWithConstraints {
           items: .string(constraints: []),
           constraints: [
             AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[String]>.element(.pattern(".+"))),
+            AnyArrayConstraint(Constraint<[String]>.element(.pattern(".+")))
           ]
         ),
         description: "string array with constraints",
-        isOptional: false),
+        isOptional: false)
     ]
   )
 
@@ -279,7 +279,7 @@ struct CustomTypes {
           items: NestedType.schema,
           constraints: []),
         description: "array of nested types",
-        isOptional: false),
+        isOptional: false)
     ]
   )
 

@@ -53,7 +53,7 @@ public final class OpenaiThread: Sendable {
     return ToolOutput(
       id: toolCall.id,
       toolName: toolCall.toolName,
-      chunks: result.chunks,
+      chunks: result.chunks
     )
   }
 }

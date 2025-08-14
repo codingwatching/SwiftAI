@@ -47,7 +47,7 @@ extension PromptRepresentable {
 @Test func promptFromChunks() {
   let chunks: [ContentChunk] = [
     .text("First part"),
-    .text("Second part"),
+    .text("Second part")
   ]
   let prompt = Prompt(chunks: chunks)
 

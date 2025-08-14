@@ -18,7 +18,7 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.0"),
     .package(url: "https://github.com/apple/swift-format.git", from: "510.0.0"),
-    .package(url: "https://github.com/MacPaw/OpenAI.git", from: "0.4.6"),
+    .package(url: "https://github.com/MacPaw/OpenAI.git", from: "0.4.6")
   ],
   targets: [
     .target(

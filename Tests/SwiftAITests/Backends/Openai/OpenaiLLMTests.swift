@@ -371,7 +371,7 @@ struct OpenaiLLMIntegrationTests {
       UserMessage(
         text:
           "Please analyze our entire conversation and provide a structured summary including cities mentioned and conversation flow."
-      ),
+      )
     ]
 
     let reply = try await llm.reply(

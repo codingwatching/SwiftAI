@@ -214,7 +214,7 @@ import FoundationModels
     .text("I'll calculate that for you."),
     .toolCall(toolCall1),
     .toolCall(toolCall2),
-    .text("The calculation is complete."),
+    .text("The calculation is complete.")
   ])
 
   let entries = try aiMessage.transcriptEntries
@@ -276,7 +276,7 @@ import FoundationModels
   let userMessage = UserMessage(chunks: [
     .text("Please help me with"),
     .text(" the following calculation:"),
-    .text(" 15 + 27"),
+    .text(" 15 + 27")
   ])
 
   let entries = try userMessage.transcriptEntries
@@ -300,7 +300,7 @@ import FoundationModels
   let messages: [any Message] = [
     SystemMessage(text: "You are a helpful assistant."),
     UserMessage(text: "Hello, how are you?"),
-    AIMessage(text: "I'm doing well, thank you!"),
+    AIMessage(text: "I'm doing well, thank you!")
   ]
 
   let transcript = try Transcript(messages: messages)
@@ -338,7 +338,7 @@ import FoundationModels
 @Test func MessagesToTranscript_WithTools_AddsToInstructions() throws {
   let messages: [any Message] = [
     SystemMessage(text: "You are a helpful assistant."),
-    UserMessage(text: "Calculate 5 + 3"),
+    UserMessage(text: "Calculate 5 + 3")
   ]
 
   let calculatorTool = MockCalculatorTool()
@@ -371,14 +371,14 @@ import FoundationModels
     UserMessage(text: "Calculate 10 + 5"),
     AIMessage(chunks: [
       .text("I'll calculate that for you."),
-      .toolCall(toolCall),
+      .toolCall(toolCall)
     ]),
     SwiftAI.ToolOutput(
       id: "call-1",
       toolName: "calculator",
       chunks: [.text("Result: 15")]
     ),
-    AIMessage(text: "The result is 15."),
+    AIMessage(text: "The result is 15.")
   ]
 
   let transcript = try Transcript(messages: messages)
@@ -422,7 +422,7 @@ import FoundationModels
 @Test func MessagesToTranscript_NoSystemMessage_ToolsCreateInstructions() throws {
   let messages: [any Message] = [
     UserMessage(text: "Hello"),
-    AIMessage(text: "Hi there!"),
+    AIMessage(text: "Hi there!")
   ]
 
   let calculatorTool = MockCalculatorTool()
@@ -483,7 +483,7 @@ import FoundationModels
       Transcript.Response(
         assetIDs: [],
         segments: [.text(Transcript.TextSegment(content: "Hi there!"))]
-      )),
+      ))
   ]
 
   let transcript = Transcript(entries: entries)
@@ -529,7 +529,7 @@ import FoundationModels
       Transcript.Response(
         assetIDs: [],
         segments: [.text(Transcript.TextSegment(content: "Second response."))]
-      )),
+      ))
   ]
 
   let transcript = Transcript(entries: entries)
@@ -565,7 +565,7 @@ import FoundationModels
         assetIDs: [],
         segments: [.text(Transcript.TextSegment(content: "I'll calculate that."))]
       )),
-    .toolCalls(Transcript.ToolCalls([toolCall])),
+    .toolCalls(Transcript.ToolCalls([toolCall]))
   ]
 
   let transcript = Transcript(entries: entries)
@@ -643,7 +643,7 @@ import FoundationModels
       Transcript.Instructions(
         segments: [
           .text(Transcript.TextSegment(content: "You are a helpful assistant.")),
-          .text(Transcript.TextSegment(content: " Please be concise.")),
+          .text(Transcript.TextSegment(content: " Please be concise."))
         ],
         toolDefinitions: []
       )),
@@ -652,7 +652,7 @@ import FoundationModels
         segments: [
           .text(Transcript.TextSegment(content: "Calculate")),
           .text(Transcript.TextSegment(content: " 10 + 5")),
-          .text(Transcript.TextSegment(content: " for me")),
+          .text(Transcript.TextSegment(content: " for me"))
         ],
         options: GenerationOptions(),
         responseFormat: nil
@@ -666,9 +666,9 @@ import FoundationModels
             Transcript.StructuredSegment(
               source: "calculation",
               content: generatedContent
-            )),
+            ))
         ]
-      )),
+      ))
   ]
 
   let transcript = Transcript(entries: entries)
@@ -743,7 +743,7 @@ import FoundationModels
               source: "analysis",
               content: resultContent
             )),
-          .text(Transcript.TextSegment(content: " Let me use the calculator.")),
+          .text(Transcript.TextSegment(content: " Let me use the calculator."))
         ]
       )),
     .toolCalls(Transcript.ToolCalls([toolCall])),
@@ -753,9 +753,9 @@ import FoundationModels
         toolName: "calculator",
         segments: [
           .text(Transcript.TextSegment(content: "Calculation result: ")),
-          .text(Transcript.TextSegment(content: "15")),
+          .text(Transcript.TextSegment(content: "15"))
         ]
-      )),
+      ))
   ]
 
   let transcript = Transcript(entries: entries)
@@ -833,7 +833,7 @@ import FoundationModels
         segments: [
           .structure(Transcript.StructuredSegment(source: "step1", content: content1)),
           .structure(Transcript.StructuredSegment(source: "step2", content: content2)),
-          .structure(Transcript.StructuredSegment(source: "step3", content: content3)),
+          .structure(Transcript.StructuredSegment(source: "step3", content: content3))
         ]
       ))
   ]

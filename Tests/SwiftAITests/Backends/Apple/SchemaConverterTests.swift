@@ -477,7 +477,7 @@ import FoundationModels
       schema: .array(items: .string(constraints: []), constraints: []),
       description: "List of tags",
       isOptional: false
-    ),
+    )
   ]
   let schema = Schema.object(
     name: "Item",

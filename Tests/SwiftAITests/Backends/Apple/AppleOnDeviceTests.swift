@@ -561,7 +561,7 @@ struct ConversationSummary: Equatable {
   ]
   let firstReply = try await systemLLM.reply(
     to: initialConversation,
-    tools: [weatherTool],
+    tools: [weatherTool]
   )
 
   #expect(!firstReply.content.isEmpty)

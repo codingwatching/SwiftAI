@@ -46,7 +46,7 @@ let package = Package(
       dependencies: [
         "SwiftAIMacros",
         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-      ],
+      ]
     ),
   ]
 )

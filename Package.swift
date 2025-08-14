@@ -4,17 +4,16 @@ import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
-  name: "SwiftAI",
+  name: "swift-ai",
   platforms: [
-    .iOS(.v17),
-    .macOS(.v14),
-    .macCatalyst(.v17),
+    .macOS(.v10_15),
+    .iOS(.v13),
+    .tvOS(.v13),
+    .watchOS(.v6),
+    .macCatalyst(.v13),
   ],
   products: [
-    .library(
-      name: "SwiftAI",
-      targets: ["SwiftAI"]
-    )
+    .library(name: "SwiftAI", targets: ["SwiftAI"])
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.0"),
@@ -26,7 +25,7 @@ let package = Package(
       name: "SwiftAI",
       dependencies: [
         "SwiftAIMacros",
-        .product(name: "OpenAI", package: "OpenAI"),
+        .product(name: "OpenAI", package: "OpenAI")
       ]
     ),
     .macro(
@@ -34,7 +33,7 @@ let package = Package(
       dependencies: [
         .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
         .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-        .product(name: "SwiftFormat", package: "swift-format"),
+        .product(name: "SwiftFormat", package: "swift-format")
       ]
     ),
     .testTarget(
@@ -45,7 +44,7 @@ let package = Package(
       name: "SwiftAIMacrosTests",
       dependencies: [
         "SwiftAIMacros",
-        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
       ]
     ),
   ]

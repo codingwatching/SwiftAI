@@ -41,9 +41,7 @@ struct SimpleResponse: Equatable {
   }
 
   let reply: LLMReply<SimpleResponse> = try await systemLLM.reply(
-    to: [
-      UserMessage(text: "Create a simple response with message 'Hello', count 42, and isValid true")
-    ],
+    to: "Create a simple response with message 'Hello', count 42, and isValid true",
     returning: SimpleResponse.self
   )
 
@@ -60,7 +58,7 @@ struct SimpleResponse: Equatable {
   }
 
   let reply: LLMReply<SimpleResponse> = try await systemLLM.reply(
-    to: [UserMessage(text: "Create a simple response")],
+    to: "Create a simple response",
     returning: SimpleResponse.self
   )
 
@@ -95,9 +93,7 @@ struct ArrayResponse: Equatable {
   }
 
   let reply: LLMReply<ArrayResponse> = try await systemLLM.reply(
-    to: [
-      UserMessage(text: "Create a response with items ['apple', 'banana'] and numbers [1, 2, 3]")
-    ],
+    to: "Create a response with items ['apple', 'banana'] and numbers [1, 2, 3]",
     returning: ArrayResponse.self
   )
 
@@ -114,7 +110,7 @@ struct ArrayResponse: Equatable {
   }
 
   let reply: LLMReply<ArrayResponse> = try await systemLLM.reply(
-    to: [UserMessage(text: "Create a response with arrays")],
+    to: "Create a response with arrays",
     returning: ArrayResponse.self
   )
 
@@ -154,10 +150,7 @@ func structuredOutput_NestedObjects_Content() async throws {
   }
 
   let reply: LLMReply<Person> = try await systemLLM.reply(
-    to: [
-      UserMessage(
-        text: "Create a person named John, age 30, living at 123 Main St, New York, 10001")
-    ],
+    to: "Create a person named John, age 30, living at 123 Main St, New York, 10001",
     returning: Person.self
   )
 
@@ -178,14 +171,12 @@ func structuredOutput_NestedObjects_Content() async throws {
   }
 
   // Create a new thread for conversation
-  var thread = try systemLLM.makeThread(tools: [], messages: [])
+  var thread = try systemLLM.makeThread()
 
   // Turn 1: Introduce name
   let reply1 = try await systemLLM.reply(
     to: "Hi my name is Achraf",
-    returning: String.self,
-    in: &thread,
-    options: .default
+    in: &thread
   )
 
   #expect(!reply1.content.isEmpty)
@@ -196,9 +187,7 @@ func structuredOutput_NestedObjects_Content() async throws {
   // Turn 2: Ask for name recall
   let reply2 = try await systemLLM.reply(
     to: "What's my name?",
-    returning: String.self,
-    in: &thread,
-    options: .default
+    in: &thread
   )
 
   #expect(!reply2.content.isEmpty)
@@ -209,8 +198,7 @@ func structuredOutput_NestedObjects_Content() async throws {
   let reply3 = try await systemLLM.reply(
     to: "Create a SimpleResponse with my name in the message, count 1, and isValid true",
     returning: SimpleResponse.self,
-    in: &thread,
-    options: .default
+    in: &thread
   )
 
   #expect(reply3.content.message.contains("Achraf"))  // Should include name in structured response
@@ -334,9 +322,8 @@ final class FailingTool: @unchecked Sendable, Tool {
   let calculatorTool = MockCalculatorTool()
 
   let _ = try await systemLLM.reply(
-    to: [UserMessage(text: "Calculate 15 + 27 using the calculator tool")],
-    tools: [calculatorTool],
-    returning: String.self
+    to: "Calculate 15 + 27 using the calculator tool",
+    tools: [calculatorTool]
   )
 
   // Verify the calculator tool was called with correct arguments
@@ -359,9 +346,8 @@ final class FailingTool: @unchecked Sendable, Tool {
   let weatherTool = MockWeatherTool()
 
   let _ = try await systemLLM.reply(
-    to: [UserMessage(text: "What's the weather in New York?")],
-    tools: [calculatorTool, weatherTool],
-    returning: String.self
+    to: "What's the weather in New York?",
+    tools: [calculatorTool, weatherTool]
   )
 
   // Verify the weather tool was called and calculator tool was not
@@ -384,7 +370,7 @@ final class FailingTool: @unchecked Sendable, Tool {
   let calculatorTool = MockCalculatorTool()
 
   let reply: LLMReply<CalculationResult> = try await systemLLM.reply(
-    to: [UserMessage(text: "Calculate 10 * 5 and return the result in the specified format")],
+    to: "Calculate 10 * 5 and return the result in the specified format",
     tools: [calculatorTool],
     returning: CalculationResult.self
   )
@@ -413,14 +399,12 @@ final class FailingTool: @unchecked Sendable, Tool {
   let weatherTool = MockWeatherTool()
 
   // Create thread with tools
-  var thread = try systemLLM.makeThread(tools: [calculatorTool, weatherTool], messages: [])
+  var thread = try systemLLM.makeThread(tools: [calculatorTool, weatherTool])
 
   // First interaction: calculator
   let _ = try await systemLLM.reply(
     to: "Calculate 5 + 3",
-    returning: String.self,
-    in: &thread,
-    options: .default
+    in: &thread
   )
 
   // Verify calculator was called correctly
@@ -436,9 +420,7 @@ final class FailingTool: @unchecked Sendable, Tool {
   // Second interaction: weather (should maintain context)
   let _ = try await systemLLM.reply(
     to: "Now tell me about the weather in Paris",
-    returning: String.self,
-    in: &thread,
-    options: .default
+    in: &thread
   )
 
   // Verify weather tool was called and calculator was not called again
@@ -463,9 +445,8 @@ final class FailingTool: @unchecked Sendable, Tool {
   // Test that tool errors are properly handled
   do {
     let _ = try await systemLLM.reply(
-      to: [UserMessage(text: "Use the failing_tool with input 'test'")],
-      tools: [failingTool],
-      returning: String.self
+      to: "Use the failing_tool with input 'test'",
+      tools: [failingTool]
     )
     Issue.record("Expected tool execution to fail, but it succeeded.")
   } catch {

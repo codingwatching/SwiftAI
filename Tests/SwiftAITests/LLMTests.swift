@@ -23,23 +23,18 @@ import Testing
 }
 
 @Test func llmProtocolWithStructResponse() async throws {
-  let jsonResponse = """
+  let fakeLLM = FakeLLM()
+  fakeLLM.queueReply(
+    """
     {
       "message": "Test message",
       "count": 42
     }
-    """
-
-  let fakeLLM = FakeLLM()
-  fakeLLM.queueReply(jsonResponse)
-
-  let messages: [any Message] = [UserMessage(text: "Generate a fake response")]
+    """)
 
   let reply = try await fakeLLM.reply(
-    to: messages,
-    tools: [],
-    returning: FakeResponse.self,
-    options: .default
+    to: "Generate a fake response",
+    returning: FakeResponse.self
   )
 
   #expect(reply.content.message == "Test message")

@@ -71,8 +71,6 @@ public protocol LLM: Model {
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 
-  // TODO: Provide defaults for `makeThread`
-
   /// Creates a new thread for maintaining conversation context.
   ///
   /// - Parameters:
@@ -170,7 +168,31 @@ extension LLM {
     return try await reply(to: messages, tools: tools, returning: type, options: options)
   }
 
-  // TODO: Add convenience methods for prompt-based queries and threaded replies
+  /// Convenience method to create a thread with default empty tools and messages.
+  public func makeThread(tools: [any Tool] = [], messages: [any Message] = []) throws -> Thread {
+    return try makeThread(tools: tools, messages: messages)
+  }
+
+  /// Convenience method for prompt-based queries with default parameters.
+  public func reply<T: Generable>(
+    to prompt: any PromptRepresentable,
+    tools: [any Tool] = [],
+    returning type: T.Type = String.self,
+    options: LLMReplyOptions = .default
+  ) async throws -> LLMReply<T> {
+    let userMessage = UserMessage(chunks: prompt.chunks)
+    return try await reply(to: [userMessage], tools: tools, returning: type, options: options)
+  }
+
+  /// Convenience method for threaded replies with default parameters.
+  public func reply<T: Generable>(
+    to prompt: any PromptRepresentable,
+    returning type: T.Type = String.self,
+    in thread: inout Thread,
+    options: LLMReplyOptions = .default
+  ) async throws -> LLMReply<T> {
+    return try await reply(to: prompt, returning: type, in: &thread, options: options)
+  }
 }
 
 // MARK: - LLMReply and Options

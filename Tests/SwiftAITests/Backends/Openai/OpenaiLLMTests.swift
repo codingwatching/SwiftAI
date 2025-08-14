@@ -11,10 +11,7 @@ struct OpenaiLLMIntegrationTests {
     let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let response = try await llm.reply(
-      to: [UserMessage(text: "What is 2+2? Answer with just the number.")],
-      tools: [],
-      returning: String.self,
-      options: LLMReplyOptions()
+      to: "What is 2+2? Answer with just the number."
     )
 
     #expect(!response.content.isEmpty)
@@ -33,10 +30,7 @@ struct OpenaiLLMIntegrationTests {
     ]
 
     let response = try await llm.reply(
-      to: messages,
-      tools: [],
-      returning: String.self,
-      options: LLMReplyOptions()
+      to: messages
     )
 
     #expect(!response.content.isEmpty)
@@ -53,16 +47,13 @@ struct OpenaiLLMIntegrationTests {
 
     // Create thread with initial context
     var thread = try llm.makeThread(
-      tools: [],
       messages: [SystemMessage(text: "You are a helpful assistant. Keep responses brief.")]
     )
 
     // First exchange
     let firstResponse = try await llm.reply(
       to: "Hello, my name is Alice",
-      returning: String.self,
-      in: &thread,
-      options: LLMReplyOptions()
+      in: &thread
     )
 
     #expect(!firstResponse.content.isEmpty)
@@ -70,9 +61,7 @@ struct OpenaiLLMIntegrationTests {
     // Second exchange - should remember the name
     let secondResponse = try await llm.reply(
       to: "What's my name?",
-      returning: String.self,
-      in: &thread,
-      options: LLMReplyOptions()
+      in: &thread
     )
 
     #expect(!secondResponse.content.isEmpty)
@@ -90,10 +79,7 @@ struct OpenaiLLMIntegrationTests {
 
     await #expect(throws: LLMError.self) {
       _ = try await llm.reply(
-        to: messages,
-        tools: [],
-        returning: String.self,
-        options: LLMReplyOptions()
+        to: messages
       )
     }
   }
@@ -124,12 +110,8 @@ struct OpenaiLLMIntegrationTests {
     let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let response = try await llm.reply(
-      to: [
-        UserMessage(text: "Create a user profile for John Smith, age 30, email john@example.com")
-      ],
-      tools: [],
-      returning: UserProfile.self,
-      options: LLMReplyOptions()
+      to: "Create a user profile for John Smith, age 30, email john@example.com",
+      returning: UserProfile.self
     )
 
     #expect(!response.content.name.isEmpty)
@@ -145,7 +127,6 @@ struct OpenaiLLMIntegrationTests {
 
     // Create thread with initial context
     var thread = try llm.makeThread(
-      tools: [],
       messages: [SystemMessage(text: "You are a helpful assistant that creates user profiles.")]
     )
 
@@ -153,8 +134,7 @@ struct OpenaiLLMIntegrationTests {
     let firstResponse = try await llm.reply(
       to: "Create a profile for Alice Johnson, age 25",
       returning: UserProfile.self,
-      in: &thread,
-      options: LLMReplyOptions()
+      in: &thread
     )
 
     #expect(firstResponse.content.name.lowercased() == "alice johnson")
@@ -163,9 +143,7 @@ struct OpenaiLLMIntegrationTests {
     // Second exchange - should remember the context and create another profile
     let secondResponse = try await llm.reply(
       to: "What's the age of Alice?",
-      returning: String.self,
-      in: &thread,
-      options: LLMReplyOptions()
+      in: &thread
     )
 
     #expect(secondResponse.content.contains("25"))
@@ -176,18 +154,11 @@ struct OpenaiLLMIntegrationTests {
     let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let response = try await llm.reply(
-      to: [
-        UserMessage(
-          text:
-            """
-            Create comprehensive data: email john@test.com, age 30, priority high, price 25.99, 
-            verified true, not active, exactly 3 tags, and no description. For others use sensible defaults.
-            """
-        )
-      ],
-      tools: [],
-      returning: ComprehensiveProfile.self,
-      options: LLMReplyOptions()
+    to: """
+        Create comprehensive data: email john@test.com, age 30, priority high, price 25.99, 
+        verified true, not active, exactly 3 tags, and no description. For others use sensible defaults.
+        """,
+      returning: ComprehensiveProfile.self
     )
 
     // String pattern constraint
@@ -231,10 +202,8 @@ struct OpenaiLLMIntegrationTests {
     let calculatorTool = MockCalculatorTool()
 
     let _ = try await llm.reply(
-      to: [UserMessage(text: "Calculate 15 + 27 using the calculator tool")],
-      tools: [calculatorTool],
-      returning: String.self,
-      options: LLMReplyOptions()
+      to: "Calculate 15 + 27 using the calculator tool",
+      tools: [calculatorTool]
     )
 
     // Verify the calculator tool was called with correct arguments
@@ -252,10 +221,8 @@ struct OpenaiLLMIntegrationTests {
     let weatherTool = MockWeatherTool()
 
     let _ = try await llm.reply(
-      to: [UserMessage(text: "What's the weather in New York?")],
-      tools: [calculatorTool, weatherTool],
-      returning: String.self,
-      options: LLMReplyOptions()
+      to: "What's the weather in New York?",
+      tools: [calculatorTool, weatherTool]
     )
 
     // Verify the weather tool was called and calculator tool was not
@@ -273,10 +240,9 @@ struct OpenaiLLMIntegrationTests {
     let calculatorTool = MockCalculatorTool()
 
     let reply: LLMReply<CalculationResult> = try await llm.reply(
-      to: [UserMessage(text: "Calculate 10 * 5 and return the result in the specified format")],
+      to: "Calculate 10 * 5 and return the result in the specified format",
       tools: [calculatorTool],
-      returning: CalculationResult.self,
-      options: LLMReplyOptions()
+      returning: CalculationResult.self
     )
 
     // Verify the calculator tool was called with correct arguments
@@ -298,14 +264,12 @@ struct OpenaiLLMIntegrationTests {
     let weatherTool = MockWeatherTool()
 
     // Create thread with tools
-    var thread = try llm.makeThread(tools: [calculatorTool, weatherTool], messages: [])
+    var thread = try llm.makeThread(tools: [calculatorTool, weatherTool])
 
     // First interaction: calculator
     let _ = try await llm.reply(
       to: "Calculate 5 + 3",
-      returning: String.self,
-      in: &thread,
-      options: LLMReplyOptions()
+      in: &thread
     )
 
     // Verify calculator was called correctly
@@ -321,9 +285,7 @@ struct OpenaiLLMIntegrationTests {
     // Second interaction: weather (should maintain context)
     let _ = try await llm.reply(
       to: "Now tell me about the weather in Paris",
-      returning: String.self,
-      in: &thread,
-      options: LLMReplyOptions()
+      in: &thread
     )
 
     // Verify weather tool was called and calculator was not called again
@@ -343,10 +305,8 @@ struct OpenaiLLMIntegrationTests {
     // Test that tool errors are properly handled
     do {
       let _ = try await llm.reply(
-        to: [UserMessage(text: "Use the failing_tool with input 'test'")],
-        tools: [failingTool],
-        returning: String.self,
-        options: LLMReplyOptions()
+        to: "Use the failing_tool with input 'test'",
+        tools: [failingTool]
       )
       Issue.record("Expected tool execution to fail, but it succeeded.")
     } catch {
@@ -417,8 +377,7 @@ struct OpenaiLLMIntegrationTests {
     let reply = try await llm.reply(
       to: messages,
       tools: [MockCalculatorTool(), MockWeatherTool()],
-      returning: ConversationSummary.self,
-      options: LLMReplyOptions()
+      returning: ConversationSummary.self
     )
 
     let summary = reply.content
@@ -443,9 +402,7 @@ struct OpenaiLLMIntegrationTests {
     ]
     let firstReply = try await llm.reply(
       to: initialConversation,
-      tools: [weatherTool],
-      returning: String.self,
-      options: LLMReplyOptions()
+      tools: [weatherTool]
     )
 
     #expect(!firstReply.content.isEmpty)
@@ -458,9 +415,7 @@ struct OpenaiLLMIntegrationTests {
       ]
     let secondReply = try await llm.reply(
       to: historyBasedConversation,
-      tools: [weatherTool],
-      returning: String.self,
-      options: LLMReplyOptions()
+      tools: [weatherTool]
     )
 
     // Verify the LLM remembers the city from the conversation history

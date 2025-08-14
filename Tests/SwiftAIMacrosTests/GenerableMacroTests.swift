@@ -2,7 +2,7 @@ import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import XCTest
 
-@testable import SwiftAIMacros
+import SwiftAIMacros
 
 final class GenerableMacroTests: XCTestCase {
   let testMacros: [String: Macro.Type] = [

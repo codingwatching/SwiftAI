@@ -16,7 +16,7 @@ import Testing
   }
 
   let reply = try await systemLLM.reply(
-    to: [UserMessage(text: "Say hello in exactly one word.")],
+    to: [UserMessage(text: "Say hello in exactly one word.")]
   )
 
   #expect(!reply.content.isEmpty)

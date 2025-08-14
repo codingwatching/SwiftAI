@@ -16,9 +16,10 @@ let package = Package(
     .library(name: "SwiftAI", targets: ["SwiftAI"])
   ],
   dependencies: [
-    .package(url: "https://github.com/apple/swift-syntax.git", from: "510.0.0"),
-    .package(url: "https://github.com/apple/swift-format.git", from: "510.0.0"),
-    .package(url: "https://github.com/MacPaw/OpenAI.git", from: "0.4.6")
+    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.0"),
+    .package(url: "https://github.com/swiftlang/swift-format.git", from: "510.0.0"),
+    .package(url: "https://github.com/MacPaw/OpenAI.git", from: "0.4.6"),
+    .package(url: "https://github.com/pointfreeco/swift-macro-testing.git", from: "0.6.3")
   ],
   targets: [
     .target(
@@ -44,7 +45,8 @@ let package = Package(
       name: "SwiftAIMacrosTests",
       dependencies: [
         "SwiftAIMacros",
-        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
+        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+        .product(name: "MacroTesting", package: "swift-macro-testing")
       ]
     ),
   ]

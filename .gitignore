@@ -8,7 +8,7 @@ DerivedData/
 .netrc
 Package.resolved
 CLAUDE.md
-docs/
+GEMINI.md
 
 # Environment variables
 .env

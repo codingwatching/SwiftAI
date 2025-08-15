@@ -247,6 +247,14 @@ Constraints ensure the AI follows your business rules.
 
 - [ ] TODO: Add example projects.
 
+## ⚡ Feature Parity Status vs FoundationModels SDK
+
+| Feature | Status |
+|---------|--------|
+| Streaming responses | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/2) |
+| Model prewarming | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/3) |
+| Structured outputs for enums | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/4) |
+
 ## 🤝 Contributing
 
 We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md).
@@ -263,6 +271,10 @@ swift test
 ## 📄 License
 
 SwiftAI is released under the MIT License. See [LICENSE](LICENSE) for details.
+
+## ⚠️ Alpha ⚠️
+
+SwiftAI is **alpha** 🚧 – rough edges and breaking changes are expected.
 
 ---
 

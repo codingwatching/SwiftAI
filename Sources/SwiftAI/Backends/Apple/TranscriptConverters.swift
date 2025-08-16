@@ -96,9 +96,9 @@ extension Message {
   /// Converts a `SwiftAI.Message` to one or more `Transcript.Entry` objects.
   var transcriptEntries: [Transcript.Entry] {
     get throws {
-      switch self.role {
-      case .system:
-        let segments = try chunks.compactMap { try $0.transcriptSegment }
+      switch self {
+      case .system(let message):
+        let segments = try message.chunks.compactMap { try $0.transcriptSegment }
         let instructions = Transcript.Instructions(
           segments: segments,
           toolDefinitions: []
@@ -158,12 +158,7 @@ extension Message {
 
         return entries
 
-      case .toolOutput:
-        guard let toolOutput = self as? SwiftAI.ToolOutput else {
-          throw TranscriptConversionError.internalError(
-            "Message has toolOutput role but is not ToolOutput type")
-        }
-
+      case .toolOutput(let toolOutput):
         let segments = try chunks.compactMap { try $0.transcriptSegment }
         let transcriptToolOutput = Transcript.ToolOutput(
           id: toolOutput.id,
@@ -181,7 +176,7 @@ extension Message {
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript {
   /// Creates a `FoundationModels.Transcript` from an array of `SwiftAI.Messages`
-  init(messages: [any Message], tools: [any Tool] = []) throws {
+  init(messages: [Message], tools: [any Tool] = []) throws {
     // Convert all messages to transcript entries
     var allEntries: [Transcript.Entry] = []
     for message in messages {
@@ -237,39 +232,40 @@ extension Transcript {
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript.Entry {
   /// Converts a `FoundationModels.Transcript.Entry` to a `SwiftAI.Message`
-  var message: (any Message) {
+  var message: Message {
     get throws {
       switch self {
       case .instructions(let instructions):
         let chunks = instructions.segments.compactMap { $0.contentChunk }
-        return SystemMessage(chunks: chunks)
+        return .system(.init(chunks: chunks))
 
       case .prompt(let prompt):
         let chunks = prompt.segments.compactMap { $0.contentChunk }
-        return UserMessage(chunks: chunks)
+        return .user(.init(chunks: chunks))
 
       case .response(let response):
         let chunks = response.segments.compactMap { $0.contentChunk }
-        return AIMessage(chunks: chunks)
+        return .ai(.init(chunks: chunks))
 
       case .toolCalls(let toolCalls):
         let chunks = toolCalls.map { toolCall in
-          let swiftAIToolCall = SwiftAI.ToolCall(
-            id: toolCall.id,
-            toolName: toolCall.toolName,
-            arguments: toolCall.arguments.jsonString
-          )
-          return ContentChunk.toolCall(swiftAIToolCall)
+          return ContentChunk.toolCall(
+            .init(
+              id: toolCall.id,
+              toolName: toolCall.toolName,
+              arguments: toolCall.arguments.jsonString
+            ))
         }
-        return AIMessage(chunks: chunks)
+        return .ai(.init(chunks: chunks))
 
       case .toolOutput(let toolOutput):
         let chunks = toolOutput.segments.compactMap { $0.contentChunk }
-        return SwiftAI.ToolOutput(
-          id: toolOutput.id,
-          toolName: toolOutput.toolName,
-          chunks: chunks
-        )
+        return .toolOutput(
+          .init(
+            id: toolOutput.id,
+            toolName: toolOutput.toolName,
+            chunks: chunks
+          ))
 
       @unknown default:
         throw TranscriptConversionError.unsupportedSegmentType("Unknown transcript entry type")
@@ -281,12 +277,12 @@ extension Transcript.Entry {
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript {
   /// Converts a `FoundationModels.Transcript` back to an array of `SwiftAI.Messages`
-  var messages: [any Message] {
+  var messages: [Message] {
     get throws {
       let entries = Array(self)
 
       // Step 1: Convert each entry to a message
-      var individualMessages: [any Message] = []
+      var individualMessages: [Message] = []
       for entry in entries {
         let message = try entry.message
         individualMessages.append(message)
@@ -300,10 +296,10 @@ extension Transcript {
 
 /// Compacts adjacent messages with the same role by merging their chunks
 @available(iOS 26.0, macOS 26.0, *)
-private func compactAdjacentMessages(_ messages: [any Message]) throws -> [any Message] {
+private func compactAdjacentMessages(_ messages: [Message]) throws -> [Message] {
   guard messages.count > 1 else { return messages }
 
-  var compactedMessages: [any Message] = []
+  var compactedMessages: [Message] = []
   var currentMessage = messages[0]
 
   for i in 1..<messages.count {
@@ -323,7 +319,7 @@ private func compactAdjacentMessages(_ messages: [any Message]) throws -> [any M
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func canMergeMessages(_ message1: any Message, _ message2: any Message) -> Bool {
+private func canMergeMessages(_ message1: Message, _ message2: Message) -> Bool {
   guard message1.role == message2.role else { return false }
 
   switch message1.role {
@@ -335,16 +331,17 @@ private func canMergeMessages(_ message1: any Message, _ message2: any Message) 
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func mergeMessages(_ message1: any Message, _ message2: any Message) throws -> any Message {
-  let allChunks = message1.chunks + message2.chunks
+private func mergeMessages(_ message1: Message, _ message2: Message) throws -> Message {
+  assert(message1.role == message2.role, "Cannot merge messages with different roles")
 
-  switch message1.role {
+  let allChunks = message1.chunks + message2.chunks
+  switch message1 {
   case .system:
-    return SystemMessage(chunks: allChunks)
+    return .system(.init(chunks: allChunks))
   case .user:
-    return UserMessage(chunks: allChunks)
+    return .user(.init(chunks: allChunks))
   case .ai:
-    return AIMessage(chunks: allChunks)
+    return .ai(.init(chunks: allChunks))
   case .toolOutput:
     throw TranscriptConversionError.internalError(
       "Cannot merge messages with toolOutput role")

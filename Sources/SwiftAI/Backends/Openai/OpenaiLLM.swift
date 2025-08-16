@@ -49,27 +49,27 @@ public struct OpenaiLLM: LLM {
   ///   - messages: Initial conversation history
   ///
   /// - Returns: A new Openai thread for stateful conversations
-  public func makeThread(tools: [any Tool], messages: [any Message]) throws -> OpenaiThread {
+  public func makeThread(tools: [any Tool], messages: [Message]) throws -> OpenaiThread {
     return OpenaiThread(messages: messages, tools: tools)
   }
 
   /// Generates a response to a conversation using Openai's Response API.
   ///
   /// - Parameters:
-  ///   - messages: The conversation history. Must end with a UserMessage.
+  ///   - messages: The conversation history. Must end with a user message.
   ///   - tools: Tools available for the conversation (not used in Phase 1)
   ///   - type: The expected return type (must be String in Phase 1)
   ///   - options: Generation options (not used in Phase 1)
   ///
   /// - Returns: The model's response and updated conversation history
   public func reply<T: Generable>(
-    to messages: [any Message],
+    to messages: [Message],
     tools: [any Tool],
     returning type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard let lastMessage = messages.last, lastMessage.role == .user else {
-      throw LLMError.generalError("Conversation must end with a UserMessage")
+      throw LLMError.generalError("Conversation must end with a user message")
     }
 
     // Create a thread with the conversation history excluding the last user message
@@ -100,7 +100,7 @@ public struct OpenaiLLM: LLM {
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
 
-    let userMessage = UserMessage(chunks: prompt.chunks)
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
 
     var input: CreateModelResponseQuery.Input
     var previousResponseID: String?
@@ -143,36 +143,41 @@ public struct OpenaiLLM: LLM {
         }
       }()
 
-      // Convert response to AIMessage
+      // Convert response to AI message
       let aiMsg = try {
         do {
           return try response.asSwiftAIMessage
         } catch {
-          throw LLMError.generalError("Failed to convert response to AIMessage: \(error)")
+          throw LLMError.generalError("Failed to convert response to AI message: \(error)")
         }
       }()
 
-      thread = thread.withNewMessage(aiMsg).withNewResponseID(response.id)
+      thread =
+        thread
+        .withNewMessage(Message.ai(aiMsg))
+        .withNewResponseID(response.id)
 
       let funcCalls = aiMsg.functionCalls
 
       if !funcCalls.isEmpty {
-        var outputToolMessages = [ToolOutput]()
+        var outputToolMessages = [Message]()
         for toolCall in funcCalls {
           // TODO: Consider sending the error to the LLM.
           let toolOutput = try await thread.execute(toolCall: toolCall)
-          thread = thread.withNewMessage(toolOutput)
-          outputToolMessages.append(toolOutput)
+          let toolOutputMessage = Message.toolOutput(toolOutput)
+          thread = thread.withNewMessage(toolOutputMessage)
+          outputToolMessages.append(toolOutputMessage)
         }
 
         input = try CreateModelResponseQuery.Input.from(outputToolMessages)
         previousResponseID = response.id
       }
-    } while !(thread.messages.last is AIMessage)
+    } while thread.messages.last?.role != .ai
 
     // Extract final content from the last AI message
-    guard let finalAIMessage = thread.messages.last as? AIMessage else {
-      throw LLMError.generalError("Final message should be an AIMessage")
+    guard let finalMessage = thread.messages.last, case .ai(let finalAIMessage) = finalMessage
+    else {
+      throw LLMError.generalError("Final message should be an AI message")
     }
 
     let content: T
@@ -197,8 +202,8 @@ public struct OpenaiLLM: LLM {
   }
 }
 
-extension AIMessage {
-  /// Extracts function calls from this AIMessage.
+extension Message.AIMessage {
+  /// Extracts function calls from this AI message.
   ///
   /// This computed property can be used anywhere in the codebase to extract
   /// tool calls from AI messages, making it reusable and testable.

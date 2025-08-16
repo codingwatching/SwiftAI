@@ -14,7 +14,7 @@ import Foundation
 /// ```
 public actor Chat<LLMType: LLM> {
   /// The conversation history including all messages exchanged.
-  public private(set) var messages: [any Message]
+  public private(set) var messages: [Message]
 
   /// The language model used for generating responses.
   public let llm: LLMType
@@ -33,8 +33,11 @@ public actor Chat<LLMType: LLM> {
   ///   - tools: The tools available for the LLM to use (defaults to empty array)
   ///   - initialMessages: Initial conversation history (defaults to empty array)
   /// - Throws: An error if thread creation fails for the provided messages or tools
-  public init(with llm: LLMType, tools: [any Tool] = [], initialMessages: [any Message] = []) throws
-  {
+  public init(
+    with llm: LLMType,
+    tools: [any Tool] = [],
+    initialMessages: [Message] = []
+  ) throws {
     self.llm = llm
     self.tools = tools
     self.messages = initialMessages
@@ -70,7 +73,7 @@ public actor Chat<LLMType: LLM> {
       self.messages = reply.history
       return reply.content
     } else {
-      let userMessage = UserMessage(chunks: prompt.chunks)
+      let userMessage = Message.user(.init(chunks: prompt.chunks))
       let reply = try await llm.reply(
         to: messages + [userMessage],
         tools: tools,

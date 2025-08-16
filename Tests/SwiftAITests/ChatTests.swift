@@ -23,7 +23,7 @@ import Testing
   let chat = try Chat(
     with: fakeLLM,
     initialMessages: [
-      SystemMessage(text: "You are a helpful but very brief assistant")
+      .system(.init(text: "You are a helpful but very brief assistant"))
     ])
   let response = try await chat.send("Explain AI")
 
@@ -103,22 +103,24 @@ import Testing
   // Verify the message history matches expected sequence
   let actualMessages = await chat.messages
 
-  let expectedMessages: [any Message] = [
-    UserMessage(text: "What's the weather?"),
-    AIMessage(chunks: [
-      .toolCall(
-        ToolCall(
-          id: "tool_call_0",
-          toolName: "fake_tool",
-          arguments: "{\"input\":\"weather query\"}"
-        ))
-    ]),
-    ToolOutput(
-      id: "tool_call_0",
-      toolName: "fake_tool",
-      chunks: [.text("Sunny, 25°C")]
-    ),
-    AIMessage(text: "The weather is sunny and 25°C.")
+  let expectedMessages: [Message] = [
+    .user(.init(text: "What's the weather?")),
+    .ai(
+      .init(chunks: [
+        .toolCall(
+          ToolCall(
+            id: "tool_call_0",
+            toolName: "fake_tool",
+            arguments: "{\"input\":\"weather query\"}"
+          ))
+      ])),
+    .toolOutput(
+      .init(
+        id: "tool_call_0",
+        toolName: "fake_tool",
+        chunks: [.text("Sunny, 25°C")]
+      )),
+    .ai(.init(text: "The weather is sunny and 25°C.")),
   ]
 
   #expect(actualMessages.count == expectedMessages.count)

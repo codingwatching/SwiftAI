@@ -19,7 +19,7 @@ public protocol LLM: Model {
   ///
   /// // API-based LLM tracking messages
   /// final class ClaudeThread: Sendable {
-  ///   let messages: [any Message]
+  ///   let messages: [Message]
   /// }
   /// ```
   ///
@@ -36,24 +36,24 @@ public protocol LLM: Model {
   /// tools during generation to access external data or perform computations.
   ///
   /// - Parameters:
-  ///   - messages: The conversation history to send to the LLM. Must end with a UserMessage.
+  ///   - messages: The conversation history to send to the LLM. Must end with a user message.
   ///   - tools: An array of tools available for the LLM to use during generation
   ///   - type: The expected return type conforming to `Generable`
   ///   - options: Configuration options for the LLM request
   /// - Returns: An `LLMReply` containing the generated response and conversation history
-  /// - Throws: An error if the request fails, the response cannot be parsed, or the conversation doesn't end with a UserMessage
+  /// - Throws: An error if the request fails, the response cannot be parsed, or the conversation doesn't end with a user message
   ///
   /// ## Important
   ///
-  /// The conversation history must end with a UserMessage. The LLM will use all previous messages
-  /// as context and respond to the final UserMessage.
+  /// The conversation history must end with a user message. The LLM will use all previous messages
+  /// as context and respond to the final user message.
   ///
   /// ## Usage Example
   ///
   /// ```swift
   /// let messages = [
-  ///   SystemMessage(chunks: [.text("You are a helpful assistant")]),
-  ///   UserMessage(chunks: [.text("What's the weather like?")])
+  ///   .system(.init(text: "You are a helpful assistant")),
+  ///   .user(.init(text: "What's the weather like?"))
   /// ]
   /// let tools = [weatherTool, calculatorTool]
   /// let reply = try await llm.reply(
@@ -65,7 +65,7 @@ public protocol LLM: Model {
   /// print("Temperature: \(reply.content.temperature)°C")
   /// ```
   func reply<T: Generable>(
-    to messages: [any Message],
+    to messages: [Message],
     tools: [any Tool],
     returning type: T.Type,
     options: LLMReplyOptions
@@ -88,7 +88,7 @@ public protocol LLM: Model {
   /// let customerThread = try llm.makeThread(tools: [], messages: [])
   /// let supportThread = try llm.makeThread(tools: [], messages: existingHistory)
   /// ```
-  func makeThread(tools: [any Tool], messages: [any Message]) throws -> Thread
+  func makeThread(tools: [any Tool], messages: [Message]) throws -> Thread
 
   // TODO: Provide defaults for `reply(to:returning:in:options:)`
 
@@ -140,7 +140,7 @@ public final class NullThread: Sendable {}
 
 extension LLM where Thread == NullThread {
   /// Default implementation for stateless LLMs.
-  public func makeThread(tools: [any Tool], messages: [any Message]) throws -> NullThread {
+  public func makeThread(tools: [any Tool], messages: [Message]) throws -> NullThread {
     return NullThread()
   }
 
@@ -160,7 +160,7 @@ extension LLM where Thread == NullThread {
 extension LLM {
   /// Convenience method with default parameters for common use cases.
   public func reply<T: Generable>(
-    to messages: [any Message],
+    to messages: [Message],
     tools: [any Tool] = [],
     returning type: T.Type = String.self,
     options: LLMReplyOptions = .default
@@ -169,7 +169,7 @@ extension LLM {
   }
 
   /// Convenience method to create a thread with default empty tools and messages.
-  public func makeThread(tools: [any Tool] = [], messages: [any Message] = []) throws -> Thread {
+  public func makeThread(tools: [any Tool] = [], messages: [Message] = []) throws -> Thread {
     return try makeThread(tools: tools, messages: messages)
   }
 
@@ -180,8 +180,12 @@ extension LLM {
     returning type: T.Type = String.self,
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
-    let userMessage = UserMessage(chunks: prompt.chunks)
-    return try await reply(to: [userMessage], tools: tools, returning: type, options: options)
+    return try await reply(
+      to: [.user(.init(chunks: prompt.chunks))],
+      tools: tools,
+      returning: type,
+      options: options
+    )
   }
 
   /// Convenience method for threaded replies with default parameters.
@@ -206,9 +210,9 @@ public struct LLMReply<T: Generable> {
   ///
   /// Useful for maintaining conversation context across multiple interactions
   /// or for debugging and logging purposes.
-  public let history: [any Message]
+  public let history: [Message]
 
-  public init(content: T, history: [any Message]) {
+  public init(content: T, history: [Message]) {
     self.content = content
     self.history = history
   }

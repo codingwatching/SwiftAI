@@ -95,7 +95,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func SystemMessageToTranscriptEntry_BasicText() throws {
-  let systemMessage = SystemMessage(text: "You are a helpful assistant.")
+  let systemMessage = Message.system(.init(text: "You are a helpful assistant."))
 
   let entries = try systemMessage.transcriptEntries
 
@@ -117,7 +117,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func UserMessageToTranscriptEntry_BasicText() throws {
-  let userMessage = UserMessage(text: "What's the weather today?")
+  let userMessage = Message.user(.init(text: "What's the weather today?"))
 
   let entries = try userMessage.transcriptEntries
 
@@ -139,7 +139,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func aiMessageToTranscriptEntry_AIMessageWithText() throws {
-  let aiMessage = AIMessage(text: "The weather is sunny today.")
+  let aiMessage = Message.ai(.init(text: "The weather is sunny today."))
 
   let entries = try aiMessage.transcriptEntries
 
@@ -162,7 +162,7 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func aiMessageToTranscriptEntry_AIMessageWithToolCalls() throws {
   let toolCall = ToolCall(id: "call-1", toolName: "get_weather", arguments: #"{"city": "Paris"}"#)
-  let aiMessage = AIMessage(chunks: [.toolCall(toolCall)])
+  let aiMessage = Message.ai(.init(chunks: [.toolCall(toolCall)]))
 
   let entries = try aiMessage.transcriptEntries
 
@@ -181,11 +181,12 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func ToolOutputToTranscriptEntry_BasicText() throws {
-  let toolOutput = SwiftAI.ToolOutput(
-    id: "call-1",
-    toolName: "get_weather",
-    chunks: [.text("Weather in Paris: 22°C, sunny")]
-  )
+  let toolOutput = Message.toolOutput(
+    .init(
+      id: "call-1",
+      toolName: "get_weather",
+      chunks: [.text("Weather in Paris: 22°C, sunny")]
+    ))
 
   let entries = try toolOutput.transcriptEntries
 
@@ -210,12 +211,13 @@ import FoundationModels
 @Test func AIMessageToTranscriptEntries_MixedContentAndToolCalls() throws {
   let toolCall1 = ToolCall(id: "call-1", toolName: "calculator", arguments: #"{"a": 23, "b": 2}"#)
   let toolCall2 = ToolCall(id: "call-2", toolName: "calculator", arguments: #"{"a": 4, "b": 12}"#)
-  let aiMessage = AIMessage(chunks: [
-    .text("I'll calculate that for you."),
-    .toolCall(toolCall1),
-    .toolCall(toolCall2),
-    .text("The calculation is complete.")
-  ])
+  let aiMessage = Message.ai(
+    .init(chunks: [
+      .text("I'll calculate that for you."),
+      .toolCall(toolCall1),
+      .toolCall(toolCall2),
+      .text("The calculation is complete."),
+    ]))
 
   let entries = try aiMessage.transcriptEntries
 
@@ -257,7 +259,7 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func AIMessageToTranscriptEntry_StructuredContent() throws {
   let jsonString = #"{"result": "success", "data": {"count": 42}}"#
-  let aiMessage = AIMessage(chunks: [.structured(jsonString)])
+  let aiMessage = Message.ai(.init(chunks: [.structured(jsonString)]))
 
   let entries = try aiMessage.transcriptEntries
 
@@ -273,11 +275,12 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func UserMessageToTranscriptEntry_MultipleTextChunks() throws {
-  let userMessage = UserMessage(chunks: [
-    .text("Please help me with"),
-    .text(" the following calculation:"),
-    .text(" 15 + 27")
-  ])
+  let userMessage = Message.user(
+    .init(chunks: [
+      .text("Please help me with"),
+      .text(" the following calculation:"),
+      .text(" 15 + 27"),
+    ]))
 
   let entries = try userMessage.transcriptEntries
 
@@ -297,10 +300,10 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_BasicConversation_NoTools() throws {
-  let messages: [any Message] = [
-    SystemMessage(text: "You are a helpful assistant."),
-    UserMessage(text: "Hello, how are you?"),
-    AIMessage(text: "I'm doing well, thank you!")
+  let messages: [Message] = [
+    .system(.init(text: "You are a helpful assistant.")),
+    .user(.init(text: "Hello, how are you?")),
+    .ai(.init(text: "I'm doing well, thank you!")),
   ]
 
   let transcript = try Transcript(messages: messages)
@@ -336,9 +339,9 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_WithTools_AddsToInstructions() throws {
-  let messages: [any Message] = [
-    SystemMessage(text: "You are a helpful assistant."),
-    UserMessage(text: "Calculate 5 + 3")
+  let messages: [Message] = [
+    .system(.init(text: "You are a helpful assistant.")),
+    .user(.init(text: "Calculate 5 + 3")),
   ]
 
   let calculatorTool = MockCalculatorTool()
@@ -366,19 +369,21 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_AIMessageWithToolCalls_CreatesMultipleEntries() throws {
   let toolCall = ToolCall(id: "call-1", toolName: "calculator", arguments: #"{"a": 10, "b": 5}"#)
-  let messages: [any Message] = [
-    SystemMessage(text: "You are a calculator assistant."),
-    UserMessage(text: "Calculate 10 + 5"),
-    AIMessage(chunks: [
-      .text("I'll calculate that for you."),
-      .toolCall(toolCall)
-    ]),
-    SwiftAI.ToolOutput(
-      id: "call-1",
-      toolName: "calculator",
-      chunks: [.text("Result: 15")]
-    ),
-    AIMessage(text: "The result is 15.")
+  let messages: [Message] = [
+    .system(.init(text: "You are a calculator assistant.")),
+    .user(.init(text: "Calculate 10 + 5")),
+    .ai(
+      .init(chunks: [
+        .text("I'll calculate that for you."),
+        .toolCall(toolCall),
+      ])),
+    .toolOutput(
+      .init(
+        id: "call-1",
+        toolName: "calculator",
+        chunks: [.text("Result: 15")]
+      )),
+    .ai(.init(text: "The result is 15.")),
   ]
 
   let transcript = try Transcript(messages: messages)
@@ -420,9 +425,9 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_NoSystemMessage_ToolsCreateInstructions() throws {
-  let messages: [any Message] = [
-    UserMessage(text: "Hello"),
-    AIMessage(text: "Hi there!")
+  let messages: [Message] = [
+    Message.user(.init(text: "Hello")),
+    Message.ai(.init(text: "Hi there!")),
   ]
 
   let calculatorTool = MockCalculatorTool()
@@ -483,7 +488,7 @@ import FoundationModels
       Transcript.Response(
         assetIDs: [],
         segments: [.text(Transcript.TextSegment(content: "Hi there!"))]
-      ))
+      )),
   ]
 
   let transcript = Transcript(entries: entries)
@@ -529,7 +534,7 @@ import FoundationModels
       Transcript.Response(
         assetIDs: [],
         segments: [.text(Transcript.TextSegment(content: "Second response."))]
-      ))
+      )),
   ]
 
   let transcript = Transcript(entries: entries)
@@ -565,7 +570,7 @@ import FoundationModels
         assetIDs: [],
         segments: [.text(Transcript.TextSegment(content: "I'll calculate that."))]
       )),
-    .toolCalls(Transcript.ToolCalls([toolCall]))
+    .toolCalls(Transcript.ToolCalls([toolCall])),
   ]
 
   let transcript = Transcript(entries: entries)
@@ -643,7 +648,7 @@ import FoundationModels
       Transcript.Instructions(
         segments: [
           .text(Transcript.TextSegment(content: "You are a helpful assistant.")),
-          .text(Transcript.TextSegment(content: " Please be concise."))
+          .text(Transcript.TextSegment(content: " Please be concise.")),
         ],
         toolDefinitions: []
       )),
@@ -652,7 +657,7 @@ import FoundationModels
         segments: [
           .text(Transcript.TextSegment(content: "Calculate")),
           .text(Transcript.TextSegment(content: " 10 + 5")),
-          .text(Transcript.TextSegment(content: " for me"))
+          .text(Transcript.TextSegment(content: " for me")),
         ],
         options: GenerationOptions(),
         responseFormat: nil
@@ -666,9 +671,9 @@ import FoundationModels
             Transcript.StructuredSegment(
               source: "calculation",
               content: generatedContent
-            ))
+            )),
         ]
-      ))
+      )),
   ]
 
   let transcript = Transcript(entries: entries)
@@ -743,7 +748,7 @@ import FoundationModels
               source: "analysis",
               content: resultContent
             )),
-          .text(Transcript.TextSegment(content: " Let me use the calculator."))
+          .text(Transcript.TextSegment(content: " Let me use the calculator.")),
         ]
       )),
     .toolCalls(Transcript.ToolCalls([toolCall])),
@@ -753,9 +758,9 @@ import FoundationModels
         toolName: "calculator",
         segments: [
           .text(Transcript.TextSegment(content: "Calculation result: ")),
-          .text(Transcript.TextSegment(content: "15"))
+          .text(Transcript.TextSegment(content: "15")),
         ]
-      ))
+      )),
   ]
 
   let transcript = Transcript(entries: entries)
@@ -797,22 +802,21 @@ import FoundationModels
 
   // Check ToolOutput message
   #expect(messages[1].role == .toolOutput)
-  guard let toolOutput = messages[1] as? SwiftAI.ToolOutput else {
-    Issue.record("Expected SwiftAI.ToolOutput")
-    return
-  }
+  if case .toolOutput(let toolOutput) = messages[1] {
+    #expect(toolOutput.id == "call-1")
+    #expect(toolOutput.toolName == "calculator")
+    #expect(toolOutput.chunks.count == 2)
 
-  #expect(toolOutput.id == "call-1")
-  #expect(toolOutput.toolName == "calculator")
-  #expect(toolOutput.chunks.count == 2)
-
-  if case .text(let content1) = toolOutput.chunks[0],
-    case .text(let content2) = toolOutput.chunks[1]
-  {
-    #expect(content1 == "Calculation result: ")
-    #expect(content2 == "15")
+    if case .text(let content1) = toolOutput.chunks[0],
+      case .text(let content2) = toolOutput.chunks[1]
+    {
+      #expect(content1 == "Calculation result: ")
+      #expect(content2 == "15")
+    } else {
+      Issue.record("Expected two text chunks in tool output")
+    }
   } else {
-    Issue.record("Expected two text chunks in tool output")
+    Issue.record("Expected toolOutput message")
   }
 }
 
@@ -833,7 +837,7 @@ import FoundationModels
         segments: [
           .structure(Transcript.StructuredSegment(source: "step1", content: content1)),
           .structure(Transcript.StructuredSegment(source: "step2", content: content2)),
-          .structure(Transcript.StructuredSegment(source: "step3", content: content3))
+          .structure(Transcript.StructuredSegment(source: "step3", content: content3)),
         ]
       ))
   ]
@@ -929,5 +933,4 @@ func expectStructuredSegment(_ segment: Transcript.Segment, jsonContent expected
     Issue.record("JSON comparison failed: \(error)")
   }
 }
-
 #endif

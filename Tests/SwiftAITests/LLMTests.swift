@@ -8,9 +8,9 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply("Hello from fake LLM!")
 
-  let messages: [any Message] = [
-    SystemMessage(text: "You are a helpful assistant"),
-    UserMessage(text: "Hello!")
+  let messages: [Message] = [
+    .system(.init(text: "You are a helpful assistant")),
+    .user(.init(text: "Hello!")),
   ]
 
   let reply = try await fakeLLM.reply(to: messages)
@@ -30,7 +30,8 @@ import Testing
       "message": "Test message",
       "count": 42
     }
-    """)
+    """
+  )
 
   let reply = try await fakeLLM.reply(
     to: "Generate a fake response",
@@ -43,9 +44,9 @@ import Testing
 }
 
 @Test func messageTypesWork() {
-  let systemMsg = SystemMessage(text: "System prompt")
-  let userMsg = UserMessage(text: "User input")
-  let aiMsg = AIMessage(text: "AI response")
+  let systemMsg = Message.system(.init(text: "System prompt"))
+  let userMsg = Message.user(.init(text: "User input"))
+  let aiMsg = Message.ai(.init(text: "AI response"))
 
   #expect(systemMsg.role == .system)
   #expect(userMsg.role == .user)

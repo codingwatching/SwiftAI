@@ -49,7 +49,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
   // MARK: - LLM Implementation
 
   func reply<T: Generable>(
-    to messages: [any Message],
+    to messages: [Message],
     tools: [any Tool],
     returning type: T.Type,
     options: LLMReplyOptions
@@ -84,17 +84,18 @@ final class FakeLLM: LLM, @unchecked Sendable {
 
       // Add AI message with tool calls
       if !aiChunks.isEmpty {
-        let aiMessage = AIMessage(chunks: aiChunks)
+        let aiMessage = Message.ai(.init(chunks: aiChunks))
         currentMessages.append(aiMessage)
       }
 
       // Simulate tool execution
       for (index, toolCall) in toolCalls.enumerated() {
-        let toolOutputMessage = ToolOutput(
-          id: "tool_call_\(index)",
-          toolName: toolCall.toolName,
-          chunks: [.text(toolCall.expectedOutput)]
-        )
+        let toolOutputMessage = Message.toolOutput(
+          .init(
+            id: "tool_call_\(index)",
+            toolName: toolCall.toolName,
+            chunks: [.text(toolCall.expectedOutput)]
+          ))
         currentMessages.append(toolOutputMessage)
       }
     }
@@ -111,7 +112,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
       content = try decoder.decode(T.self, from: finalResponseData)
     }
 
-    let aiResponse = AIMessage(text: reply.finalResponse)
+    let aiResponse = Message.ai(.init(text: reply.finalResponse))
     let fullHistory = currentMessages + [aiResponse]
 
     return LLMReply(content: content, history: fullHistory)

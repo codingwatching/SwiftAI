@@ -5,7 +5,7 @@ import OpenAI
 
 extension CreateModelResponseQuery.Input {
   /// Creates an Input from SwiftAI messages, properly handling tool calls.
-  static func from(_ messages: [any Message]) throws -> CreateModelResponseQuery.Input {
+  static func from(_ messages: [Message]) throws -> CreateModelResponseQuery.Input {
     return .inputItemList(
       try messages.flatMap { try $0.asOpenaiInputItems }
     )
@@ -17,24 +17,24 @@ extension CreateModelResponseQuery.Input {
 extension Message {
   fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
-      if let userMessage = self as? UserMessage {
+      switch self {
+      case .user(let userMessage):
         return try userMessage.asOpenaiInputItems
-      } else if let systemMessage = self as? SystemMessage {
+      case .system(let systemMessage):
         return try systemMessage.asOpenaiInputItems
-      } else if let aiMessage = self as? AIMessage {
+      case .ai(let aiMessage):
         return try aiMessage.asOpenaiInputItems
-      } else if let toolOutput = self as? ToolOutput {
+      case .toolOutput(let toolOutput):
         return toolOutput.asOpenaiInputItems
-      } else {
-        return []  // TODO: This is unsafe. We should use a sealed hierarchy for messages.
       }
     }
   }
 
+  // TODO: Revisit if we can get rid of this method in favor of inlining it in sub messages.
   fileprivate var asOpenaiEasyInputMessage: EasyInputMessage {
     get throws {
       let role: EasyInputMessage.RolePayload =
-        switch self.role {
+        switch self {
         case .system:
           .system
         case .user:
@@ -42,6 +42,7 @@ extension Message {
         case .ai:
           .assistant
         case .toolOutput:
+          assertionFailure("Tool output messages should not be converted to EasyInputMessage")
           throw LLMError.generalError(
             "Tool output messages should be converted using asOpenaiInputItems, not asOpenaiEasyInputMessage"
           )
@@ -68,23 +69,23 @@ extension Message {
 
 // MARK: - Message Type Implementations
 
-extension UserMessage {
+extension Message.UserMessage {
   fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
-      return [.inputMessage(try asOpenaiEasyInputMessage)]
+      return [.inputMessage(try Message.user(self).asOpenaiEasyInputMessage)]
     }
   }
 }
 
-extension SystemMessage {
+extension Message.SystemMessage {
   fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
-      return [.inputMessage(try asOpenaiEasyInputMessage)]
+      return [.inputMessage(try Message.system(self).asOpenaiEasyInputMessage)]
     }
   }
 }
 
-extension AIMessage {
+extension Message.AIMessage {
   fileprivate var asOpenaiInputItems: [InputItem] {
     get throws {
       var items: [InputItem] = []
@@ -100,7 +101,7 @@ extension AIMessage {
       }
 
       if hasNonToolContent {
-        items.append(.inputMessage(try asOpenaiEasyInputMessage))
+        items.append(.inputMessage(try Message.ai(self).asOpenaiEasyInputMessage))
       }
 
       // Extract tool calls from the message and add each as a separate FunctionToolCall item
@@ -128,7 +129,7 @@ extension AIMessage {
   }
 }
 
-extension ToolOutput {
+extension Message.ToolOutput {
   fileprivate var asOpenaiInputItems: [InputItem] {
     // TODO: This log is repeated several times in the codebase. Refactor it.
     let outputText = chunks.compactMap { chunk in
@@ -211,8 +212,7 @@ private func convertObjectSchema(
     .required(Array(properties.keys)),
     // additionalProperties must be false.
     // https://platform.openai.com/docs/guides/structured-outputs#additionalproperties-false-must-always-be-set-in-objects
-    .additionalProperties(JSONSchema.boolean(false))
-
+    .additionalProperties(JSONSchema.boolean(false)),
   ]
 
   if let description {
@@ -438,7 +438,7 @@ func convertTools(_ tools: [any SwiftAI.Tool]) throws -> [FunctionTool] {
 // MARK: - Openai Response Extensions
 
 extension ResponseObject {
-  var asSwiftAIMessage: AIMessage {
+  var asSwiftAIMessage: Message.AIMessage {
     get throws {
       var chunks = [ContentChunk]()
 
@@ -469,7 +469,7 @@ extension ResponseObject {
         }
       }
 
-      return AIMessage(chunks: chunks)
+      return .init(chunks: chunks)
     }
   }
 }

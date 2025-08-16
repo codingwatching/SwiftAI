@@ -134,7 +134,7 @@ public struct SystemLLM: LLM {
   /// - Returns: A `FoundationLanguageModelThread` that maintains conversation state
   public func makeThread(
     tools: [any Tool],
-    messages: [any Message]
+    messages: [Message]
   ) throws -> FoundationLanguageModelThread {  // TODO: Can we make this method non throwable?
     return try FoundationLanguageModelThread(
       model: model,
@@ -145,13 +145,13 @@ public struct SystemLLM: LLM {
 
   /// Generates a response to a conversation using Apple's on-device language model.
   public func reply<T: Generable>(
-    to messages: [any Message],
+    to messages: [Message],
     tools: [any Tool],
     returning type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard let lastMessage = messages.last, lastMessage.role == .user else {
-      throw LLMError.generalError("Conversation must end with a UserMessage")
+      throw LLMError.generalError("Conversation must end with a user message")
     }
 
     // Split conversation: context (prefix) and the user prompt (last message)
@@ -196,7 +196,7 @@ public struct SystemLLM: LLM {
       throw LLMError.generalError("Model unavailable")
     }
 
-    let userMessage = UserMessage(chunks: prompt.chunks)
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
     do {
       return try await generateResponse(
         session: thread.session,
@@ -220,7 +220,7 @@ public final class FoundationLanguageModelThread: @unchecked Sendable {
   internal init(
     model: SystemLanguageModel,
     tools: [any Tool],
-    messages: [any Message]
+    messages: [Message]
   ) throws {
     let transcript = try FoundationModels.Transcript(messages: messages, tools: tools)
     let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
@@ -236,7 +236,7 @@ public final class FoundationLanguageModelThread: @unchecked Sendable {
 @available(iOS 26.0, macOS 26.0, *)
 private func generateResponse<T: Generable>(
   session: LanguageModelSession,
-  userMessage: any Message,
+  userMessage: Message,
   type: T.Type
 ) async throws -> LLMReply<T> {
   let prompt = toFoundationPrompt(message: userMessage)
@@ -264,7 +264,7 @@ private func generateResponse<T: Generable>(
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func toFoundationPrompt(message: any Message) -> FoundationModels.Prompt {
+private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
   let content = message.chunks.compactMap { chunk in
     switch chunk {
     case .text(let text):

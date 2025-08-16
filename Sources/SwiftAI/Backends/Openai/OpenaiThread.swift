@@ -3,7 +3,7 @@ import OpenAI
 
 /// Maintains the state of a conversation with an Openai language model.
 public final class OpenaiThread: Sendable {
-  let messages: [any Message]
+  let messages: [Message]
   let previousResponseID: String?
   let tools: [any SwiftAI.Tool]
 
@@ -21,7 +21,7 @@ public final class OpenaiThread: Sendable {
   }
 
   init(
-    messages: [any Message] = [],
+    messages: [Message] = [],
     previousResponseID: String? = nil,
     tools: [any SwiftAI.Tool] = []
   ) {
@@ -31,7 +31,7 @@ public final class OpenaiThread: Sendable {
   }
 
   /// Returns a new thread with an additional message appended to the conversation history.
-  func withNewMessage(_ message: any Message) -> OpenaiThread {
+  func withNewMessage(_ message: Message) -> OpenaiThread {
     let updatedMessages = messages + [message]
     return OpenaiThread(
       messages: updatedMessages, previousResponseID: previousResponseID, tools: tools)
@@ -42,7 +42,7 @@ public final class OpenaiThread: Sendable {
     return OpenaiThread(messages: messages, previousResponseID: responseID, tools: tools)
   }
 
-  func execute(toolCall: ToolCall) async throws -> ToolOutput {
+  func execute(toolCall: ToolCall) async throws -> Message.ToolOutput {
     guard let tool = tools.first(where: { $0.name == toolCall.toolName }) else {
       throw LLMError.generalError("Tool '\(toolCall.toolName)' not found")
     }
@@ -50,7 +50,7 @@ public final class OpenaiThread: Sendable {
     let argumentsData = toolCall.arguments.data(using: .utf8) ?? Data()
     let result = try await tool.call(argumentsData)
 
-    return ToolOutput(
+    return .init(
       id: toolCall.id,
       toolName: toolCall.toolName,
       chunks: result.chunks

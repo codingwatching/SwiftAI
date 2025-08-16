@@ -110,8 +110,8 @@ struct OpenaiLLMTests: LLMBaseTestCases {
   func testReply_WithInvalidCredentials_ThrowsError() async throws {
     let invalidLLM = OpenaiLLM(apiToken: "invalid-key", model: "invalid-model-name-12345")
 
-    let messages: [any Message] = [
-      UserMessage(text: "Hello")
+    let messages: [Message] = [
+      .user(.init(text: "Hello"))
     ]
 
     await #expect(throws: LLMError.self) {

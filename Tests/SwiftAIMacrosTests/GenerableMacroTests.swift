@@ -96,6 +96,26 @@ struct GenerableMacroTests {
             ]
           )
         }
+
+        public var generableContent: StructuredContent {
+          StructuredContent(
+            kind: .object([
+              "stringField": self.stringField.generableContent,
+              "intField": self.intField.generableContent,
+              "doubleField": self.doubleField.generableContent,
+              "boolField": self.boolField.generableContent,
+              "optionalString": self.optionalString?.generableContent
+                ?? StructuredContent(kind: .null),
+              "optionalInt": self.optionalInt?.generableContent
+                ?? StructuredContent(kind: .null),
+              "arrayOfStrings": self.arrayOfStrings.generableContent,
+              "arrayOfInts": self.arrayOfInts.generableContent,
+              "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
+                ?? StructuredContent(kind: .null),
+              "customType": self.customType.generableContent,
+            ])
+          )
+        }
       }
       """
     }
@@ -131,6 +151,10 @@ struct GenerableMacroTests {
               )
             ]
           )
+        }
+
+        public var generableContent: StructuredContent {
+          StructuredContent(kind: .object(["name": self.name.generableContent]))
         }
       }
       """
@@ -226,6 +250,16 @@ struct GenerableMacroTests {
                 isOptional: false
               ),
             ]
+          )
+        }
+
+        public var generableContent: StructuredContent {
+          StructuredContent(
+            kind: .object([
+              "name": self.name.generableContent, "age": self.age.generableContent,
+              "score": self.score?.generableContent ?? StructuredContent(kind: .null),
+              "tags": self.tags.generableContent,
+            ])
           )
         }
       }

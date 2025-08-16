@@ -6,11 +6,10 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 // MARK: - Naming Conventions
-// 
+
 // 1. SwiftSyntax variables end with Decl/Expr/Syntax (memberDecls, bindingSyntax, typeSyntax)
 // 2. Parsed syntax nodes end with Descriptor (PropertyDescriptor, GuideDescriptor)
 // 3. Functions that emit code start with emit.
-
 
 // TODO: If @Guide is attached to a non generable field then it should throw an error.
 
@@ -33,6 +32,9 @@ public struct GenerableMacro: ExtensionMacro {
 
     let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): SwiftAI.Generable") {
       try emitSchemaVariable(typeName: typeName, properties: propertyDescriptors)
+        .with(\.trailingTrivia, .newlines(2))
+
+      try emitGenerableContentVariable(typeName: typeName, properties: propertyDescriptors)
     }
 
     return [extensionDecl.formatted()]
@@ -161,6 +163,52 @@ private func emitSchemaVariable(
         }
       })
     )
+    """
+  }
+}
+
+/// Generates a generableContent variable declaration for a Generable type.
+///
+/// ## Example
+///
+/// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
+/// Output: VariableDeclSyntax for:
+///   public var generableContent: StructuredContent {
+///     StructuredContent(kind: .object(["name": self.name.generableContent, ...]))
+///   }
+private func emitGenerableContentVariable(
+  typeName: String,
+  properties: [PropertyDescriptor]
+) throws -> VariableDeclSyntax {
+  var contentProps: [DictionaryElementSyntax] = []
+
+  for property in properties {
+    let propertyName = property.name
+
+    let valueExpr: ExprSyntax
+    if property.isOptional {
+      // Handle optional properties by safely unwrapping
+      valueExpr = ExprSyntax(
+        "self.\(raw: propertyName)?.generableContent ?? StructuredContent(kind: .null)")
+    } else {
+      valueExpr = ExprSyntax("self.\(raw: propertyName).generableContent")
+    }
+
+    let contentProp = DictionaryElementSyntax(
+      key: ExprSyntax(literal: propertyName),
+      value: valueExpr
+    )
+
+    contentProps.append(contentProp)
+  }
+
+  return try VariableDeclSyntax("public var generableContent: StructuredContent") {
+    """
+    StructuredContent(kind: .object(\(DictionaryExprSyntax {
+      for contentProp in contentProps {
+        contentProp
+      }
+    })))
     """
   }
 }

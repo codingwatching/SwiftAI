@@ -5,6 +5,13 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+// MARK: - Naming Conventions
+// 
+// 1. SwiftSyntax variables end with Decl/Expr/Syntax (memberDecls, bindingSyntax, typeSyntax)
+// 2. Parsed syntax nodes end with Descriptor (PropertyDescriptor, GuideDescriptor)
+// 3. Functions that emit code start with emit.
+
+
 // TODO: If @Guide is attached to a non generable field then it should throw an error.
 
 public struct GenerableMacro: ExtensionMacro {
@@ -21,31 +28,18 @@ public struct GenerableMacro: ExtensionMacro {
     }
 
     let typeName = type.trimmed.description
-    let propertyExprs = try makePropertyExpressions(from: structDecl)
+    let propertyDescriptors = try parseStoredProperties(from: structDecl)
     // TODO: Extract description from @Generable macro if provided
 
     let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): SwiftAI.Generable") {
-      try VariableDeclSyntax("public static var schema: Schema") {
-        """
-        .object(
-          name: "\(raw: typeName)",
-          description: nil,
-          properties: \(DictionaryExprSyntax {
-              for propertyExpr in propertyExprs {
-                propertyExpr
-              }
-            })
-
-        )
-        """
-      }
+      try emitSchemaVariable(typeName: typeName, properties: propertyDescriptors)
     }
 
     return [extensionDecl.formatted()]
   }
 }
 
-struct GuideParams {
+struct GuideDescriptor {
   // The user provided description in the @Guide macro.
   let description: String?
 
@@ -54,80 +48,143 @@ struct GuideParams {
   let constraints: [ExprSyntax]
 }
 
-private func makePropertyExpressions(from structDecl: StructDeclSyntax) throws
-  -> [DictionaryElementSyntax]
+/// Extracts stored properties from a struct declaration and parses their metadata.
+///
+/// ## Example
+///
+/// Input: struct User { let name: String, let age: Int? }
+/// Output: [
+///   Property(name: "name", type: "String", isOptional: false, guide: nil),
+///   Property(name: "age", type: "Int", isOptional: true, guide: nil)
+/// ]
+private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
+  -> [PropertyDescriptor]
 {
-  let storedProperties = structDecl.memberBlock.members.compactMap { member in
+  let storedMembersDecls = structDecl.memberBlock.members.compactMap { member in
     member.decl.as(VariableDeclSyntax.self)
   }.filter { variableDecl in
     // Only consider stored properties (let/var without getters and without default values)
-    variableDecl.bindings.allSatisfy { binding in
-      binding.accessorBlock == nil && binding.initializer == nil
+    variableDecl.bindings.allSatisfy { bindingSyntax in
+      bindingSyntax.accessorBlock == nil && bindingSyntax.initializer == nil
     }
     // TODO: Revisit whether properties with default values should be excluded from schema
   }
 
   // TODO: Handle @Generable with a `description` parameter.
 
-  var propertyExpressions: [DictionaryElementSyntax] = []
+  var propertyDescriptors: [PropertyDescriptor] = []
 
-  for property in storedProperties {
-    for binding in property.bindings {
-      guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
+  for memberDecl in storedMembersDecls {
+    for bindingSyntax in memberDecl.bindings {
+      guard let identifierSyntax = bindingSyntax.pattern.as(IdentifierPatternSyntax.self) else {
         throw GenerableMacroError.unsupportedPropertyPattern
       }
 
-      guard let type = binding.typeAnnotation?.type else {
-        let propertyName = pattern.identifier.text
+      guard let typeSyntax = bindingSyntax.typeAnnotation?.type else {
+        let propertyName = identifierSyntax.identifier.text
         throw GenerableMacroError.missingTypeAnnotation(propertyName: propertyName)
       }
 
-      let propertyName = pattern.identifier.text
-      let isOptional = type.is(OptionalTypeSyntax.self)
+      let propertyName = identifierSyntax.identifier.text
+      let isOptional = typeSyntax.is(OptionalTypeSyntax.self)
 
-      try validateNotArrayOfOptional(type: type, propertyName: propertyName)
+      try validateNotArrayOfOptional(type: typeSyntax, propertyName: propertyName)
 
       // Parse @Guide attributes for this property
-      let guideInfo = parseGuideAttributes(for: property)
-      let schemaExpr = makeSchemaExpression(for: type, guideInfo: guideInfo)
+      let guideDescriptor = parseGuideMacro(for: memberDecl)
 
-      let descriptionExpr: ExprSyntax =
-        if let desc = guideInfo?.description {
-          ExprSyntax(literal: desc)
-        } else {
-          ExprSyntax("nil")
-        }
-
-      let propertyExpr = DictionaryElementSyntax(
-        key: ExprSyntax(literal: propertyName),
-        value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
-          LabeledExprSyntax(label: "schema", expression: schemaExpr)
-          LabeledExprSyntax(label: "description", expression: descriptionExpr)
-          LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
-        }
+      let propertyDescriptor = PropertyDescriptor(
+        name: propertyName,
+        type: typeSyntax,
+        isOptional: isOptional,
+        guide: guideDescriptor
       )
-
-      propertyExpressions.append(propertyExpr)
+      propertyDescriptors.append(propertyDescriptor)
     }
   }
 
-  return propertyExpressions
+  return propertyDescriptors
 }
 
-private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? = nil)
+/// Generates a static schema variable declaration for a Generable type.
+///
+/// ## Example
+///
+/// Input: typeName: "User", properties: [Property(name: "name", type: "String", ...)]
+/// Output: VariableDeclSyntax for:
+///   public static var schema: Schema {
+///     .object(name: "User", description: nil, properties: ["name": Schema.Property(...)])
+///   }
+private func emitSchemaVariable(
+  typeName: String,
+  properties: [PropertyDescriptor]
+) throws -> VariableDeclSyntax {
+  var schemaPropExprs: [DictionaryElementSyntax] = []
+
+  for property in properties {
+    let propertyName = property.name
+    let isOptional = property.isOptional
+
+    try validateNotArrayOfOptional(type: property.type, propertyName: propertyName)
+
+    // Parse @Guide attributes for this property
+    let guideInfo = property.guide
+    let schemaExpr = emitSchemaExpression(for: property.type, guideInfo: guideInfo)
+
+    let descriptionExpr: ExprSyntax =
+      if let desc = guideInfo?.description {
+        ExprSyntax(literal: desc)
+      } else {
+        ExprSyntax("nil")
+      }
+
+    let schemaPropExpr = DictionaryElementSyntax(
+      key: ExprSyntax(literal: propertyName),
+      value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
+        LabeledExprSyntax(label: "schema", expression: schemaExpr)
+        LabeledExprSyntax(label: "description", expression: descriptionExpr)
+        LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
+      }
+    )
+
+    schemaPropExprs.append(schemaPropExpr)
+  }
+
+  return try VariableDeclSyntax("public static var schema: Schema") {
+    """
+    .object(
+      name: "\(raw: typeName)",
+      description: nil,
+      properties: \(DictionaryExprSyntax {
+        for schemaPropExpr in schemaPropExprs {
+          schemaPropExpr
+        }
+      })
+    )
+    """
+  }
+}
+
+/// Generates a schema expression for a given type with optional constraints.
+///
+/// ## Example
+///
+/// Input: type: "String", guideInfo: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
+/// Output: ExprSyntax for: .string(constraints: [Constraint<String>.minLength(3)])
+private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescriptor? = nil)
   -> ExprSyntax
 {
   let typeName = type.trimmed.description
 
   // Handle optional types
   if let optionalType = type.as(OptionalTypeSyntax.self) {
-    return makeSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
+    return emitSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
   }
 
   // Handle array types
   if let arrayType = type.as(ArrayTypeSyntax.self) {
-    let elementSchema = makeSchemaExpression(for: arrayType.element)
-    let constraintsExpr = makeConstraintsExpression(
+    let elementSchema = emitSchemaExpression(for: arrayType.element)
+    let constraintsExpr = emitConstraintsExpression(
       from: guideInfo, isArray: true, elementType: arrayType.element)
 
     return ExprSyntax(
@@ -148,7 +205,7 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? 
 
   // Handle basic types with constraints
   if let schemaKind = typeToSchemaKind[typeName] {
-    let constraintsExpr = makeConstraintsExpression(from: guideInfo)
+    let constraintsExpr = emitConstraintsExpression(from: guideInfo)
     return ExprSyntax(
       FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
         LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
@@ -161,7 +218,13 @@ private func makeSchemaExpression(for type: TypeSyntax, guideInfo: GuideParams? 
   }
 }
 
-private func parseGuideAttributes(for property: VariableDeclSyntax) -> GuideParams? {
+/// Parses @Guide attributes from a property declaration to extract description and constraints.
+///
+/// ## Example
+///
+/// Input: @Guide("User name", .minLength(3)) let name: String
+/// Output: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
+private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescriptor? {
   // Look for @Guide attributes on this property
   for attribute in property.attributes {
     if case .attribute(let attr) = attribute,
@@ -197,15 +260,21 @@ private func parseGuideAttributes(for property: VariableDeclSyntax) -> GuidePara
 
       // Only return GuideInfo if we have constraints or a description
       if !constraints.isEmpty || description != nil {
-        return GuideParams(description: description, constraints: constraints)
+        return GuideDescriptor(description: description, constraints: constraints)
       }
     }
   }
   return nil
 }
 
-private func makeConstraintsExpression(
-  from guideInfo: GuideParams?,
+/// Generates a constraints expression array from guide information.
+///
+/// ## Example
+///
+/// Input: guideInfo: GuideDescriptor(constraints: [.minLength(3), .maxLength(50)])
+/// Output: ExprSyntax for: [Constraint<String>.minLength(3), Constraint<String>.maxLength(50)]
+private func emitConstraintsExpression(
+  from guideInfo: GuideDescriptor?,
   isArray: Bool = false,
   elementType: TypeSyntax? = nil
 ) -> ExprSyntax {
@@ -213,7 +282,7 @@ private func makeConstraintsExpression(
     return ExprSyntax("[]")
   }
 
-  let elements = guideInfo.constraints.enumerated().map { (index, constraint) in
+  let constraintExprs = guideInfo.constraints.enumerated().map { (index, constraint) in
     let expression: ExprSyntax = {
       if isArray, let elementType = elementType {
         let typeName = elementType.trimmed.description
@@ -228,7 +297,7 @@ private func makeConstraintsExpression(
     )
   }
 
-  return ExprSyntax(ArrayExprSyntax(elements: ArrayElementListSyntax(elements)))
+  return ExprSyntax(ArrayExprSyntax(elements: ArrayElementListSyntax(constraintExprs)))
 }
 
 private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {
@@ -247,6 +316,21 @@ private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) 
         propertyName: propertyName, elementType: elementTypeName)
     }
   }
+}
+
+/// Metadata about a property extracted from a struct declaration.
+private struct PropertyDescriptor {
+  /// The name of the property.
+  let name: String
+
+  /// The type of the property.
+  let type: TypeSyntax
+
+  /// Whether the property is optional.
+  let isOptional: Bool
+
+  /// Guide information including description and constraints.
+  let guide: GuideDescriptor?
 }
 
 enum GenerableMacroError: Error, CustomStringConvertible {

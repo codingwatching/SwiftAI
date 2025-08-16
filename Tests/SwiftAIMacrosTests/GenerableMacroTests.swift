@@ -94,7 +94,6 @@ struct GenerableMacroTests {
                 isOptional: false
               ),
             ]
-
           )
         }
       }
@@ -131,7 +130,6 @@ struct GenerableMacroTests {
                 isOptional: false
               )
             ]
-
           )
         }
       }
@@ -228,7 +226,6 @@ struct GenerableMacroTests {
                 isOptional: false
               ),
             ]
-
           )
         }
       }

@@ -37,9 +37,9 @@ protocol LLMBaseTestCases {
 
 extension LLMBaseTestCases {
   func testReply_ToPrompt_Impl() async throws {
-    let reply = try await llm.reply(
-      to: [.user(.init(text: "Say hello in exactly one word."))]
-    )
+    let reply = try await llm.reply {
+      "Say hello in exactly one word."
+    }
 
     #expect(!reply.content.isEmpty)
     #expect(reply.history.count == 2)
@@ -48,10 +48,11 @@ extension LLMBaseTestCases {
   }
 
   func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {
-    let reply: LLMReply<SimpleResponse> = try await llm.reply(
-      to: "Create a simple response with message 'Hello', count 42, and isValid true",
-      returning: SimpleResponse.self
-    )
+    let reply = try await llm.reply(
+      returning: SimpleResponse.self,
+      to: {
+        "Create a simple response with message 'Hello', count 42, and isValid true"
+      })
 
     let expected = SimpleResponse(message: "Hello", count: 42, isValid: true)
     #expect(reply.content == expected)
@@ -123,18 +124,21 @@ extension LLMBaseTestCases {
 
   func testReply_InThread_MaintainsContext_Impl() async throws {
     // Create a new thread for conversation
-    var thread = llm.makeThread()
+    var thread = llm.makeThread(instructions: {
+      "You are a helpful assistant."
+    })
 
     // Turn 1: Introduce name
     let reply1 = try await llm.reply(
-      to: "Hi my name is Achraf",
+      to: "Hi my name is Tom",
       in: &thread
     )
 
     #expect(!reply1.content.isEmpty)
-    #expect(reply1.history.count == 2)  // User message + AI response
-    #expect(reply1.history[0].role == Role.user)
-    #expect(reply1.history[1].role == Role.ai)
+    #expect(reply1.history.count == 3)  // System message + User message + AI response
+    #expect(reply1.history[0].role == Role.system)
+    #expect(reply1.history[1].role == Role.user)
+    #expect(reply1.history[2].role == Role.ai)
 
     // Turn 2: Ask for name recall
     let reply2 = try await llm.reply(
@@ -143,8 +147,8 @@ extension LLMBaseTestCases {
     )
 
     #expect(!reply2.content.isEmpty)
-    #expect(reply2.content.contains("Achraf"))  // Should remember the name
-    #expect(reply2.history.count == 4)  // Full conversation history: User1 + AI1 + User2 + AI2
+    #expect(reply2.content.lowercased().contains("tom"))  // Should remember the name
+    #expect(reply2.history.count == 5)  // Full conversation history: User1 + AI1 + User2 + AI2
 
     // Turn 3: Request structured output with name context
     let reply3 = try await llm.reply(
@@ -153,7 +157,7 @@ extension LLMBaseTestCases {
       in: &thread
     )
 
-    #expect(reply3.content.message.contains("Achraf"))  // Should include name in structured response
+    #expect(reply3.content.message.lowercased().contains("tom"))  // Should include name in structured response
     #expect(reply3.content.count == 1)
     #expect(reply3.content.isValid == true)
   }
@@ -199,8 +203,8 @@ extension LLMBaseTestCases {
 
     let reply: LLMReply<CalculationResult> = try await llm.reply(
       to: "Calculate 10 * 5 and return the result in the specified format",
-      tools: [calculatorTool],
-      returning: CalculationResult.self
+      returning: CalculationResult.self,
+      tools: [calculatorTool]
     )
 
     // Verify the calculator tool was called with correct arguments
@@ -343,8 +347,8 @@ extension LLMBaseTestCases {
 
     let reply = try await llm.reply(
       to: messages,
-      tools: [MockCalculatorTool(), MockWeatherTool()],
-      returning: ConversationSummary.self
+      returning: ConversationSummary.self,
+      tools: [MockCalculatorTool(), MockWeatherTool()]
     )
 
     let summary = reply.content

@@ -75,8 +75,8 @@ public actor Chat<LLMType: LLM> {
       let userMessage = Message.user(.init(chunks: prompt.chunks))
       let reply = try await llm.reply(
         to: messages + [userMessage],
-        tools: tools,
         returning: type,
+        tools: tools,
         options: options
       )
       self.messages = reply.history

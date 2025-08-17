@@ -64,8 +64,8 @@ public struct OpenaiLLM: LLM {
   /// - Returns: The model's response and updated conversation history
   public func reply<T: Generable>(
     to messages: [Message],
-    tools: [any Tool],
     returning type: T.Type,
+    tools: [any Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard let lastMessage = messages.last, lastMessage.role == .user else {

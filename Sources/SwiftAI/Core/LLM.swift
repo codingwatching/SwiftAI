@@ -58,16 +58,16 @@ public protocol LLM: Model {
   /// let tools = [weatherTool, calculatorTool]
   /// let reply = try await llm.reply(
   ///   to: messages,
-  ///   tools: tools,
   ///   returning: WeatherReport.self,
+  ///   tools: [weatherTool, calculatorTool],
   ///   options: .default
   /// )
   /// print("Temperature: \(reply.content.temperature)°C")
   /// ```
   func reply<T: Generable>(
     to messages: [Message],
-    tools: [any Tool],
     returning type: T.Type,
+    tools: [any Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 
@@ -160,11 +160,11 @@ extension LLM {
   /// Convenience method with default parameters for common use cases.
   public func reply<T: Generable>(
     to messages: [Message],
-    tools: [any Tool] = [],
     returning type: T.Type = String.self,
+    tools: [any Tool] = [],
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
-    return try await reply(to: messages, tools: tools, returning: type, options: options)
+    return try await reply(to: messages, returning: type, tools: tools, options: options)
   }
 
   /// Convenience method to create a thread with default empty tools and messages.
@@ -172,17 +172,45 @@ extension LLM {
     return makeThread(tools: tools, messages: messages)
   }
 
+  /// Convenience method to create a thread with PromptBuilder instructions.
+  public func makeThread(
+    tools: [any Tool] = [],
+    @PromptBuilder instructions: () -> Prompt
+  ) -> Thread {
+    let prompt = instructions()
+    let systemMessage = Message.system(.init(chunks: prompt.chunks))
+    return makeThread(tools: tools, messages: [systemMessage])
+  }
+
   /// Convenience method for prompt-based queries with default parameters.
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
-    tools: [any Tool] = [],
     returning type: T.Type = String.self,
+    tools: [any Tool] = [],
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
     return try await reply(
-      to: [.user(.init(chunks: prompt.chunks))],
-      tools: tools,
+      to: [userMessage],
       returning: type,
+      tools: tools,
+      options: options
+    )
+  }
+
+  /// Convenience method for prompt-based queries with PromptBuilder.
+  public func reply<T: Generable>(
+    returning type: T.Type = String.self,
+    tools: [any Tool] = [],
+    options: LLMReplyOptions = .default,
+    @PromptBuilder to content: () -> Prompt
+  ) async throws -> LLMReply<T> {
+    let prompt = content()
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
+    return try await reply(
+      to: [userMessage],
+      returning: type,
+      tools: tools,
       options: options
     )
   }
@@ -195,6 +223,16 @@ extension LLM {
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
     return try await reply(to: prompt, returning: type, in: &thread, options: options)
+  }
+
+  /// Convenience method for threaded replies with PromptBuilder.
+  public func reply<T: Generable>(
+    returning type: T.Type = String.self,
+    in thread: inout Thread,
+    options: LLMReplyOptions = .default,
+    @PromptBuilder to content: () -> Prompt
+  ) async throws -> LLMReply<T> {
+    return try await reply(to: content(), returning: type, in: &thread, options: options)
   }
 }
 

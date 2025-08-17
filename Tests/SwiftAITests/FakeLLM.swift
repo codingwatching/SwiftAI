@@ -50,8 +50,8 @@ final class FakeLLM: LLM, @unchecked Sendable {
 
   func reply<T: Generable>(
     to messages: [Message],
-    tools: [any Tool],
     returning type: T.Type,
+    tools: [any Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard !replyQueue.isEmpty else {

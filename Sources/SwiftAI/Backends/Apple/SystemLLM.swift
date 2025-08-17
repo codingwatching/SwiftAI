@@ -146,8 +146,8 @@ public struct SystemLLM: LLM {
   /// Generates a response to a conversation using Apple's on-device language model.
   public func reply<T: Generable>(
     to messages: [Message],
-    tools: [any Tool],
     returning type: T.Type,
+    tools: [any Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard let lastMessage = messages.last, lastMessage.role == .user else {

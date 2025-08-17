@@ -47,7 +47,7 @@ public final class OpenaiThread: Sendable {
       throw LLMError.generalError("Tool '\(toolCall.toolName)' not found")
     }
 
-    let argumentsData = toolCall.arguments.data(using: .utf8) ?? Data()
+    let argumentsData = toolCall.arguments.jsonString.data(using: .utf8) ?? Data()
     let result = try await tool.call(argumentsData)
 
     return .init(

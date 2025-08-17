@@ -41,10 +41,11 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func ToolCallChunkToSegment_ReturnsNil() throws {
-  let toolCall = ToolCall(id: "call-1", toolName: "calculator", arguments: #"{"a": 5}"#)
+  let toolCall = ToolCall(
+    id: "call-1", toolName: "calculator", arguments: try! StructuredContent(json: #"{"a": 5}"#))
   let toolCallChunk = ContentChunk.toolCall(toolCall)
 
-  let segment = try toolCallChunk.asTranscriptSegment
+  let segment = toolCallChunk.asTranscriptSegment
 
   #expect(segment == nil)
 }
@@ -161,7 +162,9 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func aiMessageToTranscriptEntry_AIMessageWithToolCalls() throws {
-  let toolCall = ToolCall(id: "call-1", toolName: "get_weather", arguments: #"{"city": "Paris"}"#)
+  let toolCall = ToolCall(
+    id: "call-1", toolName: "get_weather",
+    arguments: try! StructuredContent(json: #"{"city": "Paris"}"#))
   let aiMessage = Message.ai(.init(chunks: [.toolCall(toolCall)]))
 
   let entries = try aiMessage.asTranscriptEntries
@@ -209,8 +212,12 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func AIMessageToTranscriptEntries_MixedContentAndToolCalls() throws {
-  let toolCall1 = ToolCall(id: "call-1", toolName: "calculator", arguments: #"{"a": 23, "b": 2}"#)
-  let toolCall2 = ToolCall(id: "call-2", toolName: "calculator", arguments: #"{"a": 4, "b": 12}"#)
+  let toolCall1 = ToolCall(
+    id: "call-1", toolName: "calculator",
+    arguments: try! StructuredContent(json: #"{"a": 23, "b": 2}"#))
+  let toolCall2 = ToolCall(
+    id: "call-2", toolName: "calculator",
+    arguments: try! StructuredContent(json: #"{"a": 4, "b": 12}"#))
   let aiMessage = Message.ai(
     .init(chunks: [
       .text("I'll calculate that for you."),
@@ -368,7 +375,11 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_AIMessageWithToolCalls_CreatesMultipleEntries() throws {
-  let toolCall = ToolCall(id: "call-1", toolName: "calculator", arguments: #"{"a": 10, "b": 5}"#)
+  let toolCall = ToolCall(
+    id: "call-1",
+    toolName: "calculator",
+    arguments: try! StructuredContent(json: #"{"a": 10, "b": 5}"#)
+  )
   let messages: [Message] = [
     .system(.init(text: "You are a calculator assistant.")),
     .user(.init(text: "Calculate 10 + 5")),
@@ -591,7 +602,8 @@ import FoundationModels
   if case .toolCall(let swiftAIToolCall) = messages[0].chunks[1] {
     #expect(swiftAIToolCall.id == "call-1")
     #expect(swiftAIToolCall.toolName == "calculator")
-    try expectJSONEqual(swiftAIToolCall.arguments, #"{"operation": "add", "a": 5, "b": 3}"#)
+    try expectJSONEqual(
+      swiftAIToolCall.arguments.jsonString, #"{"operation": "add", "a": 5, "b": 3}"#)
   } else {
     Issue.record("Expected tool call chunk")
   }
@@ -795,7 +807,7 @@ import FoundationModels
   if case .toolCall(let swiftAIToolCall) = messages[0].chunks[3] {
     #expect(swiftAIToolCall.id == "call-1")
     #expect(swiftAIToolCall.toolName == "calculator")
-    try expectJSONEqual(swiftAIToolCall.arguments, calculationJSON)
+    try expectJSONEqual(swiftAIToolCall.arguments.jsonString, calculationJSON)
   } else {
     Issue.record("Expected fourth chunk to be tool call")
   }

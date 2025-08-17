@@ -18,7 +18,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
 
   struct FakeToolCall {
     let toolName: String
-    let arguments: [String: Sendable]
+    let arguments: StructuredContent
     let expectedOutput: String
   }
 
@@ -70,15 +70,12 @@ final class FakeLLM: LLM, @unchecked Sendable {
           throw FakeLLMError.toolNotFound(toolCall.toolName)
         }
 
-        let argumentsData = try JSONSerialization.data(withJSONObject: toolCall.arguments)
-        let argumentsString = String(data: argumentsData, encoding: .utf8) ?? "{}"
-
         aiChunks.append(
           .toolCall(
             ToolCall(
               id: "tool_call_\(index)",
               toolName: toolCall.toolName,
-              arguments: argumentsString
+              arguments: toolCall.arguments
             )))
       }
 

@@ -272,7 +272,7 @@ private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
     case .structured(let json):
       return json.jsonString
     case .toolCall(let toolCall):
-      return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments)"
+      return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments.jsonString)"
     }
   }.joined(separator: "\n")  // TODO: Revisit the separator.
 

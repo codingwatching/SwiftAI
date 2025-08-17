@@ -292,7 +292,9 @@ extension LLMBaseTestCases {
             ToolCall(
               id: "call-1",
               toolName: "calculator",
-              arguments: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
+              arguments: try! StructuredContent(
+                json: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
+              )
             )),
         ])),
       .toolOutput(
@@ -316,7 +318,9 @@ extension LLMBaseTestCases {
             ToolCall(
               id: "call-2",
               toolName: "get_weather",
-              arguments: #"{"city": "Paris", "unit": "celsius"}"#
+              arguments: try! StructuredContent(
+                json: #"{"city": "Paris", "unit": "celsius"}"#
+              )
             )),
         ])),
       .toolOutput(

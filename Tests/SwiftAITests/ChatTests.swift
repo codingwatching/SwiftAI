@@ -34,7 +34,7 @@ import Testing
   let fakeLLM = FakeLLM()
   let fakeToolCall = FakeLLM.FakeToolCall(
     toolName: "fake_tool",
-    arguments: ["input": "test input"],
+    arguments: try! StructuredContent(json: #"{"input": "test input"}"#),
     expectedOutput: "Tool executed successfully"
   )
   fakeLLM.queueReply(
@@ -87,7 +87,7 @@ import Testing
   let fakeLLM = FakeLLM()
   let fakeToolCall = FakeLLM.FakeToolCall(
     toolName: "fake_tool",
-    arguments: ["input": "weather query"],
+    arguments: try! StructuredContent(json: #"{"input": "weather query"}"#),
     expectedOutput: "Sunny, 25°C"
   )
   fakeLLM.queueReply(
@@ -111,7 +111,7 @@ import Testing
           ToolCall(
             id: "tool_call_0",
             toolName: "fake_tool",
-            arguments: "{\"input\":\"weather query\"}"
+            arguments: try! StructuredContent(json: #"{"input":"weather query"}"#)
           ))
       ])),
     .toolOutput(

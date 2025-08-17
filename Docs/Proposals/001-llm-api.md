@@ -311,7 +311,7 @@ enum ContentChunk: Sendable, Equatable {
 struct ToolCall: Sendable, Equatable {
   let id: String
   let toolName: String
-  let arguments: String // JSON
+  let arguments: StructuredContent
 }
 ```
 

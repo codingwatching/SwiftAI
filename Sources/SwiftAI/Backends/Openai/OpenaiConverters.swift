@@ -118,7 +118,7 @@ extension Message.AIMessage {
           _type: .functionCall,
           callId: toolCall.id,
           name: toolCall.toolName,
-          arguments: toolCall.arguments,
+          arguments: toolCall.arguments.jsonString,
           status: nil
         )
         items.append(.item(.functionToolCall(functionToolCall)))
@@ -454,12 +454,12 @@ extension ResponseObject {
               throw LLMError.generalError("Request refused: \(refusalContent.refusal)")
             }
           }
-        case .functionToolCall(let functionCall):
+        case .functionToolCall(let fnCall):
           // Convert function calls to tool call chunks
           let toolCall = ToolCall(
-            id: functionCall.callId,
-            toolName: functionCall.name,
-            arguments: functionCall.arguments
+            id: fnCall.callId,
+            toolName: fnCall.name,
+            arguments: try StructuredContent(json: fnCall.arguments)
           )
           chunks.append(.toolCall(toolCall))
         default:

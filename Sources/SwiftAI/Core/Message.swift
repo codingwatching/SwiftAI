@@ -150,11 +150,10 @@ public struct ToolCall: Sendable, Equatable {
   /// The name of the tool to execute.
   public let toolName: String
 
-  // TODO: Revisit the type of arguments.
-  /// The arguments to pass to the tool as JSON serialization.
-  public let arguments: String
+  /// The arguments to pass to the tool as structured content.
+  public let arguments: StructuredContent
 
-  public init(id: String, toolName: String, arguments: String) {
+  public init(id: String, toolName: String, arguments: StructuredContent) {
     self.id = id
     self.toolName = toolName
     self.arguments = arguments

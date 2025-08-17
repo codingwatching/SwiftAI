@@ -90,78 +90,75 @@ extension Message {
   /// One message may be converted to multiple transcript entries because
   /// we ToolCalls are represented as a separate transcript entry in FoundationModels.
   var asTranscriptEntries: [Transcript.Entry] {
-    get throws {
-      switch self {
-      case .system(let message):
-        let segments = message.chunks.compactMap { $0.asTranscriptSegment }
-        let instructions = Transcript.Instructions(
-          segments: segments,
-          toolDefinitions: []
-        )
-        return [.instructions(instructions)]
+    switch self {
+    case .system(let message):
+      let segments = message.chunks.compactMap { $0.asTranscriptSegment }
+      let instructions = Transcript.Instructions(
+        segments: segments,
+        toolDefinitions: []
+      )
+      return [.instructions(instructions)]
 
-      case .user:
-        let segments = chunks.compactMap { $0.asTranscriptSegment }
-        let prompt = Transcript.Prompt(
-          segments: segments,
-          options: GenerationOptions(),  // TODO: Default options used
-          responseFormat: nil  // TODO: Handle response format if needed
-        )
-        return [.prompt(prompt)]
+    case .user:
+      let segments = chunks.compactMap { $0.asTranscriptSegment }
+      let prompt = Transcript.Prompt(
+        segments: segments,
+        options: GenerationOptions(),  // TODO: Default options used
+        responseFormat: nil  // TODO: Handle response format if needed
+      )
+      return [.prompt(prompt)]
 
-      case .ai:
-        var entries: [Transcript.Entry] = []
+    case .ai:
+      var entries: [Transcript.Entry] = []
 
-        let nonToolChunks = chunks.filter { chunk in
-          switch chunk {
-          case .text, .structured: return true
-          case .toolCall: return false
-          }
+      let nonToolChunks = chunks.filter { chunk in
+        switch chunk {
+        case .text, .structured: return true
+        case .toolCall: return false
         }
+      }
 
-        let toolCallChunks = chunks.compactMap { chunk -> ToolCall? in
-          switch chunk {
-          case .toolCall(let toolCall): return toolCall
-          default: return nil
-          }
+      let toolCallChunks = chunks.compactMap { chunk -> ToolCall? in
+        switch chunk {
+        case .toolCall(let toolCall): return toolCall
+        default: return nil
         }
+      }
 
-        // If there are content chunks, create a Response entry.
-        if !nonToolChunks.isEmpty {
-          let segments = nonToolChunks.compactMap { $0.asTranscriptSegment }
-          let response = Transcript.Response(
-            assetIDs: [],  // TODO: Default empty asset IDs
-            segments: segments
-          )
-          entries.append(.response(response))
-        }
-
-        // If there are tool call chunks, create a ToolCalls entry.
-        if !toolCallChunks.isEmpty {
-          let transcriptToolCalls = try toolCallChunks.map { toolCall in
-            let generatedContent = try GeneratedContent(json: toolCall.arguments)
-            return Transcript.ToolCall(
-              id: toolCall.id,
-              toolName: toolCall.toolName,
-              arguments: generatedContent
-            )
-          }
-
-          let toolCalls = Transcript.ToolCalls(transcriptToolCalls)
-          entries.append(.toolCalls(toolCalls))
-        }
-
-        return entries
-
-      case .toolOutput(let toolOutput):
-        let segments = chunks.compactMap { $0.asTranscriptSegment }
-        let transcriptToolOutput = Transcript.ToolOutput(
-          id: toolOutput.id,
-          toolName: toolOutput.toolName,
+      // If there are content chunks, create a Response entry.
+      if !nonToolChunks.isEmpty {
+        let segments = nonToolChunks.compactMap { $0.asTranscriptSegment }
+        let response = Transcript.Response(
+          assetIDs: [],  // TODO: Default empty asset IDs
           segments: segments
         )
-        return [.toolOutput(transcriptToolOutput)]
+        entries.append(.response(response))
       }
+
+      // If there are tool call chunks, create a ToolCalls entry.
+      if !toolCallChunks.isEmpty {
+        let transcriptToolCalls = toolCallChunks.map { toolCall in
+          return Transcript.ToolCall(
+            id: toolCall.id,
+            toolName: toolCall.toolName,
+            arguments: toolCall.arguments.generatedContent
+          )
+        }
+
+        let toolCalls = Transcript.ToolCalls(transcriptToolCalls)
+        entries.append(.toolCalls(toolCalls))
+      }
+
+      return entries
+
+    case .toolOutput(let toolOutput):
+      let segments = chunks.compactMap { $0.asTranscriptSegment }
+      let transcriptToolOutput = Transcript.ToolOutput(
+        id: toolOutput.id,
+        toolName: toolOutput.toolName,
+        segments: segments
+      )
+      return [.toolOutput(transcriptToolOutput)]
     }
   }
 }
@@ -226,7 +223,7 @@ extension Transcript {
 
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript.Entry {
-  /// Converts a `FoundationModels.Transcript.Entry` to a `SwiftAI.Message`
+  /// Transcript.Entry → Message
   var message: Message {
     get throws {
       switch self {
@@ -243,12 +240,13 @@ extension Transcript.Entry {
         return .ai(.init(chunks: chunks))
 
       case .toolCalls(let toolCalls):
-        let chunks = toolCalls.map { toolCall in
+        let chunks = try toolCalls.map { toolCall in
           return ContentChunk.toolCall(
             .init(
               id: toolCall.id,
               toolName: toolCall.toolName,
-              arguments: toolCall.arguments.jsonString
+              // TODO: We can convert to StructuredContent safely by mapping the GeneratedContent.Kind to StructuredContent.Kind
+              arguments: try StructuredContent(json: toolCall.arguments.jsonString)
             ))
         }
         return .ai(.init(chunks: chunks))

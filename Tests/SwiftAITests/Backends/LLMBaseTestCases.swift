@@ -18,7 +18,7 @@ protocol LLMBaseTestCases {
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws
   func testReply_ReturningNestedObjects_ReturnsCorrectContent() async throws
 
-  // MARK: - Threading Tests
+  // MARK: - Conversation Threading Tests
   func testReply_InThread_MaintainsContext() async throws
 
   // MARK: - Tool Calling Tests
@@ -143,8 +143,8 @@ extension LLMBaseTestCases {
   }
 
   func testReply_InThread_MaintainsContext_Impl() async throws {
-    // Create a new thread for conversation
-    var thread = llm.makeThread(instructions: {
+    // Create a new conversation thread for conversation
+    var thread = llm.makeConversationThread(instructions: {
       "You are a helpful assistant."
     })
 
@@ -243,8 +243,8 @@ extension LLMBaseTestCases {
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
-    // Create thread with tools
-    var thread = llm.makeThread(tools: [calculatorTool, weatherTool])
+    // Create conversation thread with tools
+    var thread = llm.makeConversationThread(tools: [calculatorTool, weatherTool])
 
     // First interaction: calculator
     let _ = try await llm.reply(
@@ -416,8 +416,8 @@ extension LLMBaseTestCases {
   }
 
   func testReply_InThread_ReturningStructured_MaintainsContext_Impl() async throws {
-    // Create thread with initial context
-    var thread = llm.makeThread(
+    // Create conversation thread with initial context
+    var thread = llm.makeConversationThread(
       messages: [.system(.init(text: "You are a helpful assistant that creates user profiles."))]
     )
 

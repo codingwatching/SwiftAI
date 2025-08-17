@@ -3,7 +3,7 @@ import OpenAI
 
 /// Openai's language model integration using the Response API.
 public struct OpenaiLLM: LLM {
-  public typealias Thread = OpenaiThread
+  public typealias ConversationThread = OpenaiConversationThread
 
   private let client: OpenAIProtocol
   private let model: String
@@ -48,9 +48,9 @@ public struct OpenaiLLM: LLM {
   ///   - tools: Tools available for the conversation
   ///   - messages: Initial conversation history
   ///
-  /// - Returns: A new Openai thread for stateful conversations
-  public func makeThread(tools: [any Tool], messages: [Message]) -> OpenaiThread {
-    return OpenaiThread(messages: messages, tools: tools)
+  /// - Returns: A new Openai conversation thread for stateful conversations
+  public func makeConversationThread(tools: [any Tool], messages: [Message]) -> OpenaiConversationThread {
+    return OpenaiConversationThread(messages: messages, tools: tools)
   }
 
   /// Generates a response to a conversation using Openai's Response API.
@@ -72,9 +72,9 @@ public struct OpenaiLLM: LLM {
       throw LLMError.generalError("Conversation must end with a user message")
     }
 
-    // Create a thread with the conversation history excluding the last user message
+    // Create a conversation thread with the conversation history excluding the last user message
     let contextMessages = Array(messages.dropLast())
-    var thread = makeThread(tools: tools, messages: contextMessages)
+    var thread = makeConversationThread(tools: tools, messages: contextMessages)
 
     return try await reply(
       to: lastMessage,
@@ -96,7 +96,7 @@ public struct OpenaiLLM: LLM {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout OpenaiThread,
+    in thread: inout OpenaiConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
 

@@ -239,22 +239,22 @@ let report = try await llm.reply(
 
 #### Conversation Management
 
-The LLM API is stateless by design. For multi-turn interactions, `Thread` objects persist conversation context.
+The LLM API is stateless by design. For multi-turn interactions, `ConversationThread` objects persist conversation context.
 
 ```swift
 protocol LLM: Model {
-  associatedtype Thread: AnyObject & Sendable = NullThread
+  associatedtype ConversationThread: AnyObject & Sendable = NullConversationThread
 
-  func makeThread(
+  func makeConversationThread(
     tools: [any Tool],
     messages: [any Message] // Useful for resuming existing conversations
                             // or passing system instructions.
-  ) throws -> Thread
+  ) throws -> ConversationThread
 
   func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout Thread,
+    in thread: inout ConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 }
@@ -263,7 +263,7 @@ protocol LLM: Model {
 ##### Usage
 
 ```swift
-var thread = llm.makeThread() {
+var thread = llm.makeConversationThread() {
     // System instructions (aka SystemMessage).
     "You are a helpful assistant. Always be polite."
 }
@@ -273,7 +273,7 @@ let greeting = try await llm.reply(
   in: &thread
 )
 
-// Thread maintains context from previous exchanges
+// Conversation thread maintains context from previous exchanges
 let followUp = try await llm.reply(
   to: "What's my name?",
   in: &thread

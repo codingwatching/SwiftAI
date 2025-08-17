@@ -23,8 +23,8 @@ public actor Chat<LLMType: LLM> {
   public let tools: [any Tool]
 
   /// The conversation thread for LLMs that support threading.
-  /// Nil for stateless LLMs (NullThread).
-  private var thread: LLMType.Thread?
+  /// Nil for stateless LLMs (NullConversationThread).
+  private var thread: LLMType.ConversationThread?
 
   /// Creates a new chat instance with the specified LLM and tools.
   ///
@@ -41,9 +41,9 @@ public actor Chat<LLMType: LLM> {
     self.tools = tools
     self.messages = initialMessages
 
-    // Initialize thread for LLMs that support threading (non-NullThread)
-    let createdThread = llm.makeThread(tools: tools, messages: initialMessages)
-    self.thread = (createdThread is NullThread) ? nil : createdThread
+    // Initialize conversation thread for LLMs that support threading (non-NullConversationThread)
+    let createdThread = llm.makeConversationThread(tools: tools, messages: initialMessages)
+    self.thread = (createdThread is NullConversationThread) ? nil : createdThread
   }
 
   // TODO: Add an init with a system prompt PromptBuilder to allow constructing.

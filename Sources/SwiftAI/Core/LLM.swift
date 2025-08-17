@@ -4,8 +4,8 @@ import Foundation
 public protocol LLM: Model {
   /// The type used to maintain conversation state across interactions.
   ///
-  /// Each LLM implementation defines its own thread type to capture
-  /// conversation context. Threads must be reference types (`AnyObject`)
+  /// Each LLM implementation defines its own conversation thread type to capture
+  /// conversation context. Conversation threads must be reference types (`AnyObject`)
   /// to support in-place state updates, and `Sendable` to safely
   /// cross concurrency boundaries.
   ///
@@ -13,18 +13,18 @@ public protocol LLM: Model {
   ///
   /// ```swift
   /// // OnDevice LLM with mutable session
-  /// final class AppleFoundationModelThread: @unchecked Sendable {
+  /// final class AppleFoundationModelConversationThread: @unchecked Sendable {
   ///   let session: LanguageModelSession
   /// }
   ///
   /// // API-based LLM tracking messages
-  /// final class ClaudeThread: Sendable {
+  /// final class ClaudeConversationThread: Sendable {
   ///   let messages: [Message]
   /// }
   /// ```
   ///
-  /// For stateless implementations use `NullThread`.
-  associatedtype Thread: AnyObject & Sendable = NullThread
+  /// For stateless implementations use `NullConversationThread`.
+  associatedtype ConversationThread: AnyObject & Sendable = NullConversationThread
 
   /// Whether the LLM can be used.
   var isAvailable: Bool { get }
@@ -71,23 +71,26 @@ public protocol LLM: Model {
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 
-  /// Creates a new thread for maintaining conversation context.
+  /// Creates a new conversation thread for maintaining conversation context.
   ///
   /// - Parameters:
   ///   - tools: Functions available to the model during conversation.
-  ///   - messages: Initial conversation history to seed the thread.
+  ///   - messages: Initial conversation history to seed the conversation thread.
   ///
-  /// - Returns: A new thread instance initialized with the provided conversation history.
+  /// - Returns: A new conversation thread instance initialized with the provided conversation history.
   ///
-  /// Each thread maintains independent conversation state. Multiple threads
+  /// Each conversation thread maintains independent conversation state. Multiple conversation threads
   /// can exist simultaneously for parallel conversations:
   ///
   /// ```swift
   /// let llm = MyLLM()
-  /// let customerThread = llm.makeThread(tools: [], messages: [])
-  /// let supportThread = llm.makeThread(tools: [], messages: existingHistory)
+  /// let customerConversationThread = llm.makeConversationThread()
+  /// let supportConversationThread = llm.makeConversationThread(
+  ///   tools: [tool1, tool2],
+  ///   messages: [message1, message2]
+  /// )
   /// ```
-  func makeThread(tools: [any Tool], messages: [Message]) -> Thread
+  func makeConversationThread(tools: [any Tool], messages: [Message]) -> ConversationThread
 
   // TODO: Provide defaults for `reply(to:returning:in:options:)`
 
@@ -97,60 +100,63 @@ public protocol LLM: Model {
   ///   - prompt: user message to respond to
   ///   - type: The expected response type.
   ///   - thread: The conversation thread maintaining context.
-  ///     The thread will be mutated during execution to capture updated conversation state.
+  ///     The conversation thread will be mutated during execution to capture updated conversation state.
   ///   - options: Configuration for response generation.
   ///
   /// - Returns: The model's response containing the generated content and message history.
   ///
   /// - Throws: `LLMError` describing the failure reason.
   ///
-  /// The thread preserves context across multiple interactions:
+  /// The conversation thread preserves context across multiple interactions:
   ///
   /// ```swift
-  ///   var thread = llm.makeThread()
+  ///   var thread = llm.makeConversationThread()
   ///   let greeting = try await llm.reply(
   ///       to: "Hello my name is Manal",
   ///       in: &thread
   ///   )
   ///
-  ///   // Thread now contains context from the greeting exchange
+  ///   // Conversation thread now contains context from the greeting exchange
   ///   let followUp = try await llm.reply(
   ///      to: "what's my name?",
   ///      in: &thread
   ///   )
   /// ```
   ///
-  /// - Important: The thread is mutable. It is updated after each reply to maintain conversation continuity.
+  /// - Important: The conversation thread is mutable. It is updated after each reply to maintain conversation continuity.
   func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout Thread,
+    in thread: inout ConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 }
 
-/// A thread implementation that maintains no conversation state.
+/// A conversation thread implementation that maintains no conversation state.
 ///
-/// Used as the default thread type for LLM implementations that don't
+/// Used as the default conversation thread type for LLM implementations that don't
 /// preserve context between interactions.
-public final class NullThread: Sendable {}
+public final class NullConversationThread: Sendable {}
 
-/// MARK: - NullThread Default Implementations
+/// MARK: - NullConversationThread Default Implementations
 
-extension LLM where Thread == NullThread {
+extension LLM where ConversationThread == NullConversationThread {
   /// Default implementation for stateless LLMs.
-  public func makeThread(tools: [any Tool], messages: [Message]) -> NullThread {
-    return NullThread()
+  public func makeConversationThread(tools: [any Tool], messages: [Message])
+    -> NullConversationThread
+  {
+    return NullConversationThread()
   }
 
   /// Default implementation that throws an error for stateless LLMs.
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout NullThread,
+    in thread: inout NullConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    throw LLMError.generalError("Threading not supported for stateless LLM implementations")
+    throw LLMError.generalError(
+      "Conversation threading not supported for stateless LLM implementations")
   }
 }
 
@@ -167,19 +173,21 @@ extension LLM {
     return try await reply(to: messages, returning: type, tools: tools, options: options)
   }
 
-  /// Convenience method to create a thread with default empty tools and messages.
-  public func makeThread(tools: [any Tool] = [], messages: [Message] = []) -> Thread {
-    return makeThread(tools: tools, messages: messages)
+  /// Convenience method to create a conversation thread with default empty tools and messages.
+  public func makeConversationThread(tools: [any Tool] = [], messages: [Message] = [])
+    -> ConversationThread
+  {
+    return makeConversationThread(tools: tools, messages: messages)
   }
 
-  /// Convenience method to create a thread with PromptBuilder instructions.
-  public func makeThread(
+  /// Convenience method to create a conversation thread with PromptBuilder instructions.
+  public func makeConversationThread(
     tools: [any Tool] = [],
     @PromptBuilder instructions: () -> Prompt
-  ) -> Thread {
+  ) -> ConversationThread {
     let prompt = instructions()
     let systemMessage = Message.system(.init(chunks: prompt.chunks))
-    return makeThread(tools: tools, messages: [systemMessage])
+    return makeConversationThread(tools: tools, messages: [systemMessage])
   }
 
   /// Convenience method for prompt-based queries with default parameters.
@@ -219,7 +227,7 @@ extension LLM {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type = String.self,
-    in thread: inout Thread,
+    in thread: inout ConversationThread,
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
     return try await reply(to: prompt, returning: type, in: &thread, options: options)
@@ -228,7 +236,7 @@ extension LLM {
   /// Convenience method for threaded replies with PromptBuilder.
   public func reply<T: Generable>(
     returning type: T.Type = String.self,
-    in thread: inout Thread,
+    in thread: inout ConversationThread,
     options: LLMReplyOptions = .default,
     @PromptBuilder to content: () -> Prompt
   ) async throws -> LLMReply<T> {

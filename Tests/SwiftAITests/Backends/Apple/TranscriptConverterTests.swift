@@ -10,7 +10,7 @@ import FoundationModels
 @Test func TextChunkToSegment() throws {
   let textChunk = ContentChunk.text("Hello, world!")
 
-  let segment = try textChunk.asTranscriptSegment
+  let segment = textChunk.asTranscriptSegment
 
   guard case .text(let textSegment) = segment else {
     Issue.record("Expected text segment")
@@ -27,7 +27,7 @@ import FoundationModels
   let structuredContent = try StructuredContent(json: jsonString)
   let structuredChunk = ContentChunk.structured(structuredContent)
 
-  let segment = try structuredChunk.asTranscriptSegment
+  let segment = structuredChunk.asTranscriptSegment
 
   guard case .structure(let structuredSegment) = segment else {
     Issue.record("Expected structured segment")

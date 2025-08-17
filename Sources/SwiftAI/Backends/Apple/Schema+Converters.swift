@@ -12,7 +12,7 @@ extension Schema {
   }
 
   fileprivate func toDynamicGenerationSchema(extraConstraints: [ConstraintKind] = [])
-    throws -> DynamicGenerationSchema
+    throws -> DynamicGenerationSchema  // TODO: Does this need to throw?
   {
     // TODO: Add comprehensive error handling for schema conversion
     switch self {

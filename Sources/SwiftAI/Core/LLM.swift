@@ -92,8 +92,6 @@ public protocol LLM: Model {
   /// ```
   func makeConversationThread(tools: [any Tool], messages: [Message]) -> ConversationThread
 
-  // TODO: Provide defaults for `reply(to:returning:in:options:)`
-
   /// Generates a response to a prompt within a conversation thread.
   ///
   /// - Parameters:

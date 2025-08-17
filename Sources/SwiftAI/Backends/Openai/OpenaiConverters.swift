@@ -449,7 +449,11 @@ extension ResponseObject {
             switch content {
             case .OutputTextContent(let textContent):
               // TODO: This will also include JSON formatted output. We may want to handle that differently.
-              chunks.append(.text(textContent.text))
+              if let structuredContent = try? StructuredContent(json: textContent.text) {
+                chunks.append(.structured(structuredContent))
+              } else {
+                chunks.append(.text(textContent.text))
+              }
             case .RefusalContent(let refusalContent):
               throw LLMError.generalError("Request refused: \(refusalContent.refusal)")
             }

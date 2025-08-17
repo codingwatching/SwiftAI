@@ -141,7 +141,7 @@ public struct OpenaiLLM: LLM {
 
       thread =
         thread
-        .withNewMessage(Message.ai(aiMsg))
+        .withNewMessage(.ai(aiMsg))
         .withNewResponseID(response.id)
 
       let funcCalls = aiMsg.functionCalls

@@ -16,6 +16,11 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_ToPrompt_Impl()
   }
 
+  @Test("Basic text generation - history verification", .enabled(if: apiKeyIsPresent()))
+  func testReply_ToPrompt_ReturnsCorrectHistory() async throws {
+    try await testReply_ToPrompt_ReturnsCorrectHistory_Impl()
+  }
+
   @Test("Structured output - primitives content", .enabled(if: apiKeyIsPresent()))
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws {
     try await testReply_ReturningPrimitives_ReturnsCorrectContent_Impl()
@@ -24,7 +29,6 @@ struct OpenaiLLMTests: LLMBaseTestCases {
   @Test(
     "Structured output - primitives history",
     .enabled(if: apiKeyIsPresent()),
-    .disabled("FIXME: Structured output is encoded as a .text not .structured in the history")
   )
   func testReply_ReturningPrimitives_ReturnsCorrectHistory() async throws {
     try await testReply_ReturningPrimitives_ReturnsCorrectHistory_Impl()
@@ -38,7 +42,6 @@ struct OpenaiLLMTests: LLMBaseTestCases {
   @Test(
     "Structured output - arrays history",
     .enabled(if: apiKeyIsPresent()),
-    .disabled("FIXME: Structured output is encoded as a .text not .structured in the history")
   )
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws {
     try await testReply_ReturningArrays_ReturnsCorrectHistory_Impl()

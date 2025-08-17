@@ -20,6 +20,11 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ToPrompt_Impl()
   }
 
+  @Test("Basic text generation - history verification", .enabled(if: appleIntelligenceIAvailable()))
+  func testReply_ToPrompt_ReturnsCorrectHistory() async throws {
+    try await testReply_ToPrompt_ReturnsCorrectHistory_Impl()
+  }
+
   // MARK: - Structured Output Tests
 
   @Test("Structured output - primitives content", .enabled(if: appleIntelligenceIAvailable()))

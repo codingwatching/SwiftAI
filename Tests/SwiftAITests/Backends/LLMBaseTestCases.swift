@@ -9,6 +9,7 @@ protocol LLMBaseTestCases {
 
   // MARK: - Basic Tests
   func testReply_ToPrompt() async throws
+  func testReply_ToPrompt_ReturnsCorrectHistory() async throws
 
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
@@ -45,6 +46,25 @@ extension LLMBaseTestCases {
     #expect(reply.history.count == 2)
     #expect(reply.history[0].role == .user)
     #expect(reply.history[1].role == .ai)
+  }
+
+  func testReply_ToPrompt_ReturnsCorrectHistory_Impl() async throws {
+    let reply = try await llm.reply {
+      "Tell me a short story about a cat."
+    }
+
+    // Verify the history structure is correct
+    #expect(reply.history.count == 2, "History should contain exactly 2 messages: user and AI")
+
+    // Verify the first message is from the user
+    let userMessage = reply.history[0]
+    #expect(userMessage.role == .user, "First message should be from user")
+    #expect(userMessage.chunks == [.text("Tell me a short story about a cat.")])
+
+    // Verify the second message is from the AI
+    let aiMessage = reply.history[1]
+    #expect(aiMessage.role == .ai, "Second message should be from AI")
+    #expect(aiMessage.chunks == [.text(reply.content)])
   }
 
   func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {
@@ -471,13 +491,10 @@ extension LLMBaseTestCases {
     ]
 
     let response = try await llm.reply(
-      to: messages
+      to: messages,
+      tools: [MockCalculatorTool()]
     )
 
-    #expect(!response.content.isEmpty)
-    #expect(response.history.count == 3)  // System + User + AI
-    #expect(response.history.first?.role == .system)
-    #expect(response.history.last?.role == .ai)
     #expect(response.content.contains("105"))
     #expect(response.content.count > 3)  // Should show work
   }

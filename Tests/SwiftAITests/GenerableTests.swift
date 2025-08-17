@@ -19,7 +19,7 @@ struct GenerableTests {
     let expected = StructuredContent(
       kind: .object([
         "stringField": StructuredContent(kind: .string("test")),
-        "intField": StructuredContent(kind: .integer(42)),
+        "intField": StructuredContent(kind: .number(Double(42))),
         "doubleField": StructuredContent(kind: .number(3.14)),
         "boolField": StructuredContent(kind: .bool(true)),
       ]))
@@ -42,7 +42,7 @@ struct GenerableTests {
     let expectedWithValues = StructuredContent(
       kind: .object([
         "optionalString": StructuredContent(kind: .string("test")),
-        "optionalInt": StructuredContent(kind: .integer(42)),
+        "optionalInt": StructuredContent(kind: .number(Double(42))),
         "optionalDouble": StructuredContent(kind: .number(3.14)),
         "optionalBool": StructuredContent(kind: .bool(true)),
       ]))
@@ -89,9 +89,9 @@ struct GenerableTests {
           ])),
         "intArray": StructuredContent(
           kind: .array([
-            StructuredContent(kind: .integer(1)),
-            StructuredContent(kind: .integer(2)),
-            StructuredContent(kind: .integer(3)),
+            StructuredContent(kind: .number(Double(1))),
+            StructuredContent(kind: .number(Double(2))),
+            StructuredContent(kind: .number(Double(3))),
           ])),
         "boolArray": StructuredContent(
           kind: .array([
@@ -125,7 +125,7 @@ struct GenerableTests {
         "nested": StructuredContent(
           kind: .object([
             "stringField": StructuredContent(kind: .string("nested")),
-            "intField": StructuredContent(kind: .integer(100)),
+            "intField": StructuredContent(kind: .number(Double(100))),
             "doubleField": StructuredContent(kind: .number(2.718)),
             "boolField": StructuredContent(kind: .bool(false)),
           ])),

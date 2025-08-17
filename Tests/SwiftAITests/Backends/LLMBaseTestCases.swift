@@ -70,10 +70,10 @@ extension LLMBaseTestCases {
     // Check that the AI message contains structured content
     let aiMessage = reply.history[1]
     #expect(aiMessage.chunks.count == 1)
-    if case .structured(let jsonString) = aiMessage.chunks[0] {
-      #expect(jsonString.contains("message"))
-      #expect(jsonString.contains("count"))
-      #expect(jsonString.contains("isValid"))
+    if case .structured(let content) = aiMessage.chunks[0] {
+      #expect(content.jsonString.contains("message"))
+      #expect(content.jsonString.contains("count"))
+      #expect(content.jsonString.contains("isValid"))
     } else {
       Issue.record("Expected structured content chunk")
     }
@@ -99,9 +99,9 @@ extension LLMBaseTestCases {
     #expect(reply.history[1].role == .ai)
 
     let aiMessage = reply.history[1]
-    if case .structured(let jsonString) = aiMessage.chunks[0] {
-      #expect(jsonString.contains("items"))
-      #expect(jsonString.contains("numbers"))
+    if case .structured(let content) = aiMessage.chunks[0] {
+      #expect(content.jsonString.contains("items"))
+      #expect(content.jsonString.contains("numbers"))
     } else {
       Issue.record("Expected structured content chunk")
     }
@@ -304,7 +304,9 @@ extension LLMBaseTestCases {
       .ai(
         .init(chunks: [
           .text("The calculation is complete."),
-          .structured(#"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#),
+          .structured(
+            try StructuredContent(
+              json: #"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#)),
         ])),
       .user(.init(text: "Now tell me about the weather in Paris")),
       .ai(

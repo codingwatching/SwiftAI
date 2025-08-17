@@ -119,7 +119,7 @@ extension Int: Generable {
   }
 
   public var generableContent: StructuredContent {
-    StructuredContent(kind: .integer(self))
+    StructuredContent(kind: .number(Double(self)))
   }
 }
 

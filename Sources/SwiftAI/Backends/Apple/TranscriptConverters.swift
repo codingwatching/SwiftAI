@@ -13,9 +13,6 @@ public enum TranscriptConversionError: Error, LocalizedError {
   /// Indicates an unknown or unsupported transcript segment type was encountered
   case unsupportedSegmentType(String)
 
-  /// Indicates invalid JSON content that couldn't be parsed into GeneratedContent
-  case invalidJSONContent(String)
-
   /// Indicates an internal error in the conversion logic
   case internalError(String)
 
@@ -23,8 +20,6 @@ public enum TranscriptConversionError: Error, LocalizedError {
     switch self {
     case .unsupportedSegmentType(let type):
       return "Unsupported segment type: \(type)"
-    case .invalidJSONContent(let content):
-      return "Invalid JSON content: \(content)"
     case .internalError(let message):
       return "Internal Error: \(message)"
     }
@@ -35,36 +30,25 @@ public enum TranscriptConversionError: Error, LocalizedError {
 
 @available(iOS 26.0, macOS 26.0, *)
 extension ContentChunk {
-  /// Converts a `SwiftAI.ContentChunk` to a `FoundationModels.Transcript.Segment`.
+  /// ContentChunk → Transcript.Segment.
   /// Returns nil for tool call chunks because they are not representable as transcript segments.
-  var transcriptSegment: Transcript.Segment? {
-    get throws {
-      switch self {
-      case .text(let content):
-        let textSegment = Transcript.TextSegment(content: content)
-        return .text(textSegment)
+  var asTranscriptSegment: Transcript.Segment? {
+    switch self {
+    case .text(let content):
+      let textSegment = Transcript.TextSegment(content: content)
+      return .text(textSegment)
 
-      case .structured(let jsonString):
-        // TODO: Revisit source field usage - currently using empty string as default.
-        let generatedContent: GeneratedContent
-        do {
-          generatedContent = try GeneratedContent(json: jsonString)
-        } catch {
-          // TODO: Improve error reporting
-          throw TranscriptConversionError.invalidJSONContent(
-            "Failed to parse JSON string: \(error)")
-        }
-
-        let structuredSegment = Transcript.StructuredSegment(
+    case .structured(let content):
+      return .structure(
+        Transcript.StructuredSegment(
           source: "",  // TODO: Revisit this default value
-          content: generatedContent
+          content: content.generatedContent
         )
-        return .structure(structuredSegment)
+      )
 
-      case .toolCall:
-        // No equivalent Transcript.Segment for tool calls.
-        return nil
-      }
+    case .toolCall:
+      // No equivalent Transcript.Segment for tool calls.
+      return nil
     }
   }
 }
@@ -73,14 +57,23 @@ extension ContentChunk {
 
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript.Segment {
-  /// Converts a `FoundationModels.Transcript.Segment` to a `SwiftAI.ContentChunk`.
+  /// Transcript.Segment → ContentChunk.
   var contentChunk: ContentChunk? {
     switch self {
     case .text(let textSegment):
       return .text(textSegment.content)
 
     case .structure(let structuredSegment):
-      return .structured(structuredSegment.content.jsonString)
+      do {
+        // TODO: We can convert to StructuredContent safely by mapping the GeneratedContent.Kind to StructuredContent.Kind
+        // and using a JSON string fallback.
+        return .structured(try StructuredContent(json: structuredSegment.content.jsonString))
+      } catch {
+        // If we can't parse the JSON back to StructuredContent, this is unexpected
+        // since it should have been valid when created. Return nil to indicate failure.
+        assertionFailure("Failed to parse JSON string: \(error)")
+        return nil
+      }
 
     @unknown default:
       assertionFailure("Unknown case in Transcript.Segment switch")
@@ -93,12 +86,14 @@ extension Transcript.Segment {
 
 @available(iOS 26.0, macOS 26.0, *)
 extension Message {
-  /// Converts a `SwiftAI.Message` to one or more `Transcript.Entry` objects.
-  var transcriptEntries: [Transcript.Entry] {
+  /// Message → [Transcript.Entry]
+  /// One message may be converted to multiple transcript entries because
+  /// we ToolCalls are represented as a separate transcript entry in FoundationModels.
+  var asTranscriptEntries: [Transcript.Entry] {
     get throws {
       switch self {
       case .system(let message):
-        let segments = try message.chunks.compactMap { try $0.transcriptSegment }
+        let segments = message.chunks.compactMap { $0.asTranscriptSegment }
         let instructions = Transcript.Instructions(
           segments: segments,
           toolDefinitions: []
@@ -106,7 +101,7 @@ extension Message {
         return [.instructions(instructions)]
 
       case .user:
-        let segments = try chunks.compactMap { try $0.transcriptSegment }
+        let segments = chunks.compactMap { $0.asTranscriptSegment }
         let prompt = Transcript.Prompt(
           segments: segments,
           options: GenerationOptions(),  // TODO: Default options used
@@ -133,7 +128,7 @@ extension Message {
 
         // If there are content chunks, create a Response entry.
         if !nonToolChunks.isEmpty {
-          let segments = try nonToolChunks.compactMap { try $0.transcriptSegment }
+          let segments = nonToolChunks.compactMap { $0.asTranscriptSegment }
           let response = Transcript.Response(
             assetIDs: [],  // TODO: Default empty asset IDs
             segments: segments
@@ -159,7 +154,7 @@ extension Message {
         return entries
 
       case .toolOutput(let toolOutput):
-        let segments = try chunks.compactMap { try $0.transcriptSegment }
+        let segments = chunks.compactMap { $0.asTranscriptSegment }
         let transcriptToolOutput = Transcript.ToolOutput(
           id: toolOutput.id,
           toolName: toolOutput.toolName,
@@ -180,7 +175,7 @@ extension Transcript {
     // Convert all messages to transcript entries
     var allEntries: [Transcript.Entry] = []
     for message in messages {
-      let entries = try message.transcriptEntries
+      let entries = try message.asTranscriptEntries
       allEntries.append(contentsOf: entries)
     }
 
@@ -345,6 +340,37 @@ private func mergeMessages(_ message1: Message, _ message2: Message) throws -> M
   case .toolOutput:
     throw TranscriptConversionError.internalError(
       "Cannot merge messages with toolOutput role")
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+extension StructuredContent: ConvertibleToGeneratedContent {
+  public var generatedContent: GeneratedContent {
+    return GeneratedContent(kind: kind.asGeneratedContentKind)
+  }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+extension StructuredContent.Kind {
+  var asGeneratedContentKind: GeneratedContent.Kind {
+    switch self {
+    case .bool(let value):
+      return .bool(value)
+    case .null:
+      return .null
+    case .number(let value):
+      return .number(value)
+    case .string(let value):
+      return .string(value)
+    case .array(let elements):
+      let convertedElements = elements.map { $0.generatedContent }
+      return .array(convertedElements)
+    case .object(let properties):
+      let convertedProperties = properties.mapValues { $0.generatedContent }
+      // TODO: Revisit the order of the keys.
+      let orderedKeys = Array(properties.keys)
+      return .structure(properties: convertedProperties, orderedKeys: orderedKeys)
+    }
   }
 }
 

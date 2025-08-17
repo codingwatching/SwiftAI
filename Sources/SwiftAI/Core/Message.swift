@@ -135,9 +135,8 @@ public enum ContentChunk: Sendable, Equatable {
   /// Plain text content.
   case text(String)
 
-  // TODO: Revisit the type of arguments.
-  /// Structured data content as JSON serialization.
-  case structured(String)
+  /// Structured data.
+  case structured(StructuredContent)
 
   /// A request to execute a tool.
   case toolCall(ToolCall)

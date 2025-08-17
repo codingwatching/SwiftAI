@@ -223,8 +223,8 @@ extension Message.AIMessage {
       switch chunk {
       case .text(let text):
         return text
-      case .structured(let json):
-        return json
+      case .structured(let content):
+        return content.jsonString
       case .toolCall(_):
         return nil
       }

@@ -270,7 +270,7 @@ private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
     case .text(let text):
       return text
     case .structured(let json):
-      return json
+      return json.jsonString
     case .toolCall(let toolCall):
       return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments)"
     }

@@ -10,7 +10,7 @@ import FoundationModels
 @Test func TextChunkToSegment() throws {
   let textChunk = ContentChunk.text("Hello, world!")
 
-  let segment = try textChunk.transcriptSegment
+  let segment = try textChunk.asTranscriptSegment
 
   guard case .text(let textSegment) = segment else {
     Issue.record("Expected text segment")
@@ -24,9 +24,10 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func StructuredChunkToSegment() throws {
   let jsonString = #"{"message": "test", "count": 42}"#
-  let structuredChunk = ContentChunk.structured(jsonString)
+  let structuredContent = try StructuredContent(json: jsonString)
+  let structuredChunk = ContentChunk.structured(structuredContent)
 
-  let segment = try structuredChunk.transcriptSegment
+  let segment = try structuredChunk.asTranscriptSegment
 
   guard case .structure(let structuredSegment) = segment else {
     Issue.record("Expected structured segment")
@@ -43,7 +44,7 @@ import FoundationModels
   let toolCall = ToolCall(id: "call-1", toolName: "calculator", arguments: #"{"a": 5}"#)
   let toolCallChunk = ContentChunk.toolCall(toolCall)
 
-  let segment = try toolCallChunk.transcriptSegment
+  let segment = try toolCallChunk.asTranscriptSegment
 
   #expect(segment == nil)
 }
@@ -51,10 +52,9 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func StructuredChunkToSegment_InvalidJSON_ThrowsError() throws {
   let invalidJSON = "{ invalid json }"
-  let structuredChunk = ContentChunk.structured(invalidJSON)
 
-  #expect(throws: TranscriptConversionError.self) {
-    _ = try structuredChunk.transcriptSegment
+  #expect(throws: (any Error).self) {
+    _ = try StructuredContent(json: invalidJSON)
   }
 }
 
@@ -88,7 +88,7 @@ import FoundationModels
     Issue.record("Expected structured chunk")
     return
   }
-  try expectJSONEqual(reconstructedJSON, jsonString)
+  try expectJSONEqual(reconstructedJSON.jsonString, jsonString)
 }
 
 // MARK: - Phase 2 Tests: Message → Transcript.Entry Conversion
@@ -97,7 +97,7 @@ import FoundationModels
 @Test func SystemMessageToTranscriptEntry_BasicText() throws {
   let systemMessage = Message.system(.init(text: "You are a helpful assistant."))
 
-  let entries = try systemMessage.transcriptEntries
+  let entries = try systemMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .instructions(let instructions) = entries[0] else {
@@ -119,7 +119,7 @@ import FoundationModels
 @Test func UserMessageToTranscriptEntry_BasicText() throws {
   let userMessage = Message.user(.init(text: "What's the weather today?"))
 
-  let entries = try userMessage.transcriptEntries
+  let entries = try userMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .prompt(let prompt) = entries[0] else {
@@ -141,7 +141,7 @@ import FoundationModels
 @Test func aiMessageToTranscriptEntry_AIMessageWithText() throws {
   let aiMessage = Message.ai(.init(text: "The weather is sunny today."))
 
-  let entries = try aiMessage.transcriptEntries
+  let entries = try aiMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .response(let response) = entries[0] else {
@@ -164,7 +164,7 @@ import FoundationModels
   let toolCall = ToolCall(id: "call-1", toolName: "get_weather", arguments: #"{"city": "Paris"}"#)
   let aiMessage = Message.ai(.init(chunks: [.toolCall(toolCall)]))
 
-  let entries = try aiMessage.transcriptEntries
+  let entries = try aiMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .toolCalls(let toolCalls) = entries[0] else {
@@ -188,7 +188,7 @@ import FoundationModels
       chunks: [.text("Weather in Paris: 22°C, sunny")]
     ))
 
-  let entries = try toolOutput.transcriptEntries
+  let entries = try toolOutput.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .toolOutput(let transcriptToolOutput) = entries[0] else {
@@ -219,7 +219,7 @@ import FoundationModels
       .text("The calculation is complete."),
     ]))
 
-  let entries = try aiMessage.transcriptEntries
+  let entries = try aiMessage.asTranscriptEntries
 
   #expect(entries.count == 2)  // One Response entry + one ToolCalls entry
 
@@ -259,9 +259,9 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func AIMessageToTranscriptEntry_StructuredContent() throws {
   let jsonString = #"{"result": "success", "data": {"count": 42}}"#
-  let aiMessage = Message.ai(.init(chunks: [.structured(jsonString)]))
+  let aiMessage = Message.ai(.init(chunks: [.structured(try StructuredContent(json: jsonString))]))
 
-  let entries = try aiMessage.transcriptEntries
+  let entries = try aiMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .response(let response) = entries[0] else {
@@ -282,7 +282,7 @@ import FoundationModels
       .text(" 15 + 27"),
     ]))
 
-  let entries = try userMessage.transcriptEntries
+  let entries = try userMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .prompt(let prompt) = entries[0] else {
@@ -632,7 +632,7 @@ import FoundationModels
   #expect(messages[0].chunks.count == 1)
 
   if case .structured(let reconstructedJSON) = messages[0].chunks[0] {
-    try expectJSONEqual(reconstructedJSON, jsonString)
+    try expectJSONEqual(reconstructedJSON.jsonString, jsonString)
   } else {
     Issue.record("Expected structured chunk")
   }
@@ -718,7 +718,7 @@ import FoundationModels
   }
 
   if case .structured(let structuredJSON) = messages[2].chunks[1] {
-    try expectJSONEqual(structuredJSON, jsonString)
+    try expectJSONEqual(structuredJSON.jsonString, jsonString)
   } else {
     Issue.record("Expected second chunk to be structured")
   }
@@ -780,7 +780,7 @@ import FoundationModels
   }
 
   if case .structured(let structuredJSON) = messages[0].chunks[1] {
-    try expectJSONEqual(structuredJSON, resultJSON)
+    try expectJSONEqual(structuredJSON.jsonString, resultJSON)
   } else {
     Issue.record("Expected second chunk to be structured")
   }
@@ -851,19 +851,19 @@ import FoundationModels
 
   // Verify all three structured chunks
   if case .structured(let reconstructedJSON1) = messages[0].chunks[0] {
-    try expectJSONEqual(reconstructedJSON1, json1)
+    try expectJSONEqual(reconstructedJSON1.jsonString, json1)
   } else {
     Issue.record("Expected first chunk to be structured")
   }
 
   if case .structured(let reconstructedJSON2) = messages[0].chunks[1] {
-    try expectJSONEqual(reconstructedJSON2, json2)
+    try expectJSONEqual(reconstructedJSON2.jsonString, json2)
   } else {
     Issue.record("Expected second chunk to be structured")
   }
 
   if case .structured(let reconstructedJSON3) = messages[0].chunks[2] {
-    try expectJSONEqual(reconstructedJSON3, json3)
+    try expectJSONEqual(reconstructedJSON3.jsonString, json3)
   } else {
     Issue.record("Expected third chunk to be structured")
   }
@@ -890,6 +890,7 @@ extension String {
   }
 }
 
+// TODO: Put this in a shared file and reuse it in other tests (e.g., StructuredContentTests).
 func expectJSONEqual(_ json1: String, _ json2: String) throws {
   let dict1 = try json1.asJsonDict
   let dict2 = try json2.asJsonDict

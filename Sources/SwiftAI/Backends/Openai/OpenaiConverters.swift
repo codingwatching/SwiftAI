@@ -52,8 +52,8 @@ extension Message {
         switch chunk {
         case .text(let text):
           return text
-        case .structured(let json):
-          return json  // TODO: We should look if we can send structured content to Openai.
+        case .structured(let content):
+          return content.jsonString  // TODO: We should look if we can send structured content to Openai.
         case .toolCall(_):
           return nil  // Tool calls are handled separately in InputItems
         }
@@ -136,8 +136,8 @@ extension Message.ToolOutput {
       switch chunk {
       case .text(let text):
         return text
-      case .structured(let json):
-        return json
+      case .structured(let content):
+        return content.jsonString
       case .toolCall(_):
         return nil  // Tool calls shouldn't be in tool outputs
       }

@@ -98,7 +98,7 @@ import FoundationModels
 @Test func SystemMessageToTranscriptEntry_BasicText() throws {
   let systemMessage = Message.system(.init(text: "You are a helpful assistant."))
 
-  let entries = try systemMessage.asTranscriptEntries
+  let entries = systemMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .instructions(let instructions) = entries[0] else {
@@ -120,7 +120,7 @@ import FoundationModels
 @Test func UserMessageToTranscriptEntry_BasicText() throws {
   let userMessage = Message.user(.init(text: "What's the weather today?"))
 
-  let entries = try userMessage.asTranscriptEntries
+  let entries = userMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .prompt(let prompt) = entries[0] else {
@@ -142,7 +142,7 @@ import FoundationModels
 @Test func aiMessageToTranscriptEntry_AIMessageWithText() throws {
   let aiMessage = Message.ai(.init(text: "The weather is sunny today."))
 
-  let entries = try aiMessage.asTranscriptEntries
+  let entries = aiMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .response(let response) = entries[0] else {
@@ -167,7 +167,7 @@ import FoundationModels
     arguments: try! StructuredContent(json: #"{"city": "Paris"}"#))
   let aiMessage = Message.ai(.init(chunks: [.toolCall(toolCall)]))
 
-  let entries = try aiMessage.asTranscriptEntries
+  let entries = aiMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .toolCalls(let toolCalls) = entries[0] else {
@@ -191,7 +191,7 @@ import FoundationModels
       chunks: [.text("Weather in Paris: 22°C, sunny")]
     ))
 
-  let entries = try toolOutput.asTranscriptEntries
+  let entries = toolOutput.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .toolOutput(let transcriptToolOutput) = entries[0] else {
@@ -226,7 +226,7 @@ import FoundationModels
       .text("The calculation is complete."),
     ]))
 
-  let entries = try aiMessage.asTranscriptEntries
+  let entries = aiMessage.asTranscriptEntries
 
   #expect(entries.count == 2)  // One Response entry + one ToolCalls entry
 
@@ -268,7 +268,7 @@ import FoundationModels
   let jsonString = #"{"result": "success", "data": {"count": 42}}"#
   let aiMessage = Message.ai(.init(chunks: [.structured(try StructuredContent(json: jsonString))]))
 
-  let entries = try aiMessage.asTranscriptEntries
+  let entries = aiMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .response(let response) = entries[0] else {
@@ -289,7 +289,7 @@ import FoundationModels
       .text(" 15 + 27"),
     ]))
 
-  let entries = try userMessage.asTranscriptEntries
+  let entries = userMessage.asTranscriptEntries
 
   #expect(entries.count == 1)
   guard case .prompt(let prompt) = entries[0] else {
@@ -313,7 +313,7 @@ import FoundationModels
     .ai(.init(text: "I'm doing well, thank you!")),
   ]
 
-  let transcript = try Transcript(messages: messages)
+  let transcript = Transcript(messages: messages)
 
   let entries = Array(transcript)
   #expect(entries.count == 3)
@@ -352,7 +352,7 @@ import FoundationModels
   ]
 
   let calculatorTool = MockCalculatorTool()
-  let transcript = try Transcript(messages: messages, tools: [calculatorTool])
+  let transcript = Transcript(messages: messages, tools: [calculatorTool])
 
   let entries = Array(transcript)
   #expect(entries.count == 2)
@@ -397,7 +397,7 @@ import FoundationModels
     .ai(.init(text: "The result is 15.")),
   ]
 
-  let transcript = try Transcript(messages: messages)
+  let transcript = Transcript(messages: messages)
 
   let entries = Array(transcript)
   #expect(entries.count == 6)  // Instructions + Prompt + Response + ToolCalls + ToolOutput + Response
@@ -442,7 +442,7 @@ import FoundationModels
   ]
 
   let calculatorTool = MockCalculatorTool()
-  let transcript = try Transcript(messages: messages, tools: [calculatorTool])
+  let transcript = Transcript(messages: messages, tools: [calculatorTool])
 
   let entries = Array(transcript)
   #expect(entries.count == 3)  // Instructions + Prompt + Response
@@ -473,7 +473,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_EmptyMessages_EmptyTranscript() throws {
-  let transcript = try Transcript(messages: [])
+  let transcript = Transcript(messages: [])
 
   let entries = Array(transcript)
   #expect(entries.isEmpty)

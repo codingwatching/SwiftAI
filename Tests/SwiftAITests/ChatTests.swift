@@ -8,7 +8,7 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply("Hello! How can I help you today?")
 
-  let chat = try Chat(with: fakeLLM)
+  let chat = Chat(with: fakeLLM)
   let response = try await chat.send {
     "Hi there! Can you assist me?"
   }
@@ -20,7 +20,7 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply("I'll be concise in my responses.")
 
-  let chat = try Chat(
+  let chat = Chat(
     with: fakeLLM,
     initialMessages: [
       .system(.init(text: "You are a helpful but very brief assistant"))
@@ -42,7 +42,7 @@ import Testing
     finalResponse: "I used the fake tool and got the result: Tool executed successfully"
   )
 
-  let chat = try Chat(with: fakeLLM, tools: [FakeTool()])
+  let chat = Chat(with: fakeLLM, tools: [FakeTool()])
   let response = try await chat.send("Use the fake tool")
 
   #expect(response == "I used the fake tool and got the result: Tool executed successfully")
@@ -58,7 +58,7 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply(jsonResponse)
 
-  let chat = try Chat(with: fakeLLM)
+  let chat = Chat(with: fakeLLM)
   let response: FakeResponse = try await chat.send(
     "Give me a structured response",
     returning: FakeResponse.self
@@ -72,7 +72,7 @@ import Testing
   fakeLLM.queueReply("First response")
   fakeLLM.queueReply("Second response")
 
-  let chat = try Chat(with: fakeLLM)
+  let chat = Chat(with: fakeLLM)
 
   let firstResponse = try await chat.send("First message")
   #expect(firstResponse == "First response")
@@ -95,7 +95,7 @@ import Testing
     finalResponse: "The weather is sunny and 25°C."
   )
 
-  let chat = try Chat(with: fakeLLM, tools: [FakeTool()])
+  let chat = Chat(with: fakeLLM, tools: [FakeTool()])
   let response = try await chat.send("What's the weather?")
 
   #expect(response == "The weather is sunny and 25°C.")

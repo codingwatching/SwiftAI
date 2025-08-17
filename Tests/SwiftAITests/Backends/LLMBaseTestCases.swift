@@ -123,7 +123,7 @@ extension LLMBaseTestCases {
 
   func testReply_InThread_MaintainsContext_Impl() async throws {
     // Create a new thread for conversation
-    var thread = try llm.makeThread()
+    var thread = llm.makeThread()
 
     // Turn 1: Introduce name
     let reply1 = try await llm.reply(
@@ -220,7 +220,7 @@ extension LLMBaseTestCases {
     let weatherTool = MockWeatherTool()
 
     // Create thread with tools
-    var thread = try llm.makeThread(tools: [calculatorTool, weatherTool])
+    var thread = llm.makeThread(tools: [calculatorTool, weatherTool])
 
     // First interaction: calculator
     let _ = try await llm.reply(
@@ -393,7 +393,7 @@ extension LLMBaseTestCases {
 
   func testReply_InThread_ReturningStructured_MaintainsContext_Impl() async throws {
     // Create thread with initial context
-    var thread = try llm.makeThread(
+    var thread = llm.makeThread(
       messages: [.system(.init(text: "You are a helpful assistant that creates user profiles."))]
     )
 

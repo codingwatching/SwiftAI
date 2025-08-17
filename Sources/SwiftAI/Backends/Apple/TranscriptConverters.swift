@@ -168,37 +168,29 @@ extension Message {
 @available(iOS 26.0, macOS 26.0, *)
 extension Transcript {
   /// Creates a `FoundationModels.Transcript` from an array of `SwiftAI.Messages`
-  init(messages: [Message], tools: [any Tool] = []) throws {
+  init(messages: [Message], tools: [any Tool] = []) {
     // Convert all messages to transcript entries
-    var allEntries: [Transcript.Entry] = []
-    for message in messages {
-      let entries = try message.asTranscriptEntries
-      allEntries.append(contentsOf: entries)
+    var allEntries = messages.flatMap { message in
+      message.asTranscriptEntries
     }
 
     // Create tool definitions from provided tools
-    let toolDefinitions = tools.map { tool in
+    let toolDefs = tools.map { tool in
       let foundationTool = FoundationModelsToolAdapter(wrapping: tool)
       return Transcript.ToolDefinition(tool: foundationTool)
     }
 
     // Add tool definitions to Instructions entry
-    if !toolDefinitions.isEmpty {
+    if !toolDefs.isEmpty {
+      // TODO: Check if assumption that the instructions entry can be at index greater than 0 is correct.
       if let firstInstructionsIndex = allEntries.firstIndex(where: { entry in
         if case .instructions = entry { return true }
         return false
-      }) {
-        guard case .instructions(let currentInstructions) = allEntries[firstInstructionsIndex]
-        else {
-          // This should never happen.
-          throw TranscriptConversionError.internalError(
-            "Expected instructions entry at index \(firstInstructionsIndex)")
-        }
-
+      }), case .instructions(let currentInstructions) = allEntries[firstInstructionsIndex] {
         // Create new instructions with tool definitions
         let updatedInstructions = Transcript.Instructions(
           segments: currentInstructions.segments,
-          toolDefinitions: toolDefinitions
+          toolDefinitions: toolDefs
         )
 
         // Replace the entry
@@ -207,7 +199,7 @@ extension Transcript {
         // No Instructions entry exists, create one with tool definitions
         let newInstructions = Transcript.Instructions(
           segments: [],
-          toolDefinitions: toolDefinitions
+          toolDefinitions: toolDefs
         )
 
         // Insert at the beginning

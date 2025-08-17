@@ -82,7 +82,7 @@ import Foundation
 /// ### Threaded Conversations
 ///
 /// ```swift
-/// var thread = try systemLLM.makeThread(tools: [], messages: [])
+/// var thread = systemLLM.makeThread(tools: [], messages: [])
 ///
 /// let reply1 = try await systemLLM.reply(
 ///   to: "My name is Alice",
@@ -135,8 +135,8 @@ public struct SystemLLM: LLM {
   public func makeThread(
     tools: [any Tool],
     messages: [Message]
-  ) throws -> FoundationLanguageModelThread {  // TODO: Can we make this method non throwable?
-    return try FoundationLanguageModelThread(
+  ) -> FoundationLanguageModelThread {
+    return FoundationLanguageModelThread(
       model: model,
       tools: tools,
       messages: messages
@@ -158,7 +158,7 @@ public struct SystemLLM: LLM {
     let contextMessages = Array(messages.dropLast())
 
     // Create thread with context
-    var thread = try makeThread(tools: tools, messages: contextMessages)
+    var thread = makeThread(tools: tools, messages: contextMessages)
 
     // Use the threaded reply method
     return try await reply(
@@ -221,8 +221,8 @@ public final class FoundationLanguageModelThread: @unchecked Sendable {
     model: SystemLanguageModel,
     tools: [any Tool],
     messages: [Message]
-  ) throws {
-    let transcript = try FoundationModels.Transcript(messages: messages, tools: tools)
+  ) {
+    let transcript = FoundationModels.Transcript(messages: messages, tools: tools)
     let foundationTools = tools.map { FoundationModelsToolAdapter(wrapping: $0) }
 
     self.session = LanguageModelSession(

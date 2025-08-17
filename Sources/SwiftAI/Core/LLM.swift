@@ -78,17 +78,16 @@ public protocol LLM: Model {
   ///   - messages: Initial conversation history to seed the thread.
   ///
   /// - Returns: A new thread instance initialized with the provided conversation history.
-  /// - Throws: An error if the thread cannot be created (e.g. invalid tools or messages).
   ///
   /// Each thread maintains independent conversation state. Multiple threads
   /// can exist simultaneously for parallel conversations:
   ///
   /// ```swift
   /// let llm = MyLLM()
-  /// let customerThread = try llm.makeThread(tools: [], messages: [])
-  /// let supportThread = try llm.makeThread(tools: [], messages: existingHistory)
+  /// let customerThread = llm.makeThread(tools: [], messages: [])
+  /// let supportThread = llm.makeThread(tools: [], messages: existingHistory)
   /// ```
-  func makeThread(tools: [any Tool], messages: [Message]) throws -> Thread
+  func makeThread(tools: [any Tool], messages: [Message]) -> Thread
 
   // TODO: Provide defaults for `reply(to:returning:in:options:)`
 
@@ -140,7 +139,7 @@ public final class NullThread: Sendable {}
 
 extension LLM where Thread == NullThread {
   /// Default implementation for stateless LLMs.
-  public func makeThread(tools: [any Tool], messages: [Message]) throws -> NullThread {
+  public func makeThread(tools: [any Tool], messages: [Message]) -> NullThread {
     return NullThread()
   }
 
@@ -169,8 +168,8 @@ extension LLM {
   }
 
   /// Convenience method to create a thread with default empty tools and messages.
-  public func makeThread(tools: [any Tool] = [], messages: [Message] = []) throws -> Thread {
-    return try makeThread(tools: tools, messages: messages)
+  public func makeThread(tools: [any Tool] = [], messages: [Message] = []) -> Thread {
+    return makeThread(tools: tools, messages: messages)
   }
 
   /// Convenience method for prompt-based queries with default parameters.

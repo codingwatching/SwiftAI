@@ -49,7 +49,7 @@ public struct OpenaiLLM: LLM {
   ///   - messages: Initial conversation history
   ///
   /// - Returns: A new Openai thread for stateful conversations
-  public func makeThread(tools: [any Tool], messages: [Message]) throws -> OpenaiThread {
+  public func makeThread(tools: [any Tool], messages: [Message]) -> OpenaiThread {
     return OpenaiThread(messages: messages, tools: tools)
   }
 
@@ -74,7 +74,7 @@ public struct OpenaiLLM: LLM {
 
     // Create a thread with the conversation history excluding the last user message
     let contextMessages = Array(messages.dropLast())
-    var thread = try makeThread(tools: tools, messages: contextMessages)
+    var thread = makeThread(tools: tools, messages: contextMessages)
 
     return try await reply(
       to: lastMessage,

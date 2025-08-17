@@ -263,7 +263,7 @@ protocol LLM: Model {
 ##### Usage
 
 ```swift
-var thread = try llm.makeThread() {
+var thread = llm.makeThread() {
     // System instructions (aka SystemMessage).
     "You are a helpful assistant. Always be polite."
 }

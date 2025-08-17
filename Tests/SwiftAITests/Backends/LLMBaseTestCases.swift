@@ -565,13 +565,13 @@ struct ComprehensiveProfile: Equatable {
   let isActive: Bool
 
   // Array constraints
-  @Guide<[String]>(.count(5), .element(.anyOf(["A", "B", "C"])))
+  @Guide(.count(5), .element(.anyOf(["A", "B", "C"])))
   let tags: [String]
 
-  @Guide<[String]>(.minimumCount(1))  // FIXME: Automatic type inference fails without passing `[String]`
+  @Guide(.minimumCount(1))
   let features: [String]
 
-  @Guide<[String]>(.maximumCount(3))  // FIXME: Automatic type inference fails without passing `[String]`
+  @Guide(.maximumCount(3))
   let notes: [String]
 
   // Optional field

@@ -135,22 +135,9 @@ public struct OpenaiLLM: LLM {
         tools: try thread.openaiTools.map { .functionTool($0) }
       )
 
-      let response: ResponseObject = try await {
-        do {
-          return try await client.responses.createResponse(query: query)
-        } catch {
-          throw LLMError.generalError("Openai API error: \(error)")
-        }
-      }()
-
       // Convert response to AI message
-      let aiMsg = try {
-        do {
-          return try response.asSwiftAIMessage
-        } catch {
-          throw LLMError.generalError("Failed to convert response to AI message: \(error)")
-        }
-      }()
+      let response: ResponseObject = try await client.responses.createResponse(query: query)
+      let aiMsg = try response.asSwiftAIMessage
 
       thread =
         thread
@@ -175,25 +162,22 @@ public struct OpenaiLLM: LLM {
     } while thread.messages.last?.role != .ai
 
     // Extract final content from the last AI message
-    guard let finalMessage = thread.messages.last, case .ai(let finalAIMessage) = finalMessage
+    guard let finalMessage = thread.messages.last,
+      case .ai(let finalAIMessage) = finalMessage
     else {
       throw LLMError.generalError("Final message should be an AI message")
     }
 
-    let content: T
-    if T.self == String.self {
-      content = finalAIMessage.text as! T  // FIXME: Avoid forced unwrapping
-    } else {
-      // For structured types, parse JSON from text content
-      do {
+    let content: T = try {
+      if T.self == String.self {
+        return unsafeBitCast(finalAIMessage.text, to: T.self)
+      } else {
+        // For structured types, parse JSON from text content
         let jsonData = finalAIMessage.text.data(using: .utf8) ?? Data()
         let decoder = JSONDecoder()
-        content = try decoder.decode(T.self, from: jsonData)
-      } catch {
-        throw LLMError.generalError(
-          "Failed to decode structured response: \(error.localizedDescription)")
+        return try decoder.decode(T.self, from: jsonData)
       }
-    }
+    }()
 
     return LLMReply(
       content: content,

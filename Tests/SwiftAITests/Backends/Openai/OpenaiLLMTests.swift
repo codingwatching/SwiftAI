@@ -114,7 +114,7 @@ struct OpenaiLLMTests: LLMBaseTestCases {
       .user(.init(text: "Hello"))
     ]
 
-    await #expect(throws: LLMError.self) {
+    await #expect(throws: (any Error).self) {
       _ = try await invalidLLM.reply(
         to: messages
       )

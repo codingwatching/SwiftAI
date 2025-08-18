@@ -28,7 +28,7 @@ struct OpenaiLLMTests: LLMBaseTestCases {
 
   @Test(
     "Structured output - primitives history",
-    .enabled(if: apiKeyIsPresent()),
+    .enabled(if: apiKeyIsPresent())
   )
   func testReply_ReturningPrimitives_ReturnsCorrectHistory() async throws {
     try await testReply_ReturningPrimitives_ReturnsCorrectHistory_Impl()
@@ -41,7 +41,7 @@ struct OpenaiLLMTests: LLMBaseTestCases {
 
   @Test(
     "Structured output - arrays history",
-    .enabled(if: apiKeyIsPresent()),
+    .enabled(if: apiKeyIsPresent())
   )
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws {
     try await testReply_ReturningArrays_ReturnsCorrectHistory_Impl()

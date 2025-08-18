@@ -18,7 +18,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
 
   struct FakeToolCall {
     let toolName: String
-    let arguments: [String: Sendable]
+    let arguments: StructuredContent
     let expectedOutput: String
   }
 
@@ -49,9 +49,9 @@ final class FakeLLM: LLM, @unchecked Sendable {
   // MARK: - LLM Implementation
 
   func reply<T: Generable>(
-    to messages: [any Message],
-    tools: [any Tool],
+    to messages: [Message],
     returning type: T.Type,
+    tools: [any Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard !replyQueue.isEmpty else {
@@ -70,31 +70,29 @@ final class FakeLLM: LLM, @unchecked Sendable {
           throw FakeLLMError.toolNotFound(toolCall.toolName)
         }
 
-        let argumentsData = try JSONSerialization.data(withJSONObject: toolCall.arguments)
-        let argumentsString = String(data: argumentsData, encoding: .utf8) ?? "{}"
-
         aiChunks.append(
           .toolCall(
             ToolCall(
               id: "tool_call_\(index)",
               toolName: toolCall.toolName,
-              arguments: argumentsString
+              arguments: toolCall.arguments
             )))
       }
 
       // Add AI message with tool calls
       if !aiChunks.isEmpty {
-        let aiMessage = AIMessage(chunks: aiChunks)
+        let aiMessage = Message.ai(.init(chunks: aiChunks))
         currentMessages.append(aiMessage)
       }
 
       // Simulate tool execution
       for (index, toolCall) in toolCalls.enumerated() {
-        let toolOutputMessage = ToolOutput(
-          id: "tool_call_\(index)",
-          toolName: toolCall.toolName,
-          chunks: [.text(toolCall.expectedOutput)]
-        )
+        let toolOutputMessage = Message.toolOutput(
+          .init(
+            id: "tool_call_\(index)",
+            toolName: toolCall.toolName,
+            chunks: [.text(toolCall.expectedOutput)]
+          ))
         currentMessages.append(toolOutputMessage)
       }
     }
@@ -111,7 +109,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
       content = try decoder.decode(T.self, from: finalResponseData)
     }
 
-    let aiResponse = AIMessage(text: reply.finalResponse)
+    let aiResponse = Message.ai(.init(text: reply.finalResponse))
     let fullHistory = currentMessages + [aiResponse]
 
     return LLMReply(content: content, history: fullHistory)

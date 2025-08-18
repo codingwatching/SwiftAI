@@ -31,6 +31,9 @@ import Foundation
 public protocol Generable: Codable, Sendable {
   /// The schema that describes the structure and constraints of this type.
   static var schema: Schema { get }
+
+  /// The structured representation of this generable instance.
+  var generableContent: StructuredContent { get }
 }
 
 // MARK: - Macro Declaration
@@ -50,7 +53,7 @@ public protocol Generable: Codable, Sendable {
 ///   let cookingTime: Int
 /// }
 /// ```
-@attached(extension, conformances: Generable, names: named(schema))
+@attached(extension, conformances: Generable, names: named(schema), named(generableContent))
 public macro Generable(description: String? = nil) =
   #externalMacro(module: "SwiftAIMacros", type: "GenerableMacro")
 
@@ -103,6 +106,52 @@ extension String: Generable {
   public static var schema: Schema {
     .string(constraints: [])
   }
+
+  public var generableContent: StructuredContent {
+    StructuredContent(kind: .string(self))
+  }
 }
 
-// TODO: Do we need to support more basic types like Int, Double, etc.?
+/// Int conforms to Generable for integer generation use cases.
+extension Int: Generable {
+  public static var schema: Schema {
+    .integer(constraints: [])
+  }
+
+  public var generableContent: StructuredContent {
+    StructuredContent(kind: .number(Double(self)))
+  }
+}
+
+/// Double conforms to Generable for floating-point number generation use cases.
+extension Double: Generable {
+  public static var schema: Schema {
+    .number(constraints: [])
+  }
+
+  public var generableContent: StructuredContent {
+    StructuredContent(kind: .number(self))
+  }
+}
+
+/// Bool conforms to Generable for boolean generation use cases.
+extension Bool: Generable {
+  public static var schema: Schema {
+    .boolean(constraints: [])
+  }
+
+  public var generableContent: StructuredContent {
+    StructuredContent(kind: .bool(self))
+  }
+}
+
+/// Array conforms to Generable when its elements conform to Generable.
+extension Array: Generable where Element: Generable {
+  public static var schema: Schema {
+    .array(items: Element.schema, constraints: [])
+  }
+
+  public var generableContent: StructuredContent {
+    StructuredContent(kind: .array(self.map { $0.generableContent }))
+  }
+}

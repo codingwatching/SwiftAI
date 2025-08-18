@@ -4,13 +4,13 @@ import Testing
 
 // MARK: - Test Cases
 
-@Test func llmProtocolWithStringResponse() async throws {
+@Test func testReplyTo_ReturningText_Succeeds() async throws {
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply("Hello from fake LLM!")
 
-  let messages: [any Message] = [
-    SystemMessage(text: "You are a helpful assistant"),
-    UserMessage(text: "Hello!")
+  let messages: [Message] = [
+    .system(.init(text: "You are a helpful assistant")),
+    .user(.init(text: "Hello!")),
   ]
 
   let reply = try await fakeLLM.reply(to: messages)
@@ -22,7 +22,7 @@ import Testing
   #expect(reply.history[2].role == .ai)
 }
 
-@Test func llmProtocolWithStructResponse() async throws {
+@Test func testReplyTo_ReturningStructuredOutput_Succeeds() async throws {
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply(
     """
@@ -30,7 +30,8 @@ import Testing
       "message": "Test message",
       "count": 42
     }
-    """)
+    """
+  )
 
   let reply = try await fakeLLM.reply(
     to: "Generate a fake response",
@@ -43,9 +44,9 @@ import Testing
 }
 
 @Test func messageTypesWork() {
-  let systemMsg = SystemMessage(text: "System prompt")
-  let userMsg = UserMessage(text: "User input")
-  let aiMsg = AIMessage(text: "AI response")
+  let systemMsg = Message.system(.init(text: "System prompt"))
+  let userMsg = Message.user(.init(text: "User input"))
+  let aiMsg = Message.ai(.init(text: "AI response"))
 
   #expect(systemMsg.role == .system)
   #expect(userMsg.role == .user)
@@ -58,4 +59,43 @@ import Testing
     Issue.record("Expected text chunk")
     return
   }
+}
+
+// MARK: - PromptBuilder Convenience Method Tests
+
+@Test func testReplyTo_UsingPromptBuilder_Succeeds() async throws {
+  let fakeLLM = FakeLLM()
+  fakeLLM.queueReply("Hello from PromptBuilder convenience method!")
+
+  let reply = try await fakeLLM.reply {
+    "Please respond with a greeting."
+  }
+
+  #expect(reply.content == "Hello from PromptBuilder convenience method!")
+  #expect(reply.history.count == 2)  // 1 user message + 1 AI response
+  #expect(reply.history[0].role == .user)
+  #expect(reply.history[1].role == .ai)
+}
+
+@Test func testReplyTo_ReturningStructuredOutput_UsingPromptBuilder_Succeeds() async throws {
+  let fakeLLM = FakeLLM()
+  fakeLLM.queueReply(
+    """
+    {
+      "message": "Generated response",
+      "count": 123
+    }
+    """
+  )
+
+  let reply = try await fakeLLM.reply(
+    returning: FakeResponse.self
+  ) {
+    "Create a fake response with message and count."
+    "Format: JSON with message (string) and count (integer)."
+  }
+
+  #expect(reply.content.message == "Generated response")
+  #expect(reply.content.count == 123)
+  #expect(reply.history.count == 2)
 }

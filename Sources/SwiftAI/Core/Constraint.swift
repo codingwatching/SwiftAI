@@ -101,19 +101,19 @@ extension Constraint where Value == Double {
 // MARK: - Array Constraints
 
 extension Constraint {
-  /// Constrains the exact number of elements in an array.
+  /// Enforces that the array has exactly a certain number elements.
   public static func count<Element>(_ count: Int) -> Constraint<[Element]>
   where Value == [Element] {
     Constraint(kind: .array(.count(lowerBound: count, upperBound: count)))
   }
 
-  /// Sets a minimum number of elements in an array.
+  /// Enforces a minimum number of elements in the array.
   public static func minimumCount<Element>(_ count: Int) -> Constraint<[Element]>
   where Value == [Element] {
     Constraint(kind: .array(.count(lowerBound: count, upperBound: nil)))
   }
 
-  /// Sets a maximum number of elements in an array.
+  /// Enforces a maximum number of elements in the array.
   public static func maximumCount<Element>(_ count: Int) -> Constraint<[Element]>
   where Value == [Element] {
     Constraint(kind: .array(.count(lowerBound: nil, upperBound: count)))
@@ -123,6 +123,41 @@ extension Constraint {
   public static func element<Element>(_ constraint: Constraint<Element>) -> Constraint<[Element]>
   where Value == [Element] {
     Constraint(kind: .array(.element(constraint.kind)))
+  }
+}
+
+// MARK: - Array Constraints for Never Type
+
+extension Constraint where Value == [Never] {
+
+  /// Enforces a minimum number of elements in the array.
+  ///
+  /// - Warning: This overload is only used for macro expansion. Don't call `Constraint<[Never]>.minimumCount(_:)` on your own.
+  public static func minimumCount(_ count: Int) -> Constraint<Value> {
+    Constraint(kind: .array(.count(lowerBound: count, upperBound: nil)))
+  }
+
+  /// Enforces a maximum number of elements in the array.
+  ///
+  /// - Warning: This overload is only used for macro expansion. Don't call `Constraint<[Never]>.maximumCount(_:)` on your own.
+  public static func maximumCount(_ count: Int) -> Constraint<Value> {
+    Constraint(kind: .array(.count(lowerBound: nil, upperBound: count)))
+  }
+
+  /// Enforces that the number of elements in the array fall within a closed range.
+  ///
+  /// Bounds are inclusive.
+  ///
+  /// - Warning: This overload is only used for macro expansion. Don't call `Constraint<[Never]>.count(_:)` on your own.
+  public static func count(_ range: ClosedRange<Int>) -> Constraint<Value> {
+    Constraint(kind: .array(.count(lowerBound: range.lowerBound, upperBound: range.upperBound)))
+  }
+
+  /// Enforces that the array has exactly a certain number elements.
+  ///
+  /// - Warning: This overload is only used for macro expansion. Don't call `Constraint<[Never]>.count(_:)` on your own.
+  public static func count(_ count: Int) -> Constraint<Value> {
+    Constraint(kind: .array(.count(lowerBound: count, upperBound: count)))
   }
 }
 

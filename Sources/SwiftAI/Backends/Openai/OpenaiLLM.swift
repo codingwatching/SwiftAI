@@ -3,7 +3,7 @@ import OpenAI
 
 /// Openai's language model integration using the Response API.
 public struct OpenaiLLM: LLM {
-  public typealias Thread = OpenaiThread
+  public typealias ConversationThread = OpenaiConversationThread
 
   private let client: OpenAIProtocol
   private let model: String
@@ -48,33 +48,33 @@ public struct OpenaiLLM: LLM {
   ///   - tools: Tools available for the conversation
   ///   - messages: Initial conversation history
   ///
-  /// - Returns: A new Openai thread for stateful conversations
-  public func makeThread(tools: [any Tool], messages: [any Message]) throws -> OpenaiThread {
-    return OpenaiThread(messages: messages, tools: tools)
+  /// - Returns: A new Openai conversation thread for stateful conversations
+  public func makeConversationThread(tools: [any Tool], messages: [Message]) -> OpenaiConversationThread {
+    return OpenaiConversationThread(messages: messages, tools: tools)
   }
 
   /// Generates a response to a conversation using Openai's Response API.
   ///
   /// - Parameters:
-  ///   - messages: The conversation history. Must end with a UserMessage.
+  ///   - messages: The conversation history. Must end with a user message.
   ///   - tools: Tools available for the conversation (not used in Phase 1)
   ///   - type: The expected return type (must be String in Phase 1)
   ///   - options: Generation options (not used in Phase 1)
   ///
   /// - Returns: The model's response and updated conversation history
   public func reply<T: Generable>(
-    to messages: [any Message],
-    tools: [any Tool],
+    to messages: [Message],
     returning type: T.Type,
+    tools: [any Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard let lastMessage = messages.last, lastMessage.role == .user else {
-      throw LLMError.generalError("Conversation must end with a UserMessage")
+      throw LLMError.generalError("Conversation must end with a user message")
     }
 
-    // Create a thread with the conversation history excluding the last user message
+    // Create a conversation thread with the conversation history excluding the last user message
     let contextMessages = Array(messages.dropLast())
-    var thread = try makeThread(tools: tools, messages: contextMessages)
+    var thread = makeConversationThread(tools: tools, messages: contextMessages)
 
     return try await reply(
       to: lastMessage,
@@ -96,11 +96,11 @@ public struct OpenaiLLM: LLM {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout OpenaiThread,
+    in thread: inout OpenaiConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
 
-    let userMessage = UserMessage(chunks: prompt.chunks)
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
 
     var input: CreateModelResponseQuery.Input
     var previousResponseID: String?
@@ -135,60 +135,49 @@ public struct OpenaiLLM: LLM {
         tools: try thread.openaiTools.map { .functionTool($0) }
       )
 
-      let response: ResponseObject = try await {
-        do {
-          return try await client.responses.createResponse(query: query)
-        } catch {
-          throw LLMError.generalError("Openai API error: \(error)")
-        }
-      }()
+      // Convert response to AI message
+      let response: ResponseObject = try await client.responses.createResponse(query: query)
+      let aiMsg = try response.asSwiftAIMessage
 
-      // Convert response to AIMessage
-      let aiMsg = try {
-        do {
-          return try response.asSwiftAIMessage
-        } catch {
-          throw LLMError.generalError("Failed to convert response to AIMessage: \(error)")
-        }
-      }()
-
-      thread = thread.withNewMessage(aiMsg).withNewResponseID(response.id)
+      thread =
+        thread
+        .withNewMessage(.ai(aiMsg))
+        .withNewResponseID(response.id)
 
       let funcCalls = aiMsg.functionCalls
 
       if !funcCalls.isEmpty {
-        var outputToolMessages = [ToolOutput]()
+        var outputToolMessages = [Message]()
         for toolCall in funcCalls {
           // TODO: Consider sending the error to the LLM.
           let toolOutput = try await thread.execute(toolCall: toolCall)
-          thread = thread.withNewMessage(toolOutput)
-          outputToolMessages.append(toolOutput)
+          let toolOutputMessage = Message.toolOutput(toolOutput)
+          thread = thread.withNewMessage(toolOutputMessage)
+          outputToolMessages.append(toolOutputMessage)
         }
 
         input = try CreateModelResponseQuery.Input.from(outputToolMessages)
         previousResponseID = response.id
       }
-    } while !(thread.messages.last is AIMessage)
+    } while thread.messages.last?.role != .ai
 
     // Extract final content from the last AI message
-    guard let finalAIMessage = thread.messages.last as? AIMessage else {
-      throw LLMError.generalError("Final message should be an AIMessage")
+    guard let finalMessage = thread.messages.last,
+      case .ai(let finalAIMessage) = finalMessage
+    else {
+      throw LLMError.generalError("Final message should be an AI message")
     }
 
-    let content: T
-    if T.self == String.self {
-      content = finalAIMessage.text as! T  // FIXME: Avoid forced unwrapping
-    } else {
-      // For structured types, parse JSON from text content
-      do {
+    let content: T = try {
+      if T.self == String.self {
+        return unsafeBitCast(finalAIMessage.text, to: T.self)
+      } else {
+        // For structured types, parse JSON from text content
         let jsonData = finalAIMessage.text.data(using: .utf8) ?? Data()
         let decoder = JSONDecoder()
-        content = try decoder.decode(T.self, from: jsonData)
-      } catch {
-        throw LLMError.generalError(
-          "Failed to decode structured response: \(error.localizedDescription)")
+        return try decoder.decode(T.self, from: jsonData)
       }
-    }
+    }()
 
     return LLMReply(
       content: content,
@@ -197,8 +186,8 @@ public struct OpenaiLLM: LLM {
   }
 }
 
-extension AIMessage {
-  /// Extracts function calls from this AIMessage.
+extension Message.AIMessage {
+  /// Extracts function calls from this AI message.
   ///
   /// This computed property can be used anywhere in the codebase to extract
   /// tool calls from AI messages, making it reusable and testable.
@@ -218,8 +207,8 @@ extension AIMessage {
       switch chunk {
       case .text(let text):
         return text
-      case .structured(let json):
-        return json
+      case .structured(let content):
+        return content.jsonString
       case .toolCall(_):
         return nil
       }

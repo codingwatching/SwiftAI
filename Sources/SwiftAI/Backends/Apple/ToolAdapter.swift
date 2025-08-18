@@ -104,7 +104,7 @@ struct FoundationModelsToolAdapter: FoundationModels.Tool {
         case .text(let text):
           return text
         case .structured(let structuredText):
-          return structuredText
+          return structuredText.jsonString
         case .toolCall:
           // TODO: Consider serializing tool calls to JSON string for better fidelity
           return nil

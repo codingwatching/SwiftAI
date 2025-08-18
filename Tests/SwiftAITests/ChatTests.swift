@@ -8,7 +8,7 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply("Hello! How can I help you today?")
 
-  let chat = try Chat(with: fakeLLM)
+  let chat = Chat(with: fakeLLM)
   let response = try await chat.send {
     "Hi there! Can you assist me?"
   }
@@ -20,10 +20,10 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply("I'll be concise in my responses.")
 
-  let chat = try Chat(
+  let chat = Chat(
     with: fakeLLM,
     initialMessages: [
-      SystemMessage(text: "You are a helpful but very brief assistant")
+      .system(.init(text: "You are a helpful but very brief assistant"))
     ])
   let response = try await chat.send("Explain AI")
 
@@ -34,7 +34,7 @@ import Testing
   let fakeLLM = FakeLLM()
   let fakeToolCall = FakeLLM.FakeToolCall(
     toolName: "fake_tool",
-    arguments: ["input": "test input"],
+    arguments: try! StructuredContent(json: #"{"input": "test input"}"#),
     expectedOutput: "Tool executed successfully"
   )
   fakeLLM.queueReply(
@@ -42,7 +42,7 @@ import Testing
     finalResponse: "I used the fake tool and got the result: Tool executed successfully"
   )
 
-  let chat = try Chat(with: fakeLLM, tools: [FakeTool()])
+  let chat = Chat(with: fakeLLM, tools: [FakeTool()])
   let response = try await chat.send("Use the fake tool")
 
   #expect(response == "I used the fake tool and got the result: Tool executed successfully")
@@ -58,7 +58,7 @@ import Testing
   let fakeLLM = FakeLLM()
   fakeLLM.queueReply(jsonResponse)
 
-  let chat = try Chat(with: fakeLLM)
+  let chat = Chat(with: fakeLLM)
   let response: FakeResponse = try await chat.send(
     "Give me a structured response",
     returning: FakeResponse.self
@@ -72,7 +72,7 @@ import Testing
   fakeLLM.queueReply("First response")
   fakeLLM.queueReply("Second response")
 
-  let chat = try Chat(with: fakeLLM)
+  let chat = Chat(with: fakeLLM)
 
   let firstResponse = try await chat.send("First message")
   #expect(firstResponse == "First response")
@@ -87,7 +87,7 @@ import Testing
   let fakeLLM = FakeLLM()
   let fakeToolCall = FakeLLM.FakeToolCall(
     toolName: "fake_tool",
-    arguments: ["input": "weather query"],
+    arguments: try! StructuredContent(json: #"{"input": "weather query"}"#),
     expectedOutput: "Sunny, 25°C"
   )
   fakeLLM.queueReply(
@@ -95,7 +95,7 @@ import Testing
     finalResponse: "The weather is sunny and 25°C."
   )
 
-  let chat = try Chat(with: fakeLLM, tools: [FakeTool()])
+  let chat = Chat(with: fakeLLM, tools: [FakeTool()])
   let response = try await chat.send("What's the weather?")
 
   #expect(response == "The weather is sunny and 25°C.")
@@ -103,22 +103,24 @@ import Testing
   // Verify the message history matches expected sequence
   let actualMessages = await chat.messages
 
-  let expectedMessages: [any Message] = [
-    UserMessage(text: "What's the weather?"),
-    AIMessage(chunks: [
-      .toolCall(
-        ToolCall(
-          id: "tool_call_0",
-          toolName: "fake_tool",
-          arguments: "{\"input\":\"weather query\"}"
-        ))
-    ]),
-    ToolOutput(
-      id: "tool_call_0",
-      toolName: "fake_tool",
-      chunks: [.text("Sunny, 25°C")]
-    ),
-    AIMessage(text: "The weather is sunny and 25°C.")
+  let expectedMessages: [Message] = [
+    .user(.init(text: "What's the weather?")),
+    .ai(
+      .init(chunks: [
+        .toolCall(
+          ToolCall(
+            id: "tool_call_0",
+            toolName: "fake_tool",
+            arguments: try! StructuredContent(json: #"{"input":"weather query"}"#)
+          ))
+      ])),
+    .toolOutput(
+      .init(
+        id: "tool_call_0",
+        toolName: "fake_tool",
+        chunks: [.text("Sunny, 25°C")]
+      )),
+    .ai(.init(text: "The weather is sunny and 25°C.")),
   ]
 
   #expect(actualMessages.count == expectedMessages.count)

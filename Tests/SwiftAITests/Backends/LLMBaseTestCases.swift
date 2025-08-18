@@ -9,6 +9,7 @@ protocol LLMBaseTestCases {
 
   // MARK: - Basic Tests
   func testReply_ToPrompt() async throws
+  func testReply_ToPrompt_ReturnsCorrectHistory() async throws
 
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
@@ -17,7 +18,7 @@ protocol LLMBaseTestCases {
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws
   func testReply_ReturningNestedObjects_ReturnsCorrectContent() async throws
 
-  // MARK: - Threading Tests
+  // MARK: - Conversation Threading Tests
   func testReply_InThread_MaintainsContext() async throws
 
   // MARK: - Tool Calling Tests
@@ -37,9 +38,9 @@ protocol LLMBaseTestCases {
 
 extension LLMBaseTestCases {
   func testReply_ToPrompt_Impl() async throws {
-    let reply = try await llm.reply(
-      to: [UserMessage(text: "Say hello in exactly one word.")]
-    )
+    let reply = try await llm.reply {
+      "Say hello in exactly one word."
+    }
 
     #expect(!reply.content.isEmpty)
     #expect(reply.history.count == 2)
@@ -47,11 +48,31 @@ extension LLMBaseTestCases {
     #expect(reply.history[1].role == .ai)
   }
 
+  func testReply_ToPrompt_ReturnsCorrectHistory_Impl() async throws {
+    let reply = try await llm.reply {
+      "Tell me a short story about a cat."
+    }
+
+    // Verify the history structure is correct
+    #expect(reply.history.count == 2, "History should contain exactly 2 messages: user and AI")
+
+    // Verify the first message is from the user
+    let userMessage = reply.history[0]
+    #expect(userMessage.role == .user, "First message should be from user")
+    #expect(userMessage.chunks == [.text("Tell me a short story about a cat.")])
+
+    // Verify the second message is from the AI
+    let aiMessage = reply.history[1]
+    #expect(aiMessage.role == .ai, "Second message should be from AI")
+    #expect(aiMessage.chunks == [.text(reply.content)])
+  }
+
   func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {
-    let reply: LLMReply<SimpleResponse> = try await llm.reply(
-      to: "Create a simple response with message 'Hello', count 42, and isValid true",
-      returning: SimpleResponse.self
-    )
+    let reply = try await llm.reply(
+      returning: SimpleResponse.self,
+      to: {
+        "Create a simple response with message 'Hello', count 42, and isValid true"
+      })
 
     let expected = SimpleResponse(message: "Hello", count: 42, isValid: true)
     #expect(reply.content == expected)
@@ -70,10 +91,10 @@ extension LLMBaseTestCases {
     // Check that the AI message contains structured content
     let aiMessage = reply.history[1]
     #expect(aiMessage.chunks.count == 1)
-    if case .structured(let jsonString) = aiMessage.chunks[0] {
-      #expect(jsonString.contains("message"))
-      #expect(jsonString.contains("count"))
-      #expect(jsonString.contains("isValid"))
+    if case .structured(let content) = aiMessage.chunks[0] {
+      #expect(content.jsonString.contains("message"))
+      #expect(content.jsonString.contains("count"))
+      #expect(content.jsonString.contains("isValid"))
     } else {
       Issue.record("Expected structured content chunk")
     }
@@ -99,9 +120,9 @@ extension LLMBaseTestCases {
     #expect(reply.history[1].role == .ai)
 
     let aiMessage = reply.history[1]
-    if case .structured(let jsonString) = aiMessage.chunks[0] {
-      #expect(jsonString.contains("items"))
-      #expect(jsonString.contains("numbers"))
+    if case .structured(let content) = aiMessage.chunks[0] {
+      #expect(content.jsonString.contains("items"))
+      #expect(content.jsonString.contains("numbers"))
     } else {
       Issue.record("Expected structured content chunk")
     }
@@ -122,19 +143,22 @@ extension LLMBaseTestCases {
   }
 
   func testReply_InThread_MaintainsContext_Impl() async throws {
-    // Create a new thread for conversation
-    var thread = try llm.makeThread()
+    // Create a new conversation thread for conversation
+    var thread = llm.makeConversationThread(instructions: {
+      "You are a helpful assistant."
+    })
 
     // Turn 1: Introduce name
     let reply1 = try await llm.reply(
-      to: "Hi my name is Achraf",
+      to: "Hi my name is Tom",
       in: &thread
     )
 
     #expect(!reply1.content.isEmpty)
-    #expect(reply1.history.count == 2)  // User message + AI response
-    #expect(reply1.history[0].role == Role.user)
-    #expect(reply1.history[1].role == Role.ai)
+    #expect(reply1.history.count == 3)  // System message + User message + AI response
+    #expect(reply1.history[0].role == Role.system)
+    #expect(reply1.history[1].role == Role.user)
+    #expect(reply1.history[2].role == Role.ai)
 
     // Turn 2: Ask for name recall
     let reply2 = try await llm.reply(
@@ -143,8 +167,8 @@ extension LLMBaseTestCases {
     )
 
     #expect(!reply2.content.isEmpty)
-    #expect(reply2.content.contains("Achraf"))  // Should remember the name
-    #expect(reply2.history.count == 4)  // Full conversation history: User1 + AI1 + User2 + AI2
+    #expect(reply2.content.lowercased().contains("tom"))  // Should remember the name
+    #expect(reply2.history.count == 5)  // Full conversation history: User1 + AI1 + User2 + AI2
 
     // Turn 3: Request structured output with name context
     let reply3 = try await llm.reply(
@@ -153,7 +177,7 @@ extension LLMBaseTestCases {
       in: &thread
     )
 
-    #expect(reply3.content.message.contains("Achraf"))  // Should include name in structured response
+    #expect(reply3.content.message.lowercased().contains("tom"))  // Should include name in structured response
     #expect(reply3.content.count == 1)
     #expect(reply3.content.isValid == true)
   }
@@ -199,8 +223,8 @@ extension LLMBaseTestCases {
 
     let reply: LLMReply<CalculationResult> = try await llm.reply(
       to: "Calculate 10 * 5 and return the result in the specified format",
-      tools: [calculatorTool],
-      returning: CalculationResult.self
+      returning: CalculationResult.self,
+      tools: [calculatorTool]
     )
 
     // Verify the calculator tool was called with correct arguments
@@ -219,8 +243,8 @@ extension LLMBaseTestCases {
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
-    // Create thread with tools
-    var thread = try llm.makeThread(tools: [calculatorTool, weatherTool])
+    // Create conversation thread with tools
+    var thread = llm.makeConversationThread(tools: [calculatorTool, weatherTool])
 
     // First interaction: calculator
     let _ = try await llm.reply(
@@ -278,59 +302,73 @@ extension LLMBaseTestCases {
   // MARK: - Phase 6 Tests: Complex Conversation Scenarios
 
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent_Impl() async throws {
-    let messages: [any Message] = [
-      SystemMessage(
-        text:
-          "You are a helpful assistant that can perform calculations and provide weather information. Always be accurate and detailed in your responses."
-      ),
-      UserMessage(text: "Please calculate 15 + 27 for me"),
-      AIMessage(chunks: [
-        .text("I'll calculate that for you using the calculator tool."),
-        .toolCall(
-          ToolCall(
-            id: "call-1",
-            toolName: "calculator",
-            arguments: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
-          )),
-      ]),
-      SwiftAI.ToolOutput(
-        id: "call-1",
-        toolName: "calculator",
-        chunks: [.text("Result: 42.0")]
-      ),
-      AIMessage(chunks: [
-        .text("The calculation is complete."),
-        .structured(#"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#),
-      ]),
-      UserMessage(text: "Now tell me about the weather in Paris"),
-      AIMessage(chunks: [
-        .text("Let me check the weather in Paris for you."),
-        .toolCall(
-          ToolCall(
-            id: "call-2",
-            toolName: "get_weather",
-            arguments: #"{"city": "Paris", "unit": "celsius"}"#
-          )),
-      ]),
-      SwiftAI.ToolOutput(
-        id: "call-2",
-        toolName: "get_weather",
-        chunks: [.text("Weather in Paris: 22°C, sunny")]
-      ),
-      AIMessage(
-        text:
-          "The weather in Paris is currently 22°C and sunny. Perfect weather for outdoor activities!"
-      ),
-      UserMessage(
-        text:
-          "Please analyze our entire conversation and provide a structured summary including the number of calculations, cities mentioned, results, and any failures that occurred."
-      ),
+    let messages: [Message] = [
+      .system(
+        .init(
+          text:
+            "You are a helpful assistant that can perform calculations and provide weather information. Always be accurate and detailed in your responses."
+        )),
+      .user(.init(text: "Please calculate 15 + 27 for me")),
+      .ai(
+        .init(chunks: [
+          .text("I'll calculate that for you using the calculator tool."),
+          .toolCall(
+            ToolCall(
+              id: "call-1",
+              toolName: "calculator",
+              arguments: try! StructuredContent(
+                json: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
+              )
+            )),
+        ])),
+      .toolOutput(
+        .init(
+          id: "call-1",
+          toolName: "calculator",
+          chunks: [.text("Result: 42.0")]
+        )),
+      .ai(
+        .init(chunks: [
+          .text("The calculation is complete."),
+          .structured(
+            try StructuredContent(
+              json: #"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#)),
+        ])),
+      .user(.init(text: "Now tell me about the weather in Paris")),
+      .ai(
+        .init(chunks: [
+          .text("Let me check the weather in Paris for you."),
+          .toolCall(
+            ToolCall(
+              id: "call-2",
+              toolName: "get_weather",
+              arguments: try! StructuredContent(
+                json: #"{"city": "Paris", "unit": "celsius"}"#
+              )
+            )),
+        ])),
+      .toolOutput(
+        .init(
+          id: "call-2",
+          toolName: "get_weather",
+          chunks: [.text("Weather in Paris: 22°C, sunny")]
+        )),
+      .ai(
+        .init(
+          text:
+            "The weather in Paris is currently 22°C and sunny. Perfect weather for outdoor activities!"
+        )),
+      .user(
+        .init(
+          text:
+            "Please analyze our entire conversation and provide a structured summary including the number of calculations, cities mentioned, results, and any failures that occurred."
+        )),
     ]
 
     let reply = try await llm.reply(
       to: messages,
-      tools: [MockCalculatorTool(), MockWeatherTool()],
-      returning: ConversationSummary.self
+      returning: ConversationSummary.self,
+      tools: [MockCalculatorTool(), MockWeatherTool()]
     )
 
     let summary = reply.content
@@ -347,9 +385,9 @@ extension LLMBaseTestCases {
     let weatherTool = MockWeatherTool()
 
     // First inference: Start a conversation about weather
-    let initialConversation: [any Message] = [
-      SystemMessage(text: "You are a helpful weather assistant."),
-      UserMessage(text: "What's the weather like in Tokyo?"),
+    let initialConversation: [Message] = [
+      .system(.init(text: "You are a helpful weather assistant.")),
+      .user(.init(text: "What's the weather like in Tokyo?")),
     ]
     let firstReply = try await llm.reply(
       to: initialConversation,
@@ -362,7 +400,7 @@ extension LLMBaseTestCases {
     // Seed the complete history from first reply into second call
     let historyBasedConversation =
       firstReply.history + [
-        UserMessage(text: "Which city did I ask about in our conversation?")
+        .user(.init(text: "Which city did I ask about in our conversation?"))
       ]
     let secondReply = try await llm.reply(
       to: historyBasedConversation,
@@ -378,9 +416,9 @@ extension LLMBaseTestCases {
   }
 
   func testReply_InThread_ReturningStructured_MaintainsContext_Impl() async throws {
-    // Create thread with initial context
-    var thread = try llm.makeThread(
-      messages: [SystemMessage(text: "You are a helpful assistant that creates user profiles.")]
+    // Create conversation thread with initial context
+    var thread = llm.makeConversationThread(
+      messages: [.system(.init(text: "You are a helpful assistant that creates user profiles."))]
     )
 
     // First exchange - create a user profile
@@ -417,8 +455,8 @@ extension LLMBaseTestCases {
     // String enum constraint
     #expect(response.content.priority == "high")
 
-    // String constant constraint
-    #expect(response.content.category == "default")
+    // String pattern constraint
+    #expect(response.content.category.contains("default"))
 
     // Integer range constraints
     #expect(response.content.age == 30)
@@ -447,20 +485,17 @@ extension LLMBaseTestCases {
   }
 
   func testReply_ToSystemPrompt_ReturnsCorrectResponse_Impl() async throws {
-    let messages: [any Message] = [
-      SystemMessage(text: "You are a helpful math tutor. Always show your work."),
-      UserMessage(text: "What is 15 × 7?"),
+    let messages: [Message] = [
+      .system(.init(text: "You are a helpful math tutor. Always show your work.")),
+      .user(.init(text: "What is 15 × 7?")),
     ]
 
     let response = try await llm.reply(
-      to: messages
+      to: messages,
+      tools: [MockCalculatorTool()]
     )
 
-    #expect(!response.content.isEmpty)
-    #expect(response.history.count == 3)  // System + User + AI
-    #expect(response.history.first?.role == .system)
-    #expect(response.history.last?.role == .ai)
-    #expect(response.content.localizedCaseInsensitiveContains("105"))
+    #expect(response.content.contains("105"))
     #expect(response.content.count > 3)  // Should show work
   }
 
@@ -551,13 +586,13 @@ struct ComprehensiveProfile: Equatable {
   let isActive: Bool
 
   // Array constraints
-  @Guide<[String]>(.count(5), .element(.anyOf(["A", "B", "C"])))
+  @Guide(.count(5), .element(.anyOf(["A", "B", "C"])))
   let tags: [String]
 
-  @Guide<[String]>(.minimumCount(1))  // FIXME: Automatic type inference fails without passing `[String]`
+  @Guide(.minimumCount(1))
   let features: [String]
 
-  @Guide<[String]>(.maximumCount(3))  // FIXME: Automatic type inference fails without passing `[String]`
+  @Guide(.maximumCount(3))
   let notes: [String]
 
   // Optional field

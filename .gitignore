@@ -9,9 +9,11 @@ DerivedData/
 Package.resolved
 CLAUDE.md
 GEMINI.md
+AGENT.md
 
 # Environment variables
 .env
+.gemini
 
 # Playground executable - keep local only
 Sources/SwiftAIPlayground/

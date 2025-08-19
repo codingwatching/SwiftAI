@@ -353,4 +353,27 @@ struct GenerableMacroTests {
       """
     }
   }
+
+  @Test
+  func testGenerableRejectsClass() throws {
+    assertMacro {
+      """
+      @Generable
+      class InvalidClass {
+        let name: String
+        let age: Int
+      }
+      """
+    } diagnostics: {
+      """
+      @Generable
+      ┬─────────
+      ╰─ 🛑 @Generable can only be applied to structs
+      class InvalidClass {
+        let name: String
+        let age: Int
+      }
+      """
+    }
+  }
 }

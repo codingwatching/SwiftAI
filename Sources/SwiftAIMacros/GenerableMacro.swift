@@ -1,3 +1,4 @@
+import SwiftDiagnostics
 import SwiftFormat
 import SwiftOperators
 import SwiftParser
@@ -23,7 +24,10 @@ public struct GenerableMacro: ExtensionMacro {
   ) throws -> [ExtensionDeclSyntax] {
     // TODO: Support enums as well.
     guard let structDecl = declaration.as(StructDeclSyntax.self) else {
-      throw GenerableMacroError.notAStruct
+      throw GenerableMacroError(
+        message: "@Generable can only be applied to structs",
+        id: "notAStruct"
+      )
     }
 
     let typeName = type.trimmed.description
@@ -79,12 +83,20 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
   for memberDecl in storedMembersDecls {
     for bindingSyntax in memberDecl.bindings {
       guard let identifierSyntax = bindingSyntax.pattern.as(IdentifierPatternSyntax.self) else {
-        throw GenerableMacroError.unsupportedPropertyPattern
+        throw GenerableMacroError(
+          message:
+            "@Generable does not support complex property patterns (like tuple destructuring). Use simple property declarations like 'let name: String'.",
+          id: "unsupportedPropertyPattern"
+        )
       }
 
       guard let typeSyntax = bindingSyntax.typeAnnotation?.type else {
         let propertyName = identifierSyntax.identifier.text
-        throw GenerableMacroError.missingTypeAnnotation(propertyName: propertyName)
+        throw GenerableMacroError(
+          message:
+            "Property '\(propertyName)' must have an explicit type annotation. Use 'let \(propertyName): Type' instead of relying on type inference.",
+          id: "missingTypeAnnotation"
+        )
       }
 
       let propertyName = identifierSyntax.identifier.text
@@ -350,8 +362,11 @@ private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) 
     if arrayType.element.is(OptionalTypeSyntax.self) {
       let elementTypeName =
         arrayType.element.as(OptionalTypeSyntax.self)?.wrappedType.trimmed.description ?? "Unknown"
-      throw GenerableMacroError.arrayOfOptionalType(
-        propertyName: propertyName, elementType: elementTypeName)
+      throw GenerableMacroError(
+        message:
+          "Property '\(propertyName)' cannot be an array of optional types '[\(elementTypeName)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead.",
+        id: "arrayOfOptionalType"
+      )
     }
   }
 }
@@ -369,36 +384,6 @@ private struct PropertyDescriptor {
 
   /// Guide information including description and constraints.
   let guide: GuideDescriptor?
-}
-
-enum GenerableMacroError: Error, CustomStringConvertible {
-  /// The @Generable macro was applied to a non-struct declaration (class, enum, etc.)
-  case notAStruct
-
-  /// A property uses a complex pattern that cannot be analyzed (e.g., tuple destructuring)
-  case unsupportedPropertyPattern
-
-  /// A property lacks an explicit type annotation and relies on type inference
-  case missingTypeAnnotation(propertyName: String)
-
-  /// Arrays of optional types are not supported
-  case arrayOfOptionalType(propertyName: String, elementType: String)
-
-  var description: String {
-    switch self {
-    case .notAStruct:
-      return "@Generable can only be applied to structs"
-    case .unsupportedPropertyPattern:
-      return
-        "@Generable does not support complex property patterns (like tuple destructuring). Use simple property declarations like 'let name: String'."
-    case .missingTypeAnnotation(let propertyName):
-      return
-        "Property '\(propertyName)' must have an explicit type annotation. Use 'let \(propertyName): Type' instead of relying on type inference."
-    case .arrayOfOptionalType(let propertyName, let elementType):
-      return
-        "Property '\(propertyName)' cannot be an array of optional types '[\(elementType)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead."
-    }
-  }
 }
 
 extension DeclSyntaxParseable {
@@ -429,5 +414,17 @@ private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
     return try T(SyntaxNodeString(stringLiteral: output))
   } catch {
     return node
+  }
+}
+
+struct GenerableMacroError: DiagnosticMessage, Error {
+  let message: String
+  let diagnosticID: MessageID
+  let severity: DiagnosticSeverity
+
+  init(message: String, id: String) {
+    self.message = message
+    self.diagnosticID = MessageID(domain: "GenerableMacro", id: id)
+    self.severity = .error
   }
 }

@@ -328,8 +328,8 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayElementConstraintConversion() throws {
   let schema = Schema.array(
-    items: .string(constraints: []),
-    constraints: [AnyArrayConstraint(.element(.pattern("^[A-Z][a-z]+$")) as Constraint<[String]>)]
+    items: .string(constraints: [.pattern("^[A-Z][a-z]+$")]),
+    constraints: []
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -344,8 +344,8 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayElementIntegerConstraintConversion() throws {
   let schema = Schema.array(
-    items: .integer(constraints: []),
-    constraints: [AnyArrayConstraint(.element(.range(10...100)) as Constraint<[Int]>)]
+    items: .integer(constraints: [.range(10...100)]),
+    constraints: []
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -361,11 +361,10 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayMultipleElementConstraintsConversion() throws {
   let schema = Schema.array(
-    items: .string(constraints: [.anyOf(["red", "green", "blue"])]),
-    constraints: [
-      AnyArrayConstraint(.element(.pattern("^[a-z]+$")) as Constraint<[String]>),
-      AnyArrayConstraint(.element(.pattern(".{3,}")) as Constraint<[String]>),
-    ]
+    items: .string(constraints: [
+      .anyOf(["red", "green", "blue"]), .pattern("^[a-z]+$"), .pattern(".{3,}"),
+    ]),
+    constraints: []
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -386,12 +385,13 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayCountAndElementConstraintsConversion() throws {
   let schema = Schema.array(
-    items: .number(constraints: []),
+    items: .number(constraints: [
+      .minimum(0.0),
+      .maximum(100.0),
+    ]),
     constraints: [
       AnyArrayConstraint(.minimumCount(1) as Constraint<[Double]>),
       AnyArrayConstraint(.maximumCount(5) as Constraint<[Double]>),
-      AnyArrayConstraint(.element(.minimum(0.0)) as Constraint<[Double]>),
-      AnyArrayConstraint(.element(.maximum(100.0)) as Constraint<[Double]>),
     ]
   )
   let json = try schema.toGenerationSchema().json()
@@ -477,7 +477,7 @@ import FoundationModels
       schema: .array(items: .string(constraints: []), constraints: []),
       description: "List of tags",
       isOptional: false
-    )
+    ),
   ]
   let schema = Schema.object(
     name: "Item",

@@ -44,47 +44,47 @@ struct GenerableMacroTests {
             description: nil,
             properties: [
               "stringField": Schema.Property(
-                schema: .string(constraints: []),
+                schema: String.schema,
                 description: nil,
                 isOptional: false
               ),
               "intField": Schema.Property(
-                schema: .integer(constraints: []),
+                schema: Int.schema,
                 description: nil,
                 isOptional: false
               ),
               "doubleField": Schema.Property(
-                schema: .number(constraints: []),
+                schema: Double.schema,
                 description: nil,
                 isOptional: false
               ),
               "boolField": Schema.Property(
-                schema: .boolean(constraints: []),
+                schema: Bool.schema,
                 description: nil,
                 isOptional: false
               ),
               "optionalString": Schema.Property(
-                schema: .string(constraints: []),
+                schema: String.schema,
                 description: nil,
                 isOptional: true
               ),
               "optionalInt": Schema.Property(
-                schema: .integer(constraints: []),
+                schema: Int.schema,
                 description: nil,
                 isOptional: true
               ),
               "arrayOfStrings": Schema.Property(
-                schema: .array(items: .string(constraints: []), constraints: []),
+                schema: [String].schema,
                 description: nil,
                 isOptional: false
               ),
               "arrayOfInts": Schema.Property(
-                schema: .array(items: .integer(constraints: []), constraints: []),
+                schema: [Int].schema,
                 description: nil,
                 isOptional: false
               ),
               "optionalArrayOfBools": Schema.Property(
-                schema: .array(items: .boolean(constraints: []), constraints: []),
+                schema: [Bool].schema,
                 description: nil,
                 isOptional: true
               ),
@@ -145,7 +145,7 @@ struct GenerableMacroTests {
             description: nil,
             properties: [
               "name": Schema.Property(
-                schema: .string(constraints: []),
+                schema: String.schema,
                 description: nil,
                 isOptional: false
               )
@@ -224,28 +224,115 @@ struct GenerableMacroTests {
             description: nil,
             properties: [
               "name": Schema.Property(
-                schema: .string(constraints: [.pattern("[A-Z]+"), .minLength(5)]),
+                schema: String.schema.withConstraints([
+                  .pattern("[A-Z]+"), .minLength(5),
+                ]),
                 description: nil,
                 isOptional: false
               ),
               "age": Schema.Property(
-                schema: .integer(constraints: [.minimum(18), .maximum(100)]),
+                schema: Int.schema.withConstraints([.minimum(18), .maximum(100)]),
                 description: "User age in years",
                 isOptional: false
               ),
               "score": Schema.Property(
-                schema: .number(constraints: [.minimum(0.0)]),
+                schema: Double.schema.withConstraints([.minimum(0.0)]),
                 description: nil,
                 isOptional: true
               ),
               "tags": Schema.Property(
-                schema: .array(
-                  items: .string(constraints: []),
-                  constraints: [
-                    AnyArrayConstraint(Constraint<[String]> .minimumCount(1)),
-                    AnyArrayConstraint(Constraint<[String]> .element(.minLength(2))),
-                  ]
-                ),
+                schema: [String].schema.withConstraints([
+                  .minimumCount(1), .element(.minLength(2)),
+                ]),
+                description: "Tags array",
+                isOptional: false
+              ),
+            ]
+          )
+        }
+
+        public var generableContent: StructuredContent {
+          StructuredContent(
+            kind: .object([
+              "name": self.name.generableContent, "age": self.age.generableContent,
+              "score": self.score?.generableContent ?? StructuredContent(kind: .null),
+              "tags": self.tags.generableContent,
+            ])
+          )
+        }
+      }
+      """
+    }
+  }
+
+  @Test
+  func testGuideWithExplicitConstraintTypes() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      struct ExplicitConstraintFields {
+        @Guide(Constraint<String>.pattern("[A-Z]+"), Constraint<String>.minLength(5))
+        let name: String
+        
+        @Guide(description: "User age in years", Constraint<Int>.minimum(18), Constraint<Int>.maximum(100))
+        let age: Int
+        
+        @Guide(Constraint<Double>.minimum(0.0))
+        let score: Double?
+        
+        @Guide(description: "Tags array", Constraint<[String]>.minimumCount(1), Constraint<[String]>.element(Constraint<String>.minLength(2)))
+        let tags: [String]
+      }
+      """
+    } expansion: {
+      """
+      struct ExplicitConstraintFields {
+        @Guide(Constraint<String>.pattern("[A-Z]+"), Constraint<String>.minLength(5))
+        let name: String
+        
+        @Guide(description: "User age in years", Constraint<Int>.minimum(18), Constraint<Int>.maximum(100))
+        let age: Int
+        
+        @Guide(Constraint<Double>.minimum(0.0))
+        let score: Double?
+        
+        @Guide(description: "Tags array", Constraint<[String]>.minimumCount(1), Constraint<[String]>.element(Constraint<String>.minLength(2)))
+        let tags: [String]
+      }
+
+      extension ExplicitConstraintFields: SwiftAI.Generable {
+        public static var schema: Schema {
+          .object(
+            name: "ExplicitConstraintFields",
+            description: nil,
+            properties: [
+              "name": Schema.Property(
+                schema: String.schema.withConstraints([
+                  Constraint<String> .pattern("[A-Z]+"),
+                  Constraint<String> .minLength(5),
+                ]),
+                description: nil,
+                isOptional: false
+              ),
+              "age": Schema.Property(
+                schema: Int.schema.withConstraints([
+                  Constraint<Int> .minimum(18), Constraint<Int> .maximum(100),
+                ]),
+                description: "User age in years",
+                isOptional: false
+              ),
+              "score": Schema.Property(
+                schema: Double.schema.withConstraints([
+                  Constraint<Double> .minimum(0.0)
+                ]),
+                description: nil,
+                isOptional: true
+              ),
+              "tags": Schema.Property(
+                schema: [String].schema.withConstraints([
+                  Constraint<[String]> .minimumCount(1),
+                  Constraint<[String]> .element(Constraint<String> .minLength(2)),
+                ]),
                 description: "Tags array",
                 isOptional: false
               ),

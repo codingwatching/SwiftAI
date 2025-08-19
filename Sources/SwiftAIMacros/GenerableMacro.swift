@@ -218,52 +218,72 @@ private func emitGenerableContentVariable(
 /// ## Example
 ///
 /// Input: type: "String", guideInfo: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
-/// Output: ExprSyntax for: .string(constraints: [Constraint<String>.minLength(3)])
+/// Output: ExprSyntax for: .string(constraints: []).withConstraint(.minLength(3))
 private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescriptor? = nil)
   -> ExprSyntax
 {
-  let typeName = type.trimmed.description
+  // Generate base schema without constraints
+  let baseSchemaExpr = emitBaseSchemaExpression(for: type)
 
+  // Apply constraints using withConstraint if any exist
+  return emitConstrainedSchema(baseSchema: baseSchemaExpr, guideInfo: guideInfo)
+}
+
+/// Generates a base schema expression without any constraints.
+///
+/// ## Example
+///
+/// Input: type: "String"
+/// Output: ExprSyntax for: "String.schema"
+private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
   // Handle optional types
   if let optionalType = type.as(OptionalTypeSyntax.self) {
-    return emitSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
+    return emitBaseSchemaExpression(for: optionalType.wrappedType)
   }
 
-  // Handle array types
-  if let arrayType = type.as(ArrayTypeSyntax.self) {
-    let elementSchema = emitSchemaExpression(for: arrayType.element)
-    let constraintsExpr = emitConstraintsExpression(
-      from: guideInfo, isArray: true, elementType: arrayType.element)
+  let typeName = type.trimmed.description
+  return ExprSyntax("\(raw: typeName).schema")
+}
 
-    return ExprSyntax(
-      FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
-        LabeledExprSyntax(label: "items", expression: elementSchema)
-        LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
-      }
-    )
+/// Applies constraints to a base schema using the withConstraint API.
+///
+/// ## Example
+///
+/// Input: baseSchema: .string(constraints: []), guideInfo: GuideDescriptor(constraints: [.minLength(3)])
+/// Output: ExprSyntax for: .string(constraints: []).withConstraints([.minLength(3)])
+private func emitConstrainedSchema(
+  baseSchema: ExprSyntax,
+  guideInfo: GuideDescriptor?
+) -> ExprSyntax {
+  guard let guideInfo, !guideInfo.constraints.isEmpty else {
+    return baseSchema
   }
 
-  // Type mapping for basic schema kinds
-  let typeToSchemaKind: [String: String] = [
-    "String": ".string",
-    "Int": ".integer",
-    "Double": ".number",
-    "Bool": ".boolean",
-  ]
-
-  // Handle basic types with constraints
-  if let schemaKind = typeToSchemaKind[typeName] {
-    let constraintsExpr = emitConstraintsExpression(from: guideInfo)
-    return ExprSyntax(
-      FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
-        LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
-      }
-    )
-  } else {
-    // For custom types, assume they conform to Generable and reference their schema
-    // TODO: The current Schema API does not support adding descriptions and constraints to nested types.
-    return ExprSyntax("\(raw: typeName).schema")
-  }
+  // Generate a single call to withConstraints with all constraints
+  // ```
+  // .string(constraints: [])
+  //   .withConstraints([
+  //     Constraint<String>.minLength(3),
+  //     Constraint<String>.maxLength(5)
+  //   ])
+  // ```
+  return ExprSyntax(
+    FunctionCallExprSyntax(
+      callee: MemberAccessExprSyntax(
+        base: baseSchema,
+        name: "withConstraints"
+      )
+    ) {
+      LabeledExprSyntax(
+        expression: ExprSyntax(
+          ArrayExprSyntax {
+            for constraint in guideInfo.constraints {
+              ArrayElementSyntax(expression: constraint)
+            }
+          }
+        ))
+    }
+  )
 }
 
 /// Parses @Guide attributes from a property declaration to extract description and constraints.
@@ -271,7 +291,10 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescript
 /// ## Example
 ///
 /// Input: @Guide("User name", .minLength(3)) let name: String
-/// Output: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
+/// Output: GuideDescriptor(
+///   description: "User name",
+///   constraints: [Constraint<String>.minLength(3)]
+/// )
 private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescriptor? {
   // Look for @Guide attributes on this property
   for attribute in property.attributes {
@@ -313,39 +336,6 @@ private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescripto
     }
   }
   return nil
-}
-
-/// Generates a constraints expression array from guide information.
-///
-/// ## Example
-///
-/// Input: guideInfo: GuideDescriptor(constraints: [.minLength(3), .maxLength(50)])
-/// Output: ExprSyntax for: [Constraint<String>.minLength(3), Constraint<String>.maxLength(50)]
-private func emitConstraintsExpression(
-  from guideInfo: GuideDescriptor?,
-  isArray: Bool = false,
-  elementType: TypeSyntax? = nil
-) -> ExprSyntax {
-  guard let guideInfo = guideInfo, !guideInfo.constraints.isEmpty else {
-    return ExprSyntax("[]")
-  }
-
-  let constraintExprs = guideInfo.constraints.enumerated().map { (index, constraint) in
-    let expression: ExprSyntax = {
-      if isArray, let elementType = elementType {
-        let typeName = elementType.trimmed.description
-        return ExprSyntax("AnyArrayConstraint(Constraint<[\(raw: typeName)]>\(constraint.trimmed))")
-      } else {
-        return constraint
-      }
-    }()
-    return ArrayElementSyntax(
-      expression: expression,
-      trailingComma: index < guideInfo.constraints.count - 1 ? .commaToken() : nil
-    )
-  }
-
-  return ExprSyntax(ArrayExprSyntax(elements: ArrayElementListSyntax(constraintExprs)))
 }
 
 private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {

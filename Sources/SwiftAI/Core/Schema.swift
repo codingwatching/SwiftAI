@@ -28,6 +28,59 @@ public enum Schema: Sendable, Equatable {
 
   // TODO: Add support to object references and recursive schemas.
 
+  /// Returns a new schema with the given constraint.
+  ///
+  /// If the constraint is not compatible with the schema, then a runtime assertion is raised
+  /// in debug builds, and the constraint is ignored in release builds.
+  ///
+  /// - Parameter constraint: The constraint to add.
+  /// - Returns: A new schema with the constraint added.
+  public func withConstraint<Value>(_ constraint: Constraint<Value>) -> Schema {
+    withConstraint(AnyConstraint(constraint))
+  }
+
+  /// Returns a new schema with the given constraints.
+  ///
+  /// - Parameter constraints: The constraints to add.
+  /// - Returns: A new schema with the constraints added.
+  public func withConstraints<Value>(_ constraints: [Constraint<Value>]) -> Schema {
+    withConstraints(constraints.map(AnyConstraint.init))
+  }
+
+  func withConstraint(_ constraint: AnyConstraint) -> Schema {
+    switch (self, constraint.kind) {
+    case (.string(let constraints), .string(let newConstraint)):
+      return .string(constraints: constraints + [Constraint(kind: .string(newConstraint))])
+
+    case (.integer(let constraints), .int(let newConstraint)):
+      return .integer(constraints: constraints + [Constraint(kind: .int(newConstraint))])
+
+    case (.number(let constraints), .double(let newConstraint)):
+      return .number(constraints: constraints + [Constraint(kind: .double(newConstraint))])
+
+    case (.boolean(let constraints), .boolean):
+      return .boolean(constraints: constraints + [Constraint(kind: .boolean)])
+
+    case (.array(let items, let constraints), .array(.element(let elementConstraintKind))):
+      let elementConstraint = AnyConstraint(kind: elementConstraintKind)
+      return .array(items: items.withConstraint(elementConstraint), constraints: constraints)
+
+    case (.array(let items, let constraints), .array(let arrayConstraint)):
+      let newConstraint = AnyArrayConstraint(Constraint<[Never]>(kind: .array(arrayConstraint)))
+      return .array(items: items, constraints: constraints + [newConstraint])
+
+    default:
+      assertionFailure("Invalid constraint \(constraint.kind) for schema \(self)")
+      return self
+    }
+  }
+
+  func withConstraints(_ constraints: [AnyConstraint]) -> Schema {
+    constraints.reduce(self) { schema, constraint in
+      schema.withConstraint(constraint)
+    }
+  }
+
   /// Represents a property within an object schema.
   public struct Property: Sendable, Equatable {
     /// The schema that defines this property's structure.

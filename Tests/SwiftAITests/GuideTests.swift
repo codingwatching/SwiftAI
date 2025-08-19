@@ -39,7 +39,7 @@ struct PrimitiveTypes {
       "bool": Schema.Property(
         schema: .boolean(constraints: []),
         description: "bool field",
-        isOptional: false)
+        isOptional: false),
     ]
   )
 
@@ -81,7 +81,7 @@ struct OptionalPrimitiveTypes {
       "optBool": Schema.Property(
         schema: .boolean(constraints: []),
         description: "optional bool field",
-        isOptional: true)
+        isOptional: true),
     ]
   )
 
@@ -95,6 +95,9 @@ struct ArrayTypes {
 
   @Guide(description: "Optional number array")
   let optionalArrayOfInts: [Int]?
+
+  @Guide(description: "Array of arrays of strings")
+  let arrayOfArraysOfStrs: [[String]]
 }
 
 @Test func arrayTypesSupport() throws {
@@ -113,7 +116,13 @@ struct ArrayTypes {
           items: .integer(constraints: []),
           constraints: []),
         description: "Optional number array",
-        isOptional: true)
+        isOptional: true),
+      "arrayOfArraysOfStrs": Schema.Property(
+        schema: .array(
+          items: .array(items: .string(constraints: []), constraints: []),
+          constraints: []),
+        description: "Array of arrays of strings",
+        isOptional: false),
     ]
   )
 
@@ -136,6 +145,14 @@ struct Constraints {
 
   @Guide(.minimumCount(1), .maximumCount(10), .element(.pattern("^[A-Z]{3}$")))
   let arrayOfStrs: [String]
+
+  @Guide(
+    .minimumCount(1),
+    .maximumCount(10),
+    .element(.count(3)),
+    .element(.element(.pattern("^[A-Z]{3}$")))
+  )
+  let arrayOfArraysOfStrs: [[String]]
 }
 
 @Test func constrainedTypesSupport() throws {
@@ -165,14 +182,28 @@ struct Constraints {
         isOptional: false),
       "arrayOfStrs": Schema.Property(
         schema: .array(
-          items: .string(constraints: []),
+          items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
           constraints: [
             AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
             AnyArrayConstraint(Constraint<[String]>.maximumCount(10)),
-            AnyArrayConstraint(Constraint<[String]>.element(.pattern("^[A-Z]{3}$")))
           ]),
         description: nil,
-        isOptional: false)
+        isOptional: false),
+      "arrayOfArraysOfStrs": Schema.Property(
+        schema: .array(
+          items: .array(
+            items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
+            constraints: [
+              AnyArrayConstraint(Constraint<[String]>.count(3))
+            ]
+          ),
+          constraints: [
+            AnyArrayConstraint(Constraint<[[String]]>.minimumCount(1)),
+            AnyArrayConstraint(Constraint<[[String]]>.maximumCount(10)),
+          ]
+        ),
+        description: nil,
+        isOptional: false),
     ]
   )
 
@@ -219,14 +250,13 @@ struct DescriptionsWithConstraints {
         isOptional: true),
       "strs": Schema.Property(
         schema: .array(
-          items: .string(constraints: []),
+          items: .string(constraints: [.pattern(".+")]),
           constraints: [
-            AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[String]>.element(.pattern(".+")))
+            AnyArrayConstraint(Constraint<[String]>.minimumCount(1))
           ]
         ),
         description: "string array with constraints",
-        isOptional: false)
+        isOptional: false),
     ]
   )
 
@@ -279,9 +309,91 @@ struct CustomTypes {
           items: NestedType.schema,
           constraints: []),
         description: "array of nested types",
-        isOptional: false)
+        isOptional: false),
     ]
   )
 
   #expect(CustomTypes.schema == expectedSchema)
+}
+
+@Generable
+struct ExplicitConstraintTypes {
+  @Guide(Constraint<String>.pattern("[A-Z]+"))
+  let str: String
+
+  @Guide(Constraint<Int>.minimum(0), Constraint<Int>.maximum(100))
+  let int: Int?
+
+  @Guide(Constraint<Double>.range(0.01...9999.99))
+  let double: Double
+
+  @Guide<Bool>
+  let bool: Bool
+
+  @Guide(
+    Constraint<[String]>.minimumCount(1), Constraint<[String]>.maximumCount(10),
+    Constraint<[String]>.element(Constraint<String>.pattern("^[A-Z]{3}$")))
+  let arrayOfStrs: [String]
+
+  @Guide(
+    Constraint<[[String]]>.minimumCount(1),
+    Constraint<[[String]]>.maximumCount(10),
+    Constraint<[[String]]>.element(Constraint<[String]>.count(3)),
+    Constraint<[[String]]>.element(
+      Constraint<[String]>.element(Constraint<String>.pattern("^[A-Z]{3}$")))
+  )
+  let arrayOfArraysOfStrs: [[String]]
+}
+
+@Test func explicitConstraintTypesSupport() throws {
+  let expectedSchema = Schema.object(
+    name: "ExplicitConstraintTypes",
+    description: nil,
+    properties: [
+      "str": Schema.Property(
+        schema: .string(
+          constraints: [.pattern("[A-Z]+")]),
+        description: nil,
+        isOptional: false),
+      "int": Schema.Property(
+        schema: .integer(
+          constraints: [.minimum(0), .maximum(100)]),
+        description: nil,
+        isOptional: true),
+      "double": Schema.Property(
+        schema: .number(
+          constraints: [.range(0.01...9999.99)]),
+        description: nil,
+        isOptional: false),
+      "bool": Schema.Property(
+        schema: .boolean(
+          constraints: []),
+        description: nil,
+        isOptional: false),
+      "arrayOfStrs": Schema.Property(
+        schema: .array(
+          items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
+          constraints: [
+            AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
+            AnyArrayConstraint(Constraint<[String]>.maximumCount(10)),
+          ]),
+        description: nil,
+        isOptional: false),
+      "arrayOfArraysOfStrs": Schema.Property(
+        schema: .array(
+          items: .array(
+            items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
+            constraints: [
+              AnyArrayConstraint(Constraint<[String]>.count(3))
+            ]),
+          constraints: [
+            AnyArrayConstraint(Constraint<[[String]]>.minimumCount(1)),
+            AnyArrayConstraint(Constraint<[[String]]>.maximumCount(10)),
+          ]),
+        description: nil,
+        isOptional: false),
+    ]
+  )
+
+  #expect(ExplicitConstraintTypes.schema == expectedSchema)
 }

@@ -40,6 +40,19 @@ public enum ConstraintKind: Sendable, Equatable {
   indirect case array(ArrayConstraint)
 }
 
+/// A type-erased constraint that can be applied to any schema.
+public struct AnyConstraint: Sendable, Equatable {
+  let kind: ConstraintKind
+
+  init<Value>(_ constraint: Constraint<Value>) {
+    self.kind = constraint.kind
+  }
+
+  init(kind: ConstraintKind) {
+    self.kind = kind
+  }
+}
+
 // MARK: - String Constraints
 
 extension Constraint where Value == String {
@@ -57,7 +70,6 @@ extension Constraint where Value == String {
   public static func anyOf(_ options: [String]) -> Constraint<String> {
     Constraint(kind: .string(.anyOf(options)))
   }
-
 }
 
 // MARK: - Integer Constraints

@@ -15,16 +15,16 @@ public enum Schema: Sendable, Equatable {
   indirect case array(items: Schema, constraints: [AnyArrayConstraint])
 
   /// A string value with optional constraints.
-  case string(constraints: [Constraint<String>])
+  case string(constraints: [StringConstraint])
 
   /// An integer value with optional constraints.
-  case integer(constraints: [Constraint<Int>])
+  case integer(constraints: [IntConstraint])
 
   /// A floating-point number with optional constraints.
-  case number(constraints: [Constraint<Double>])
+  case number(constraints: [DoubleConstraint])
 
   /// A boolean value with optional constraints.
-  case boolean(constraints: [Constraint<Bool>])
+  case boolean(constraints: [BoolConstraint])
 
   // TODO: Add support to object references and recursive schemas.
 
@@ -50,16 +50,16 @@ public enum Schema: Sendable, Equatable {
   func withConstraint(_ constraint: AnyConstraint) -> Schema {
     switch (self, constraint.kind) {
     case (.string(let constraints), .string(let newConstraint)):
-      return .string(constraints: constraints + [Constraint(kind: .string(newConstraint))])
+      return .string(constraints: constraints + [newConstraint])
 
     case (.integer(let constraints), .int(let newConstraint)):
-      return .integer(constraints: constraints + [Constraint(kind: .int(newConstraint))])
+      return .integer(constraints: constraints + [newConstraint])
 
     case (.number(let constraints), .double(let newConstraint)):
-      return .number(constraints: constraints + [Constraint(kind: .double(newConstraint))])
+      return .number(constraints: constraints + [newConstraint])
 
     case (.boolean(let constraints), .boolean):
-      return .boolean(constraints: constraints + [Constraint(kind: .boolean)])
+      return .boolean(constraints: constraints)
 
     case (.array(let items, let constraints), .array(.element(let elementConstraintKind))):
       let elementConstraint = AnyConstraint(kind: elementConstraintKind)

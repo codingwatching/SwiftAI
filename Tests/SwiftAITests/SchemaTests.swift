@@ -15,7 +15,7 @@ struct SchemaTests {
   func testWithConstraint_AddMinimumConstraint_ReturnsCorrectSchema() {
     let schema = Schema.integer(constraints: [])
     let newSchema = schema.withConstraint(AnyConstraint(.minimum(10)))
-    #expect(newSchema == .integer(constraints: [.minimum(10)]))
+    #expect(newSchema == .integer(constraints: [.range(lowerBound: 10, upperBound: nil)]))
   }
 
   @Test
@@ -31,7 +31,7 @@ struct SchemaTests {
     let schema = Schema.array(items: .string(constraints: []), constraints: [])
     let constraint = AnyConstraint(Constraint<[String]>.element(Constraint<String>.pattern(".*")))
     let newSchema = schema.withConstraint(constraint)
-    let expectedItems = Schema.string(constraints: [Constraint<String>.pattern(".*")])
+    let expectedItems = Schema.string(constraints: [.pattern(".*")])
     #expect(newSchema == .array(items: expectedItems, constraints: []))
   }
 
@@ -49,13 +49,13 @@ struct SchemaTests {
 
   @Test
   func testWithConstraint_ArrayWithExistingElementConstraints_AddsNewElementConstraint() {
-    let existingElementConstraints = [Constraint<String>.pattern("abc")]
+    let existingElementConstraints: [StringConstraint] = [.pattern("abc")]
     let schema = Schema.array(
       items: .string(constraints: existingElementConstraints), constraints: [])
     let newSchema = schema.withConstraint(
       AnyConstraint(Constraint<[String]>.element(Constraint<String>.constant("def"))))
     let expectedItems = Schema.string(
-      constraints: existingElementConstraints + [Constraint<String>.constant("def")])
+      constraints: existingElementConstraints + [.constant("def")])
     #expect(newSchema == .array(items: expectedItems, constraints: []))
   }
 
@@ -68,10 +68,10 @@ struct SchemaTests {
       AnyConstraint(.anyOf(["ghi", "jkl"])),
     ]
     let newSchema = schema.withConstraints(constraints)
-    let expectedConstraints = [
-      Constraint<String>.pattern("abc"),
-      Constraint<String>.constant("def"),
-      Constraint<String>.anyOf(["ghi", "jkl"]),
+    let expectedConstraints: [StringConstraint] = [
+      .pattern("abc"),
+      .constant("def"),
+      .anyOf(["ghi", "jkl"]),
     ]
     #expect(newSchema == .string(constraints: expectedConstraints))
   }
@@ -89,13 +89,13 @@ struct SchemaTests {
       AnyArrayConstraint(.minimumCount(1)),
       AnyArrayConstraint(.maximumCount(10)),
     ]
-    let expectedItems = Schema.string(constraints: [Constraint<String>.pattern(".*")])
+    let expectedItems = Schema.string(constraints: [.pattern(".*")])
     #expect(newSchema == .array(items: expectedItems, constraints: expectedArrayConstraints))
   }
 
   @Test
   func testWithConstraint_SchemaAlreadyHasConstraints_AppendsNewConstraint() {
-    let existingConstraints: [Constraint<String>] = [.pattern("abc"), .constant("def")]
+    let existingConstraints: [StringConstraint] = [.pattern("abc"), .constant("def")]
     let schema = Schema.string(constraints: existingConstraints)
     let newSchema = schema.withConstraint(AnyConstraint(.anyOf(["ghi", "jkl"])))
     let expectedConstraints = existingConstraints + [.anyOf(["ghi", "jkl"])]
@@ -104,10 +104,10 @@ struct SchemaTests {
 
   @Test
   func testWithConstraint_IntegerWithExistingConstraints_AppendsNewConstraint() {
-    let existingConstraints = [Constraint<Int>.minimum(1), Constraint<Int>.maximum(100)]
+    let existingConstraints: [IntConstraint] = [.range(lowerBound: 1, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]
     let schema = Schema.integer(constraints: existingConstraints)
     let newSchema = schema.withConstraint(AnyConstraint(.range(5...50)))
-    let expectedConstraints = existingConstraints + [Constraint<Int>.range(5...50)]
+    let expectedConstraints = existingConstraints + [.range(lowerBound: 5, upperBound: 50)]
     #expect(newSchema == .integer(constraints: expectedConstraints))
   }
 }

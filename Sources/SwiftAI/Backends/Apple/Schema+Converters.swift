@@ -119,24 +119,18 @@ private func convertAnyOf(
 
 @available(iOS 26.0, macOS 26.0, *)
 private func convertStringConstraints(
-  _ constraints: [Constraint<String>]
+  _ constraints: [StringConstraint]
 ) throws -> [GenerationGuide<String>] {
   var guides: [GenerationGuide<String>] = []
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .string(let stringConstraint):
-      switch stringConstraint {
-      case .pattern(let regex):
-        guides.append(.pattern(try Regex(regex)))
-      case .constant(let value):
-        guides.append(.constant(value))
-      case .anyOf(let options):
-        guides.append(.anyOf(options))
-      }
-    default:
-      // TODO: We should throw an error or log unsupported constraints
-      continue
+    switch constraint {
+    case .pattern(let regex):
+      guides.append(.pattern(try Regex(regex)))
+    case .constant(let value):
+      guides.append(.constant(value))
+    case .anyOf(let options):
+      guides.append(.anyOf(options))
     }
   }
 
@@ -144,24 +138,18 @@ private func convertStringConstraints(
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func convertIntegerConstraints(_ constraints: [Constraint<Int>]) -> [GenerationGuide<Int>] {
+private func convertIntegerConstraints(_ constraints: [IntConstraint]) -> [GenerationGuide<Int>] {
   var guides: [GenerationGuide<Int>] = []
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .int(let intConstraint):
-      switch intConstraint {
-      case .range(let lowerBound, let upperBound):
-        if let lower = lowerBound {
-          guides.append(.minimum(lower))
-        }
-        if let upper = upperBound {
-          guides.append(.maximum(upper))
-        }
+    switch constraint {
+    case .range(let lowerBound, let upperBound):
+      if let lower = lowerBound {
+        guides.append(.minimum(lower))
       }
-    default:
-      // TODO: We should throw an error or log unsupported constraints
-      continue
+      if let upper = upperBound {
+        guides.append(.maximum(upper))
+      }
     }
   }
 
@@ -169,26 +157,20 @@ private func convertIntegerConstraints(_ constraints: [Constraint<Int>]) -> [Gen
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func convertDoubleConstraints(_ constraints: [Constraint<Double>]) -> [GenerationGuide<
+private func convertDoubleConstraints(_ constraints: [DoubleConstraint]) -> [GenerationGuide<
   Double
 >] {
   var guides: [GenerationGuide<Double>] = []
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .double(let doubleConstraint):
-      switch doubleConstraint {
-      case .range(let lowerBound, let upperBound):
-        if let lower = lowerBound {
-          guides.append(.minimum(lower))
-        }
-        if let upper = upperBound {
-          guides.append(.maximum(upper))
-        }
+    switch constraint {
+    case .range(let lowerBound, let upperBound):
+      if let lower = lowerBound {
+        guides.append(.minimum(lower))
       }
-    default:
-      // TODO: We should throw an error or log unsupported constraints
-      continue
+      if let upper = upperBound {
+        guides.append(.maximum(upper))
+      }
     }
   }
 

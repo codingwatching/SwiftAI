@@ -217,7 +217,7 @@ private func convertObjectSchema(
 }
 
 private func convertStringSchema(
-  constraints: [Constraint<String>],
+  constraints: [StringConstraint],
   isOptional: Bool
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
@@ -231,20 +231,13 @@ private func convertStringSchema(
   }
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .string(let stringConstraint):
-      switch stringConstraint {
-      case .pattern(let regex):
-        fields.append(.pattern(regex))
-      case .constant(let value):
-        fields.append(.enumValues([value]))
-      case .anyOf(let options):
-        fields.append(.enumValues(options))
-      }
-    default:
-      // Skip non-string constraints
-      assertionFailure("Non-string constraints are not supported for string schemas: \(constraint)")
-      break
+    switch constraint {
+    case .pattern(let regex):
+      fields.append(.pattern(regex))
+    case .constant(let value):
+      fields.append(.enumValues([value]))
+    case .anyOf(let options):
+      fields.append(.enumValues(options))
     }
   }
 
@@ -252,7 +245,7 @@ private func convertStringSchema(
 }
 
 private func convertIntegerSchema(
-  constraints: [Constraint<Int>],
+  constraints: [IntConstraint],
   isOptional: Bool
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
@@ -273,7 +266,7 @@ private func convertIntegerSchema(
 }
 
 private func convertNumberSchema(
-  constraints: [Constraint<Double>],
+  constraints: [DoubleConstraint],
   isOptional: Bool
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
@@ -294,7 +287,7 @@ private func convertNumberSchema(
 }
 
 private func convertBooleanSchema(
-  constraints: [Constraint<Bool>],
+  constraints: [BoolConstraint],
   isOptional: Bool
 ) -> JSONSchema {
   if isOptional {

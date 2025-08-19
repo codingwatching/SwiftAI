@@ -167,12 +167,12 @@ struct Constraints {
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.minimum(0), .maximum(100)]),
+          constraints: [.range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]),
         description: nil,
         isOptional: true),
       "double": Schema.Property(
         schema: .number(
-          constraints: [.range(0.01...9999.99)]),
+          constraints: [.range(lowerBound: 0.01, upperBound: 9999.99)]),
         description: nil,
         isOptional: false),
       "bool": Schema.Property(
@@ -238,13 +238,13 @@ struct DescriptionsWithConstraints {
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.minimum(18), .maximum(100)]
+          constraints: [.range(lowerBound: 18, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]
         ),
         description: "int field with constraints",
         isOptional: false),
       "double": Schema.Property(
         schema: .number(
-          constraints: [.minimum(0.0)]
+          constraints: [.range(lowerBound: 0.0, upperBound: nil)]
         ),
         description: "double field with constraints",
         isOptional: true),
@@ -357,12 +357,12 @@ struct ExplicitConstraintTypes {
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.minimum(0), .maximum(100)]),
+          constraints: [.range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]),
         description: nil,
         isOptional: true),
       "double": Schema.Property(
         schema: .number(
-          constraints: [.range(0.01...9999.99)]),
+          constraints: [.range(lowerBound: 0.01, upperBound: 9999.99)]),
         description: nil,
         isOptional: false),
       "bool": Schema.Property(

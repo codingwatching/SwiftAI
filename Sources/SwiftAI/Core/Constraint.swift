@@ -186,6 +186,9 @@ public enum ArrayConstraint: Sendable, Equatable {
   case element(ConstraintKind)
 }
 
+/// Constraints that can be applied to boolean values.
+public enum BoolConstraint: Sendable, Equatable {}
+
 /// Constraints that can be applied to string values.
 public enum StringConstraint: Sendable, Equatable {
   /// Requires the string to match a regular expression pattern.

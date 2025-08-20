@@ -11,26 +11,6 @@ public struct Constraint<Value>: Sendable, Equatable {
   }
 }
 
-/// A type-erased constraint specifically designed for array schemas.
-public struct AnyArrayConstraint: Sendable, Equatable {
-  internal let kind: ConstraintKind
-
-  /**
-   * This type-erased constraint is used to make it possible to have equatable constraints for arrays constraints.
-   * Using Constraint<[Any]> would fail to compile because it cannot be equatable.
-   */
-
-  public init<Element>(_ constraint: Constraint<[Element]>) {
-    // TODO: Check that constraint.kind is an `array` constraint.
-    self.kind = constraint.kind
-  }
-
-  internal init(_ kind: ConstraintKind) {
-    // TODO: Check that constraint.kind is an `array` constraint.
-    self.kind = kind
-  }
-}
-
 /// The internal representation of constraint types.
 public enum ConstraintKind: Sendable, Equatable {
   case string(StringConstraint)
@@ -44,11 +24,11 @@ public enum ConstraintKind: Sendable, Equatable {
 public struct AnyConstraint: Sendable, Equatable {
   let kind: ConstraintKind
 
-  init<Value>(_ constraint: Constraint<Value>) {
+  public init<Value>(_ constraint: Constraint<Value>) {
     self.kind = constraint.kind
   }
 
-  init(kind: ConstraintKind) {
+  public init(kind: ConstraintKind) {
     self.kind = kind
   }
 }

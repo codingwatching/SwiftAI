@@ -69,7 +69,7 @@ private func convertObject(
 @available(iOS 26.0, macOS 26.0, *)
 private func convertArray(
   items: Schema,
-  constraints: [AnyArrayConstraint]
+  constraints: [AnyConstraint]
 ) throws -> DynamicGenerationSchema {
   var minCount: Int?
   var maxCount: Int?

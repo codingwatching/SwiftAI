@@ -184,8 +184,8 @@ struct Constraints {
         schema: .array(
           items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
           constraints: [
-            AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[String]>.maximumCount(10)),
+            AnyConstraint(.minimumCount(1)),
+            AnyConstraint(.maximumCount(10)),
           ]),
         description: nil,
         isOptional: false),
@@ -194,12 +194,12 @@ struct Constraints {
           items: .array(
             items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
             constraints: [
-              AnyArrayConstraint(Constraint<[String]>.count(3))
+              AnyConstraint(.count(3))
             ]
           ),
           constraints: [
-            AnyArrayConstraint(Constraint<[[String]]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[[String]]>.maximumCount(10)),
+            AnyConstraint(.minimumCount(1)),
+            AnyConstraint(.maximumCount(10)),
           ]
         ),
         description: nil,
@@ -252,7 +252,7 @@ struct DescriptionsWithConstraints {
         schema: .array(
           items: .string(constraints: [.pattern(".+")]),
           constraints: [
-            AnyArrayConstraint(Constraint<[String]>.minimumCount(1))
+            AnyConstraint(.minimumCount(1))
           ]
         ),
         description: "string array with constraints",
@@ -374,8 +374,8 @@ struct ExplicitConstraintTypes {
         schema: .array(
           items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
           constraints: [
-            AnyArrayConstraint(Constraint<[String]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[String]>.maximumCount(10)),
+            AnyConstraint(.minimumCount(1)),
+            AnyConstraint(.maximumCount(10)),
           ]),
         description: nil,
         isOptional: false),
@@ -384,11 +384,11 @@ struct ExplicitConstraintTypes {
           items: .array(
             items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
             constraints: [
-              AnyArrayConstraint(Constraint<[String]>.count(3))
+              AnyConstraint(.count(3))
             ]),
           constraints: [
-            AnyArrayConstraint(Constraint<[[String]]>.minimumCount(1)),
-            AnyArrayConstraint(Constraint<[[String]]>.maximumCount(10)),
+            AnyConstraint(.minimumCount(1)),
+            AnyConstraint(.maximumCount(10)),
           ]),
         description: nil,
         isOptional: false),

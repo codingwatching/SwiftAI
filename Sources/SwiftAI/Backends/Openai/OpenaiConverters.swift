@@ -301,7 +301,7 @@ private func convertBooleanSchema(
 
 private func convertArraySchema(
   itemSchema: Schema,
-  constraints: [AnyArrayConstraint],
+  constraints: [AnyConstraint],
   isOptional: Bool
 ) throws -> JSONSchema {
   var fields: [JSONSchemaField] = []

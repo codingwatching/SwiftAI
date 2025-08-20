@@ -104,10 +104,79 @@ struct SchemaTests {
 
   @Test
   func testWithConstraint_IntegerWithExistingConstraints_AppendsNewConstraint() {
-    let existingConstraints: [IntConstraint] = [.range(lowerBound: 1, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]
+    let existingConstraints: [IntConstraint] = [
+      .range(lowerBound: 1, upperBound: nil),
+      .range(lowerBound: nil, upperBound: 100),
+    ]
     let schema = Schema.integer(constraints: existingConstraints)
     let newSchema = schema.withConstraint(.range(5...50))
     let expectedConstraints = existingConstraints + [.range(lowerBound: 5, upperBound: 50)]
     #expect(newSchema == .integer(constraints: expectedConstraints))
+  }
+
+  // MARK: - Nested Sub-Constraints Tests
+
+  @Test
+  func testWithConstraint_ArrayOfArrays() {
+    let schema = Schema.array(
+      items: Schema.array(items: .string(constraints: []), constraints: []),
+      constraints: []
+    )
+
+    let got = schema.withConstraint(.element(.element(.pattern(".*"))))
+
+    let want = Schema.array(
+      items: .array(
+        items: .string(constraints: [.pattern(".*")]),
+        constraints: []
+      ),
+      constraints: []
+    )
+    #expect(got == want)
+  }
+
+  // MARK: - Edge Cases Tests
+
+  @Test
+  func testWithConstraints_EmptyConstraintsArray() {
+    let schema = Schema.string(constraints: [])
+    let newSchema = schema.withConstraints([])
+    #expect(newSchema == schema)
+  }
+
+  @Test
+  func testWithConstraints_MixedConstraints_StringWithPatternAndConstant() {
+    let schema = Schema.string(constraints: [])
+    let got = schema.withConstraints([.pattern(".*"), .constant("test")])
+    let want = Schema.string(constraints: [.pattern(".*"), .constant("test")])
+    #expect(got == want)
+  }
+
+  // MARK: - Constraint Payload Round-Trip Tests
+
+  @Test
+  func testAnyConstraint_RoundTrip() {
+    let original = Constraint<String>.pattern(".*")
+    let anyConstraint = AnyConstraint(original)
+
+    // Verify payload is correctly preserved
+    #expect(anyConstraint.payload == .this(.string(.pattern(".*"))))
+  }
+
+  // MARK: - Memory Tests
+
+  @Test
+  func testWithConstraint_DeepNesting_NoMemoryCrash() {
+    var schema = Schema.string(constraints: [])
+
+    // Create deeply nested array structure
+    for _ in 1...50 {
+      schema = Schema.array(items: schema, constraints: [])
+    }
+
+    let newSchema = schema.withConstraint(.count(5))
+
+    // Verify: no crashes, constraint applied correctly
+    #expect(newSchema != schema)
   }
 }

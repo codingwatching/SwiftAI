@@ -36,8 +36,8 @@ public enum Schema: Sendable, Equatable {
 
   /// Returns a new schema with the given constraint.
   ///
-  /// If the constraint is not compatible with the schema, then a runtime assertion is raised
-  /// in debug builds, and the constraint is ignored in release builds.
+  /// The method attempts to apply the constraint to the schema. If the constraint is not
+  /// compatible with the schema type, the constraint is ignored.
   ///
   /// - Parameter constraint: The constraint to add.
   /// - Returns: A new schema with the constraint added.
@@ -47,8 +47,11 @@ public enum Schema: Sendable, Equatable {
 
   /// Returns a new schema with the given constraints.
   ///
+  /// The method attempts to apply the constraints to the schema. If one of the constraints is
+  /// not compatible with the schema type, that constraint is ignored and the others are applied.
+  ///
   /// - Parameter constraints: The constraints to add.
-  /// - Returns: A new schema with the constraints added.
+  /// - Returns: A new schema with constraints added.
   public func withConstraints<Value>(_ constraints: [Constraint<Value>]) -> Schema {
     withConstraints(constraints.map(AnyConstraint.init))
   }

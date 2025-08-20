@@ -27,7 +27,7 @@ public enum ConstraintKind: Sendable, Equatable {
   case string(StringConstraint)
   case int(IntConstraint)
   case double(DoubleConstraint)
-  case boolean
+  case boolean(BoolConstraint)
   indirect case array(ArrayConstraint)
 }
 

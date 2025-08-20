@@ -2,13 +2,34 @@ import Foundation
 
 /// A type-safe constraint that can be applied to specific types during generation.
 public struct Constraint<Value>: Sendable, Equatable {
-  internal let kind: ConstraintKind
+  internal let kind: ConstraintKind  // FIXME: remove this field
+  internal let payload: ConstraintPayload
+
+  init(payload: ConstraintPayload) {
+    switch payload {
+    case .this(let kind):
+      self.kind = kind
+    case .sub:
+      // For sub-constraints, we don't use the kind property since the constraint
+      // applies to sub-values, not this value. Use a placeholder.
+      self.kind = .boolean  // Placeholder - not used for sub-constraints
+    }
+    self.payload = payload
+  }
 
   internal init(kind: ConstraintKind) {
     // TODO: The fact that the init is internal means that no external code can create new constraints.
     //  Revisit this decision.
     self.kind = kind
+    self.payload = .this(kind)
   }
+}
+
+/// The constraint payload - either constrains this value or in case of collections constraints
+/// one or more of its sub-values.
+enum ConstraintPayload: Sendable, Equatable {
+  case this(ConstraintKind)  // constrains this value
+  indirect case sub(AnyConstraint)  // constrains sub-values
 }
 
 /// The internal representation of constraint types.
@@ -21,15 +42,30 @@ public enum ConstraintKind: Sendable, Equatable {
 }
 
 /// A type-erased constraint that can be applied to any schema.
-public struct AnyConstraint: Sendable, Equatable {
+public struct AnyConstraint: Sendable, Equatable { // FIXME: Does this need to be PUBLIC?
   let kind: ConstraintKind
+  let payload: ConstraintPayload
 
   public init<Value>(_ constraint: Constraint<Value>) {
     self.kind = constraint.kind
+    self.payload = constraint.payload
+  }
+
+  init(payload: ConstraintPayload) {
+    switch payload {
+    case .this(let kind):
+      self.kind = kind
+    case .sub:
+      // For sub-constraints, we don't use the kind property since the constraint
+      // applies to sub-values, not this value. Use a placeholder.
+      self.kind = .boolean  // Placeholder - not used for sub-constraints
+    }
+    self.payload = payload
   }
 
   public init(kind: ConstraintKind) {
     self.kind = kind
+    self.payload = .this(kind)
   }
 }
 
@@ -114,7 +150,7 @@ extension Constraint {
   /// Applies a constraint to each element in the array.
   public static func element<Element>(_ constraint: Constraint<Element>) -> Constraint<[Element]>
   where Value == [Element] {
-    Constraint(kind: .array(.element(constraint.kind)))
+    Constraint(payload: .sub(AnyConstraint(constraint)))
   }
 }
 

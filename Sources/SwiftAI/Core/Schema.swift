@@ -12,7 +12,7 @@ public enum Schema: Sendable, Equatable {
   indirect case anyOf(name: String, description: String?, schemas: [Schema])
 
   /// An array containing items of a specific schema.
-  indirect case array(items: Schema, constraints: [AnyConstraint]) // FIXME: This should be ArrayConstraint in the future.
+  indirect case array(items: Schema, constraints: [AnyConstraint])  // FIXME: This should be ArrayConstraint in the future.
 
   /// A string value with optional constraints.
   case string(constraints: [StringConstraint])
@@ -48,29 +48,38 @@ public enum Schema: Sendable, Equatable {
   }
 
   func withConstraint(_ constraint: AnyConstraint) -> Schema {
-    switch (self, constraint.kind) {
-    case (.string(let constraints), .string(let newConstraint)):
-      return .string(constraints: constraints + [newConstraint])
+    // Handle new payload-based constraints
+    switch (self, constraint.payload) {
+    case (.array(let items, let constraints), .sub(let subConstraint)):
+      // Apply the sub-constraint to the array items
+      return .array(items: items.withConstraint(subConstraint), constraints: constraints)
 
-    case (.integer(let constraints), .int(let newConstraint)):
-      return .integer(constraints: constraints + [newConstraint])
+    case (_, .this(let kind)):  // FIXME: Use only new logic when .kind is removed from Constraint.
+      // Handle direct constraints using the old logic
+      switch (self, kind) {
+      case (.string(let constraints), .string(let newConstraint)):
+        return .string(constraints: constraints + [newConstraint])
 
-    case (.number(let constraints), .double(let newConstraint)):
-      return .number(constraints: constraints + [newConstraint])
+      case (.integer(let constraints), .int(let newConstraint)):
+        return .integer(constraints: constraints + [newConstraint])
 
-    case (.boolean(let constraints), .boolean):
-      return .boolean(constraints: constraints)
+      case (.number(let constraints), .double(let newConstraint)):
+        return .number(constraints: constraints + [newConstraint])
 
-    case (.array(let items, let constraints), .array(.element(let elementConstraintKind))):
-      let elementConstraint = AnyConstraint(kind: elementConstraintKind)
-      return .array(items: items.withConstraint(elementConstraint), constraints: constraints)
+      case (.boolean(let constraints), .boolean):
+        return .boolean(constraints: constraints)
 
-    case (.array(let items, let constraints), .array(let arrayConstraint)):
-      let newConstraint = AnyConstraint(kind: .array(arrayConstraint))
-      return .array(items: items, constraints: constraints + [newConstraint])
+      case (.array(let items, let constraints), .array(let arrayConstraint)):
+        let newConstraint = AnyConstraint(kind: .array(arrayConstraint))
+        return .array(items: items, constraints: constraints + [newConstraint])
+
+      default:
+        assertionFailure("Invalid constraint \(kind) for schema \(self)")
+        return self
+      }
 
     default:
-      assertionFailure("Invalid constraint \(constraint.kind) for schema \(self)")
+      assertionFailure("Invalid constraint \(constraint.payload) for schema \(self)")
       return self
     }
   }

@@ -316,21 +316,25 @@ private func convertArraySchema(
   }
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .array(let arrayConstraint):
-      switch arrayConstraint {
-      case .count(let lowerBound, let upperBound):
-        if let lowerBound = lowerBound {
-          fields.append(.minItems(lowerBound))
+    switch constraint.payload {
+    case .this(let kind):
+      switch kind {
+      case .array(let arrayConstraint):
+        switch arrayConstraint {
+        case .count(let lowerBound, let upperBound):
+          if let lowerBound = lowerBound {
+            fields.append(.minItems(lowerBound))
+          }
+          if let upperBound = upperBound {
+            fields.append(.maxItems(upperBound))
+          }
         }
-        if let upperBound = upperBound {
-          fields.append(.maxItems(upperBound))
-        }
-      case .element:
-        assertionFailure("Element constraints are not supported for array schemas")
+      default:
+        // Skip non-array constraints
+        break
       }
-    default:
-      // Skip non-array constraints
+    case .sub:
+      // Sub-constraints are applied to array items, not the array itself
       break
     }
   }

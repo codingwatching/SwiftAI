@@ -48,14 +48,13 @@ public enum Schema: Sendable, Equatable {
   }
 
   func withConstraint(_ constraint: AnyConstraint) -> Schema {
-    // Handle new payload-based constraints
     switch (self, constraint.payload) {
     case (.array(let items, let constraints), .sub(let subConstraint)):
       // Apply the sub-constraint to the array items
       return .array(items: items.withConstraint(subConstraint), constraints: constraints)
 
-    case (_, .this(let kind)):  // FIXME: Use only new logic when .kind is removed from Constraint.
-      // Handle direct constraints using the old logic
+    case (_, .this(let kind)):
+      // Handle direct constraints
       switch (self, kind) {
       case (.string(let constraints), .string(let newConstraint)):
         return .string(constraints: constraints + [newConstraint])

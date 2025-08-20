@@ -75,21 +75,25 @@ private func convertArray(
   var maxCount: Int?
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .array(let arrayConstraint):
-      switch arrayConstraint {
-      case .count(let lowerBound, let upperBound):
-        if let lowerBound {
-          minCount = lowerBound
+    switch constraint.payload {
+    case .this(let kind):
+      switch kind {
+      case .array(let arrayConstraint):
+        switch arrayConstraint {
+        case .count(let lowerBound, let upperBound):
+          if let lowerBound {
+            minCount = lowerBound
+          }
+          if let upperBound {
+            maxCount = upperBound
+          }
         }
-        if let upperBound {
-          maxCount = upperBound
-        }
-      case .element:
-        assertionFailure("Element constraints are not supported for array schemas")
+      default:
+        assertionFailure("Non-array constraint found in array constraints: \(kind)")
       }
-    default:
-      assertionFailure("Non-array constraint found in array constraints: \(constraint.kind)")
+    case .sub:
+      assertionFailure("Non-array constraint found in array constraints: \(constraint.payload)")
+      break
     }
   }
 

@@ -2,25 +2,15 @@ import Foundation
 
 /// A type-safe constraint that can be applied to specific types during generation.
 public struct Constraint<Value>: Sendable, Equatable {
-  internal let kind: ConstraintKind  // FIXME: remove this field
   internal let payload: ConstraintPayload
 
   init(payload: ConstraintPayload) {
-    switch payload {
-    case .this(let kind):
-      self.kind = kind
-    case .sub:
-      // For sub-constraints, we don't use the kind property since the constraint
-      // applies to sub-values, not this value. Use a placeholder.
-      self.kind = .boolean  // Placeholder - not used for sub-constraints
-    }
     self.payload = payload
   }
 
-  internal init(kind: ConstraintKind) {
+  init(kind: ConstraintKind) {
     // TODO: The fact that the init is internal means that no external code can create new constraints.
     //  Revisit this decision.
-    self.kind = kind
     self.payload = .this(kind)
   }
 }
@@ -42,29 +32,18 @@ public enum ConstraintKind: Sendable, Equatable {
 }
 
 /// A type-erased constraint that can be applied to any schema.
-public struct AnyConstraint: Sendable, Equatable { // FIXME: Does this need to be PUBLIC?
-  let kind: ConstraintKind
+public struct AnyConstraint: Sendable, Equatable {  // FIXME: Does this need to be PUBLIC?
   let payload: ConstraintPayload
 
   public init<Value>(_ constraint: Constraint<Value>) {
-    self.kind = constraint.kind
     self.payload = constraint.payload
   }
 
   init(payload: ConstraintPayload) {
-    switch payload {
-    case .this(let kind):
-      self.kind = kind
-    case .sub:
-      // For sub-constraints, we don't use the kind property since the constraint
-      // applies to sub-values, not this value. Use a placeholder.
-      self.kind = .boolean  // Placeholder - not used for sub-constraints
-    }
     self.payload = payload
   }
 
   public init(kind: ConstraintKind) {
-    self.kind = kind
     self.payload = .this(kind)
   }
 }
@@ -197,9 +176,6 @@ public enum ArrayConstraint: Sendable, Equatable {
   ///   - lowerBound: The minimum number of elements (nil for no minimum)
   ///   - upperBound: The maximum number of elements (nil for no maximum)
   case count(lowerBound: Int?, upperBound: Int?)
-
-  /// Applies a constraint to each element in the array.
-  case element(ConstraintKind)
 }
 
 /// Constraints that can be applied to boolean values.

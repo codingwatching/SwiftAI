@@ -31,8 +31,10 @@ public enum ConstraintKind: Sendable, Equatable {
   case array(ArrayConstraint)
 }
 
-/// A type-erased constraint that can be applied to any schema.
-public struct AnyConstraint: Sendable, Equatable {  // FIXME: Does this need to be PUBLIC?
+/// A internal type-erased constraint.
+///
+/// Used to represent `ConstraintPayload.sub(AnyConstraint)` because enums cannot have generic parameters.
+internal struct AnyConstraint: Sendable, Equatable {
   let payload: ConstraintPayload
 
   public init<Value>(_ constraint: Constraint<Value>) {

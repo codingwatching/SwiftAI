@@ -301,7 +301,7 @@ private func convertBooleanSchema(
 
 private func convertArraySchema(
   itemSchema: Schema,
-  constraints: [AnyConstraint],
+  constraints: [ArrayConstraint],
   isOptional: Bool
 ) throws -> JSONSchema {
   var fields: [JSONSchemaField] = []
@@ -316,26 +316,14 @@ private func convertArraySchema(
   }
 
   for constraint in constraints {
-    switch constraint.payload {
-    case .this(let kind):
-      switch kind {
-      case .array(let arrayConstraint):
-        switch arrayConstraint {
-        case .count(let lowerBound, let upperBound):
-          if let lowerBound = lowerBound {
-            fields.append(.minItems(lowerBound))
-          }
-          if let upperBound = upperBound {
-            fields.append(.maxItems(upperBound))
-          }
-        }
-      default:
-        // Skip non-array constraints
-        break
+    switch constraint {
+    case .count(let lowerBound, let upperBound):
+      if let lowerBound = lowerBound {
+        fields.append(.minItems(lowerBound))
       }
-    case .sub:
-      // Sub-constraints are applied to array items, not the array itself
-      break
+      if let upperBound = upperBound {
+        fields.append(.maxItems(upperBound))
+      }
     }
   }
 

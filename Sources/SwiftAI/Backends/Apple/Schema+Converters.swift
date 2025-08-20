@@ -69,31 +69,20 @@ private func convertObject(
 @available(iOS 26.0, macOS 26.0, *)
 private func convertArray(
   items: Schema,
-  constraints: [AnyConstraint]
+  constraints: [ArrayConstraint]
 ) throws -> DynamicGenerationSchema {
   var minCount: Int?
   var maxCount: Int?
 
   for constraint in constraints {
-    switch constraint.payload {
-    case .this(let kind):
-      switch kind {
-      case .array(let arrayConstraint):
-        switch arrayConstraint {
-        case .count(let lowerBound, let upperBound):
-          if let lowerBound {
-            minCount = lowerBound
-          }
-          if let upperBound {
-            maxCount = upperBound
-          }
-        }
-      default:
-        assertionFailure("Non-array constraint found in array constraints: \(kind)")
+    switch constraint {
+    case .count(let lowerBound, let upperBound):
+      if let lowerBound {
+        minCount = lowerBound
       }
-    case .sub:
-      assertionFailure("Non-array constraint found in array constraints: \(constraint.payload)")
-      break
+      if let upperBound {
+        maxCount = upperBound
+      }
     }
   }
 

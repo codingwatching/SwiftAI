@@ -28,7 +28,7 @@ public enum ConstraintKind: Sendable, Equatable {
   case int(IntConstraint)
   case double(DoubleConstraint)
   case boolean(BoolConstraint)
-  indirect case array(ArrayConstraint)
+  case array(ArrayConstraint)
 }
 
 /// A type-erased constraint that can be applied to any schema.

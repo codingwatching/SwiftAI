@@ -22,7 +22,7 @@ struct SchemaTests {
   func testWithConstraint_AddMinimumCountConstraint_ReturnsCorrectSchema() {
     let schema = Schema.array(items: .string(constraints: []), constraints: [])
     let newSchema = schema.withConstraint(AnyConstraint(.minimumCount(1)))
-    let expectedConstraint = AnyConstraint(.minimumCount(1))
+    let expectedConstraint = ArrayConstraint.count(lowerBound: 1, upperBound: nil)
     #expect(newSchema == .array(items: .string(constraints: []), constraints: [expectedConstraint]))
   }
 
@@ -37,10 +37,10 @@ struct SchemaTests {
 
   @Test
   func testWithConstraint_ArrayWithExistingConstraints_AddsNewConstraint() {
-    let existingConstraints = [AnyConstraint(.minimumCount(1))]
+    let existingConstraints = [ArrayConstraint.count(lowerBound: 1, upperBound: nil)]
     let schema = Schema.array(items: .string(constraints: []), constraints: existingConstraints)
     let newSchema = schema.withConstraint(AnyConstraint(.maximumCount(10)))
-    let expectedConstraint = AnyConstraint(.maximumCount(10))
+    let expectedConstraint = ArrayConstraint.count(lowerBound: nil, upperBound: 10)
     #expect(
       newSchema
         == .array(
@@ -86,8 +86,8 @@ struct SchemaTests {
     ]
     let newSchema = schema.withConstraints(constraints)
     let expectedArrayConstraints = [
-      AnyConstraint(.minimumCount(1)),
-      AnyConstraint(.maximumCount(10)),
+      ArrayConstraint.count(lowerBound: 1, upperBound: nil),
+      ArrayConstraint.count(lowerBound: nil, upperBound: 10),
     ]
     let expectedItems = Schema.string(constraints: [.pattern(".*")])
     #expect(newSchema == .array(items: expectedItems, constraints: expectedArrayConstraints))

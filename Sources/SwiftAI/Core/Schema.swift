@@ -12,7 +12,7 @@ public enum Schema: Sendable, Equatable {
   indirect case anyOf(name: String, description: String?, schemas: [Schema])
 
   /// An array containing items of a specific schema.
-  indirect case array(items: Schema, constraints: [AnyConstraint])  // FIXME: This should be ArrayConstraint in the future.
+  indirect case array(items: Schema, constraints: [ArrayConstraint])
 
   /// A string value with optional constraints.
   case string(constraints: [StringConstraint])
@@ -69,8 +69,7 @@ public enum Schema: Sendable, Equatable {
         return .boolean(constraints: constraints)
 
       case (.array(let items, let constraints), .array(let arrayConstraint)):
-        let newConstraint = AnyConstraint(kind: .array(arrayConstraint))
-        return .array(items: items, constraints: constraints + [newConstraint])
+        return .array(items: items, constraints: constraints + [arrayConstraint])
 
       default:
         assertionFailure("Invalid constraint \(kind) for schema \(self)")

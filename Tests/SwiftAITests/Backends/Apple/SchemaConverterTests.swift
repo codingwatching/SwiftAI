@@ -258,7 +258,7 @@ import FoundationModels
 @Test func arrayMinimumCountConstraintConversion() throws {
   let schema = Schema.array(
     items: .string(constraints: []),
-    constraints: [AnyConstraint(.minimumCount(3))]
+    constraints: [ArrayConstraint.count(lowerBound: 3, upperBound: nil)]
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -275,7 +275,7 @@ import FoundationModels
 @Test func arrayMaximumCountConstraintConversion() throws {
   let schema = Schema.array(
     items: .string(constraints: []),
-    constraints: [AnyConstraint(.maximumCount(10))]
+    constraints: [ArrayConstraint.count(lowerBound: nil, upperBound: 10)]
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -292,7 +292,7 @@ import FoundationModels
 @Test func arrayCountConstraintConversion() throws {
   let schema = Schema.array(
     items: .string(constraints: []),
-    constraints: [AnyConstraint(.count(5))]
+    constraints: [ArrayConstraint.count(lowerBound: 5, upperBound: 5)]
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -310,8 +310,8 @@ import FoundationModels
   let schema = Schema.array(
     items: .integer(constraints: []),
     constraints: [
-      AnyConstraint(.minimumCount(2)),
-      AnyConstraint(.maximumCount(8)),
+      ArrayConstraint.count(lowerBound: 2, upperBound: nil),
+      ArrayConstraint.count(lowerBound: nil, upperBound: 8),
     ]
   )
   let json = try schema.toGenerationSchema().json()
@@ -390,8 +390,8 @@ import FoundationModels
       .range(lowerBound: nil, upperBound: 100.0),
     ]),
     constraints: [
-      AnyConstraint(.minimumCount(1)),
-      AnyConstraint(.maximumCount(5)),
+      ArrayConstraint.count(lowerBound: 1, upperBound: nil),
+      ArrayConstraint.count(lowerBound: nil, upperBound: 5),
     ]
   )
   let json = try schema.toGenerationSchema().json()

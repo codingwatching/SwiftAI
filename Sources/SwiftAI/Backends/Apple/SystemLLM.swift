@@ -243,7 +243,7 @@ private func generateResponse<T: Generable>(
 
   let content: T?
   if T.self == String.self {
-    let response = try await session.respond(to: prompt, generating: String.self)
+    let response = try await session.respond(to: prompt)
     content = response.content as? T
   } else {
     let foundationSchema = try T.schema.toGenerationSchema()

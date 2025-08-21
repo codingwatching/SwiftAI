@@ -38,14 +38,16 @@ protocol LLMBaseTestCases {
 
 extension LLMBaseTestCases {
   func testReply_ToPrompt_Impl() async throws {
-    let reply = try await llm.reply {
-      "Say hello in exactly one word."
-    }
+    let haiku = try await llm.reply {
+      "Write a haiku about Paris"
+    }.content
 
-    #expect(!reply.content.isEmpty)
-    #expect(reply.history.count == 2)
-    #expect(reply.history[0].role == .user)
-    #expect(reply.history[1].role == .ai)
+    let verdict = try await llm.reply(
+      to: "You are a haiku expert. Is this a haiku?\n\n\(haiku)",
+      returning: HaikuVerdict.self
+    ).content
+
+    #expect(verdict.isHaiku == true)
   }
 
   func testReply_ToPrompt_ReturnsCorrectHistory_Impl() async throws {
@@ -502,6 +504,11 @@ extension LLMBaseTestCases {
 }
 
 // MARK: - Test Types
+@Generable
+struct HaikuVerdict {
+  let isHaiku: Bool
+}
+
 @Generable
 struct SimpleResponse: Equatable {
   let message: String

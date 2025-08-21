@@ -34,10 +34,10 @@ public enum ConstraintKind: Sendable, Equatable {
 /// A internal type-erased constraint.
 ///
 /// Used to represent `ConstraintPayload.sub(AnyConstraint)` because enums cannot have generic parameters.
-internal struct AnyConstraint: Sendable, Equatable {
+struct AnyConstraint: Sendable, Equatable {
   let payload: ConstraintPayload
 
-  public init<Value>(_ constraint: Constraint<Value>) {
+  init<Value>(_ constraint: Constraint<Value>) {
     self.payload = constraint.payload
   }
 
@@ -45,7 +45,7 @@ internal struct AnyConstraint: Sendable, Equatable {
     self.payload = payload
   }
 
-  public init(kind: ConstraintKind) {
+  init(kind: ConstraintKind) {
     self.payload = .this(kind)
   }
 }

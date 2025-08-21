@@ -37,7 +37,7 @@ public enum Schema: Sendable, Equatable {
   /// Returns a new schema with the given constraint.
   ///
   /// The method attempts to apply the constraint to the schema. If the constraint is not
-  /// compatible with the schema type, the constraint is ignored.
+  /// compatible with the schema structure, the constraint is no-op.
   ///
   /// - Parameter constraint: The constraint to add.
   /// - Returns: A new schema with the constraint added.
@@ -48,7 +48,7 @@ public enum Schema: Sendable, Equatable {
   /// Returns a new schema with the given constraints.
   ///
   /// The method attempts to apply the constraints to the schema. If one of the constraints is
-  /// not compatible with the schema type, that constraint is ignored and the others are applied.
+  /// not compatible with the schema structure, that constraint is no-op and the others are applied.
   ///
   /// - Parameter constraints: The constraints to add.
   /// - Returns: A new schema with constraints added.
@@ -59,7 +59,6 @@ public enum Schema: Sendable, Equatable {
   func withConstraint(_ constraint: AnyConstraint) -> Schema {
     switch (self, constraint.payload) {
     case (.array(let items, let constraints), .sub(let subConstraint)):
-      // Apply the sub-constraint to the array items
       return .array(items: items.withConstraint(subConstraint), constraints: constraints)
 
     case (_, .this(let kind)):
@@ -81,11 +80,13 @@ public enum Schema: Sendable, Equatable {
         return .array(items: items, constraints: constraints + [arrayConstraint])
 
       default:
+        // TODO: This assertion should only be enabled in debug + strict mode.
         assertionFailure("Invalid constraint \(kind) for schema \(self)")
         return self
       }
 
     default:
+      // TODO: This assertion should only be enabled in debug + strict mode.
       assertionFailure("Invalid constraint \(constraint.payload) for schema \(self)")
       return self
     }

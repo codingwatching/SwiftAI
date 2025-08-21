@@ -1,3 +1,4 @@
+import SwiftDiagnostics
 import SwiftFormat
 import SwiftOperators
 import SwiftParser
@@ -23,7 +24,10 @@ public struct GenerableMacro: ExtensionMacro {
   ) throws -> [ExtensionDeclSyntax] {
     // TODO: Support enums as well.
     guard let structDecl = declaration.as(StructDeclSyntax.self) else {
-      throw GenerableMacroError.notAStruct
+      throw GenerableMacroError(
+        message: "@Generable can only be applied to structs",
+        id: "notAStruct"
+      )
     }
 
     let typeName = type.trimmed.description
@@ -79,12 +83,20 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
   for memberDecl in storedMembersDecls {
     for bindingSyntax in memberDecl.bindings {
       guard let identifierSyntax = bindingSyntax.pattern.as(IdentifierPatternSyntax.self) else {
-        throw GenerableMacroError.unsupportedPropertyPattern
+        throw GenerableMacroError(
+          message:
+            "@Generable does not support complex property patterns (like tuple destructuring). Use simple property declarations like 'let name: String'.",
+          id: "unsupportedPropertyPattern"
+        )
       }
 
       guard let typeSyntax = bindingSyntax.typeAnnotation?.type else {
         let propertyName = identifierSyntax.identifier.text
-        throw GenerableMacroError.missingTypeAnnotation(propertyName: propertyName)
+        throw GenerableMacroError(
+          message:
+            "Property '\(propertyName)' must have an explicit type annotation. Use 'let \(propertyName): Type' instead of relying on type inference.",
+          id: "missingTypeAnnotation"
+        )
       }
 
       let propertyName = identifierSyntax.identifier.text
@@ -218,52 +230,72 @@ private func emitGenerableContentVariable(
 /// ## Example
 ///
 /// Input: type: "String", guideInfo: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
-/// Output: ExprSyntax for: .string(constraints: [Constraint<String>.minLength(3)])
+/// Output: ExprSyntax for: .string(constraints: []).withConstraint(.minLength(3))
 private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescriptor? = nil)
   -> ExprSyntax
 {
-  let typeName = type.trimmed.description
+  // Generate base schema without constraints
+  let baseSchemaExpr = emitBaseSchemaExpression(for: type)
 
+  // Apply constraints using withConstraint if any exist
+  return emitConstrainedSchema(baseSchema: baseSchemaExpr, guideInfo: guideInfo)
+}
+
+/// Generates a base schema expression without any constraints.
+///
+/// ## Example
+///
+/// Input: type: "String"
+/// Output: ExprSyntax for: "String.schema"
+private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
   // Handle optional types
   if let optionalType = type.as(OptionalTypeSyntax.self) {
-    return emitSchemaExpression(for: optionalType.wrappedType, guideInfo: guideInfo)
+    return emitBaseSchemaExpression(for: optionalType.wrappedType)
   }
 
-  // Handle array types
-  if let arrayType = type.as(ArrayTypeSyntax.self) {
-    let elementSchema = emitSchemaExpression(for: arrayType.element)
-    let constraintsExpr = emitConstraintsExpression(
-      from: guideInfo, isArray: true, elementType: arrayType.element)
+  let typeName = type.trimmed.description
+  return ExprSyntax("\(raw: typeName).schema")
+}
 
-    return ExprSyntax(
-      FunctionCallExprSyntax(callee: ExprSyntax(".array")) {
-        LabeledExprSyntax(label: "items", expression: elementSchema)
-        LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
-      }
-    )
+/// Applies constraints to a base schema using the withConstraint API.
+///
+/// ## Example
+///
+/// Input: baseSchema: .string(constraints: []), guideInfo: GuideDescriptor(constraints: [.minLength(3)])
+/// Output: ExprSyntax for: .string(constraints: []).withConstraints([.minLength(3)])
+private func emitConstrainedSchema(
+  baseSchema: ExprSyntax,
+  guideInfo: GuideDescriptor?
+) -> ExprSyntax {
+  guard let guideInfo, !guideInfo.constraints.isEmpty else {
+    return baseSchema
   }
 
-  // Type mapping for basic schema kinds
-  let typeToSchemaKind: [String: String] = [
-    "String": ".string",
-    "Int": ".integer",
-    "Double": ".number",
-    "Bool": ".boolean",
-  ]
-
-  // Handle basic types with constraints
-  if let schemaKind = typeToSchemaKind[typeName] {
-    let constraintsExpr = emitConstraintsExpression(from: guideInfo)
-    return ExprSyntax(
-      FunctionCallExprSyntax(callee: ExprSyntax(stringLiteral: schemaKind)) {
-        LabeledExprSyntax(label: "constraints", expression: constraintsExpr)
-      }
-    )
-  } else {
-    // For custom types, assume they conform to Generable and reference their schema
-    // TODO: The current Schema API does not support adding descriptions and constraints to nested types.
-    return ExprSyntax("\(raw: typeName).schema")
-  }
+  // Generate a single call to withConstraints with all constraints
+  // ```
+  // .string(constraints: [])
+  //   .withConstraints([
+  //     Constraint<String>.minLength(3),
+  //     Constraint<String>.maxLength(5)
+  //   ])
+  // ```
+  return ExprSyntax(
+    FunctionCallExprSyntax(
+      callee: MemberAccessExprSyntax(
+        base: baseSchema,
+        name: "withConstraints"
+      )
+    ) {
+      LabeledExprSyntax(
+        expression: ExprSyntax(
+          ArrayExprSyntax {
+            for constraint in guideInfo.constraints {
+              ArrayElementSyntax(expression: constraint)
+            }
+          }
+        ))
+    }
+  )
 }
 
 /// Parses @Guide attributes from a property declaration to extract description and constraints.
@@ -271,7 +303,10 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescript
 /// ## Example
 ///
 /// Input: @Guide("User name", .minLength(3)) let name: String
-/// Output: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
+/// Output: GuideDescriptor(
+///   description: "User name",
+///   constraints: [Constraint<String>.minLength(3)]
+/// )
 private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescriptor? {
   // Look for @Guide attributes on this property
   for attribute in property.attributes {
@@ -315,39 +350,6 @@ private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescripto
   return nil
 }
 
-/// Generates a constraints expression array from guide information.
-///
-/// ## Example
-///
-/// Input: guideInfo: GuideDescriptor(constraints: [.minLength(3), .maxLength(50)])
-/// Output: ExprSyntax for: [Constraint<String>.minLength(3), Constraint<String>.maxLength(50)]
-private func emitConstraintsExpression(
-  from guideInfo: GuideDescriptor?,
-  isArray: Bool = false,
-  elementType: TypeSyntax? = nil
-) -> ExprSyntax {
-  guard let guideInfo = guideInfo, !guideInfo.constraints.isEmpty else {
-    return ExprSyntax("[]")
-  }
-
-  let constraintExprs = guideInfo.constraints.enumerated().map { (index, constraint) in
-    let expression: ExprSyntax = {
-      if isArray, let elementType = elementType {
-        let typeName = elementType.trimmed.description
-        return ExprSyntax("AnyArrayConstraint(Constraint<[\(raw: typeName)]>\(constraint.trimmed))")
-      } else {
-        return constraint
-      }
-    }()
-    return ArrayElementSyntax(
-      expression: expression,
-      trailingComma: index < guideInfo.constraints.count - 1 ? .commaToken() : nil
-    )
-  }
-
-  return ExprSyntax(ArrayExprSyntax(elements: ArrayElementListSyntax(constraintExprs)))
-}
-
 private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {
   // Handle optional types by checking their wrapped type
   if let optionalType = type.as(OptionalTypeSyntax.self) {
@@ -360,8 +362,11 @@ private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) 
     if arrayType.element.is(OptionalTypeSyntax.self) {
       let elementTypeName =
         arrayType.element.as(OptionalTypeSyntax.self)?.wrappedType.trimmed.description ?? "Unknown"
-      throw GenerableMacroError.arrayOfOptionalType(
-        propertyName: propertyName, elementType: elementTypeName)
+      throw GenerableMacroError(
+        message:
+          "Property '\(propertyName)' cannot be an array of optional types '[\(elementTypeName)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead.",
+        id: "arrayOfOptionalType"
+      )
     }
   }
 }
@@ -379,36 +384,6 @@ private struct PropertyDescriptor {
 
   /// Guide information including description and constraints.
   let guide: GuideDescriptor?
-}
-
-enum GenerableMacroError: Error, CustomStringConvertible {
-  /// The @Generable macro was applied to a non-struct declaration (class, enum, etc.)
-  case notAStruct
-
-  /// A property uses a complex pattern that cannot be analyzed (e.g., tuple destructuring)
-  case unsupportedPropertyPattern
-
-  /// A property lacks an explicit type annotation and relies on type inference
-  case missingTypeAnnotation(propertyName: String)
-
-  /// Arrays of optional types are not supported
-  case arrayOfOptionalType(propertyName: String, elementType: String)
-
-  var description: String {
-    switch self {
-    case .notAStruct:
-      return "@Generable can only be applied to structs"
-    case .unsupportedPropertyPattern:
-      return
-        "@Generable does not support complex property patterns (like tuple destructuring). Use simple property declarations like 'let name: String'."
-    case .missingTypeAnnotation(let propertyName):
-      return
-        "Property '\(propertyName)' must have an explicit type annotation. Use 'let \(propertyName): Type' instead of relying on type inference."
-    case .arrayOfOptionalType(let propertyName, let elementType):
-      return
-        "Property '\(propertyName)' cannot be an array of optional types '[\(elementType)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead."
-    }
-  }
 }
 
 extension DeclSyntaxParseable {
@@ -439,5 +414,17 @@ private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
     return try T(SyntaxNodeString(stringLiteral: output))
   } catch {
     return node
+  }
+}
+
+struct GenerableMacroError: DiagnosticMessage, Error {
+  let message: String
+  let diagnosticID: MessageID
+  let severity: DiagnosticSeverity
+
+  init(message: String, id: String) {
+    self.message = message
+    self.diagnosticID = MessageID(domain: "GenerableMacro", id: id)
+    self.severity = .error
   }
 }

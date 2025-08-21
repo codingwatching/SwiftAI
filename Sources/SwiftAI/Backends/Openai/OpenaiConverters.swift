@@ -160,30 +160,24 @@ extension Message.ToolOutput {
 /// Converts SwiftAI Schema to Openai JSONSchema format.
 func convertSchemaToJSONSchema(
   _ schema: Schema,
-  isOptional: Bool = false,
-  extraConstraints: [ConstraintKind] = []
+  isOptional: Bool = false
 ) throws -> JSONSchema {
   switch schema {
   case .object(let name, let description, let properties):
-    guard extraConstraints.isEmpty else {
-      throw LLMError.generalError(
-        "Extra constraints are not supported for object schemas: \(extraConstraints)"
-      )
-    }
     return try convertObjectSchema(
       name: name, description: description, properties: properties)
   case .string(let constraints):
     return convertStringSchema(
-      constraints: constraints, isOptional: isOptional, extraConstraints: extraConstraints)
+      constraints: constraints, isOptional: isOptional)
   case .integer(let constraints):
     return convertIntegerSchema(
-      constraints: constraints, isOptional: isOptional, extraConstraints: extraConstraints)
+      constraints: constraints, isOptional: isOptional)
   case .number(let constraints):
     return convertNumberSchema(
-      constraints: constraints, isOptional: isOptional, extraConstraints: extraConstraints)
+      constraints: constraints, isOptional: isOptional)
   case .boolean(let constraints):
     return convertBooleanSchema(
-      constraints: constraints, isOptional: isOptional, extraConstraints: extraConstraints)
+      constraints: constraints, isOptional: isOptional)
   case .array(let itemSchema, let constraints):
     return try convertArraySchema(
       itemSchema: itemSchema, constraints: constraints, isOptional: isOptional)
@@ -223,9 +217,8 @@ private func convertObjectSchema(
 }
 
 private func convertStringSchema(
-  constraints: [Constraint<String>],
-  isOptional: Bool,
-  extraConstraints: [ConstraintKind]
+  constraints: [StringConstraint],
+  isOptional: Bool
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -237,23 +230,14 @@ private func convertStringSchema(
     fields.append(.type(.string))
   }
 
-  let extraConstraints = extraConstraints.map { Constraint<String>(kind: $0) }
-  let allConstraints = constraints + extraConstraints
-
-  for constraint in allConstraints {
-    switch constraint.kind {
-    case .string(let stringConstraint):
-      switch stringConstraint {
-      case .pattern(let regex):
-        fields.append(.pattern(regex))
-      case .constant(let value):
-        fields.append(.enumValues([value]))
-      case .anyOf(let options):
-        fields.append(.enumValues(options))
-      }
-    default:
-      // Skip non-string constraints
-      break
+  for constraint in constraints {
+    switch constraint {
+    case .pattern(let regex):
+      fields.append(.pattern(regex))
+    case .constant(let value):
+      fields.append(.enumValues([value]))
+    case .anyOf(let options):
+      fields.append(.enumValues(options))
     }
   }
 
@@ -261,9 +245,8 @@ private func convertStringSchema(
 }
 
 private func convertIntegerSchema(
-  constraints: [Constraint<Int>],
-  isOptional: Bool,
-  extraConstraints: [ConstraintKind]
+  constraints: [IntConstraint],
+  isOptional: Bool
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -275,19 +258,16 @@ private func convertIntegerSchema(
     fields.append(.type(.integer))
   }
 
-  let extraConstraints = extraConstraints.map { Constraint<Int>(kind: $0) }
-  let allConstraints = constraints + extraConstraints
   // TODO: Support integer constraints.
   // For now skipping them because the underlying SDK converts them to Decimal and Openai fails at decoding them.
-  _ = allConstraints
+  _ = constraints
 
   return JSONSchema(fields: fields)
 }
 
 private func convertNumberSchema(
-  constraints: [Constraint<Double>],
-  isOptional: Bool,
-  extraConstraints: [ConstraintKind]
+  constraints: [DoubleConstraint],
+  isOptional: Bool
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -299,20 +279,16 @@ private func convertNumberSchema(
     fields.append(.type(.number))
   }
 
-  // Concatenate regular constraints with extra constraints from element constraints
-  let extraConstraints = extraConstraints.map { Constraint<Double>(kind: $0) }
-  let allConstraints = constraints + extraConstraints
   // TODO: Support double constraints.
   // For now skipping them because the underlying SDK converts them to Decimal and Openai fails at decoding them.
-  _ = allConstraints
+  _ = constraints
 
   return JSONSchema(fields: fields)
 }
 
 private func convertBooleanSchema(
-  constraints: [Constraint<Bool>],
-  isOptional: Bool,
-  extraConstraints: [ConstraintKind]
+  constraints: [BoolConstraint],
+  isOptional: Bool
 ) -> JSONSchema {
   if isOptional {
     // Openai emulates optional fields using a union type with "null".
@@ -325,7 +301,7 @@ private func convertBooleanSchema(
 
 private func convertArraySchema(
   itemSchema: Schema,
-  constraints: [AnyArrayConstraint],
+  constraints: [ArrayConstraint],
   isOptional: Bool
 ) throws -> JSONSchema {
   var fields: [JSONSchemaField] = []
@@ -339,29 +315,19 @@ private func convertArraySchema(
     fields.append(.type(.array))
   }
 
-  var elementConstraints = [ConstraintKind]()
   for constraint in constraints {
-    switch constraint.kind {
-    case .array(let arrayConstraint):
-      switch arrayConstraint {
-      case .count(let lowerBound, let upperBound):
-        if let lowerBound = lowerBound {
-          fields.append(.minItems(lowerBound))
-        }
-        if let upperBound = upperBound {
-          fields.append(.maxItems(upperBound))
-        }
-      case .element(let constraintKind):
-        elementConstraints.append(constraintKind)
+    switch constraint {
+    case .count(let lowerBound, let upperBound):
+      if let lowerBound = lowerBound {
+        fields.append(.minItems(lowerBound))
       }
-    default:
-      // Skip non-array constraints
-      break
+      if let upperBound = upperBound {
+        fields.append(.maxItems(upperBound))
+      }
     }
   }
 
-  let itemsSchema = try convertSchemaToJSONSchema(
-    itemSchema, extraConstraints: elementConstraints)
+  let itemsSchema = try convertSchemaToJSONSchema(itemSchema)
   fields.append(.items(itemsSchema))
 
   return JSONSchema(fields: fields)

@@ -49,7 +49,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func stringMultipleConstraintsConversion() throws {
-  let constraints: [Constraint<String>] = [
+  let constraints: [StringConstraint] = [
     .pattern("^[A-Z]"),
     .anyOf(["Alpha", "Beta", "Gamma"]),
   ]
@@ -71,7 +71,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func integerMinimumConstraintConversion() throws {
-  let schema = Schema.integer(constraints: [.minimum(10)])
+  let schema = Schema.integer(constraints: [.range(lowerBound: 10, upperBound: nil)])
   let json = try schema.toGenerationSchema().json()
 
   #expect(json["type"] as? String == "integer")
@@ -80,7 +80,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func integerMaximumConstraintConversion() throws {
-  let schema = Schema.integer(constraints: [.maximum(100)])
+  let schema = Schema.integer(constraints: [.range(lowerBound: nil, upperBound: 100)])
   let json = try schema.toGenerationSchema().json()
 
   #expect(json["type"] as? String == "integer")
@@ -89,7 +89,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func integerRangeConstraintConversion() throws {
-  let schema = Schema.integer(constraints: [.range(10...100)])
+  let schema = Schema.integer(constraints: [.range(lowerBound: 10, upperBound: 100)])
   let json = try schema.toGenerationSchema().json()
 
   #expect(json["type"] as? String == "integer")
@@ -99,9 +99,9 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func integerMultipleConstraintsConversion() throws {
-  let constraints: [Constraint<Int>] = [
-    .minimum(5),
-    .maximum(50),
+  let constraints: [IntConstraint] = [
+    .range(lowerBound: 5, upperBound: nil),
+    .range(lowerBound: nil, upperBound: 50),
   ]
   let schema = Schema.integer(constraints: constraints)
   let json = try schema.toGenerationSchema().json()
@@ -120,7 +120,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func numberMinimumConstraintConversion() throws {
-  let schema = Schema.number(constraints: [.minimum(10.5)])
+  let schema = Schema.number(constraints: [.range(lowerBound: 10.5, upperBound: nil)])
   let json = try schema.toGenerationSchema().json()
 
   #expect(json["type"] as? String == "number")
@@ -129,7 +129,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func numberMaximumConstraintConversion() throws {
-  let schema = Schema.number(constraints: [.maximum(100.0)])
+  let schema = Schema.number(constraints: [.range(lowerBound: nil, upperBound: 100.0)])
   let json = try schema.toGenerationSchema().json()
 
   #expect(json["type"] as? String == "number")
@@ -138,7 +138,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func numberRangeConstraintConversion() throws {
-  let schema = Schema.number(constraints: [.range(10.5...100.0)])
+  let schema = Schema.number(constraints: [.range(lowerBound: 10.5, upperBound: 100.0)])
   let json = try schema.toGenerationSchema().json()
 
   #expect(json["type"] as? String == "number")
@@ -148,9 +148,9 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func numberMultipleConstraintsConversion() throws {
-  let constraints: [Constraint<Double>] = [
-    .minimum(5.25),
-    .maximum(50.75),
+  let constraints: [DoubleConstraint] = [
+    .range(lowerBound: 5.25, upperBound: nil),
+    .range(lowerBound: nil, upperBound: 50.75),
   ]
   let schema = Schema.number(constraints: constraints)
   let json = try schema.toGenerationSchema().json()
@@ -258,7 +258,7 @@ import FoundationModels
 @Test func arrayMinimumCountConstraintConversion() throws {
   let schema = Schema.array(
     items: .string(constraints: []),
-    constraints: [AnyArrayConstraint(.minimumCount(3) as Constraint<[String]>)]
+    constraints: [ArrayConstraint.count(lowerBound: 3, upperBound: nil)]
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -275,7 +275,7 @@ import FoundationModels
 @Test func arrayMaximumCountConstraintConversion() throws {
   let schema = Schema.array(
     items: .string(constraints: []),
-    constraints: [AnyArrayConstraint(.maximumCount(10) as Constraint<[String]>)]
+    constraints: [ArrayConstraint.count(lowerBound: nil, upperBound: 10)]
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -292,7 +292,7 @@ import FoundationModels
 @Test func arrayCountConstraintConversion() throws {
   let schema = Schema.array(
     items: .string(constraints: []),
-    constraints: [AnyArrayConstraint(.count(5) as Constraint<[String]>)]
+    constraints: [ArrayConstraint.count(lowerBound: 5, upperBound: 5)]
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -310,8 +310,8 @@ import FoundationModels
   let schema = Schema.array(
     items: .integer(constraints: []),
     constraints: [
-      AnyArrayConstraint(.minimumCount(2) as Constraint<[Int]>),
-      AnyArrayConstraint(.maximumCount(8) as Constraint<[Int]>),
+      ArrayConstraint.count(lowerBound: 2, upperBound: nil),
+      ArrayConstraint.count(lowerBound: nil, upperBound: 8),
     ]
   )
   let json = try schema.toGenerationSchema().json()
@@ -328,8 +328,8 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayElementConstraintConversion() throws {
   let schema = Schema.array(
-    items: .string(constraints: []),
-    constraints: [AnyArrayConstraint(.element(.pattern("^[A-Z][a-z]+$")) as Constraint<[String]>)]
+    items: .string(constraints: [.pattern("^[A-Z][a-z]+$")]),
+    constraints: []
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -344,8 +344,8 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayElementIntegerConstraintConversion() throws {
   let schema = Schema.array(
-    items: .integer(constraints: []),
-    constraints: [AnyArrayConstraint(.element(.range(10...100)) as Constraint<[Int]>)]
+    items: .integer(constraints: [.range(lowerBound: 10, upperBound: 100)]),
+    constraints: []
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -361,11 +361,10 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayMultipleElementConstraintsConversion() throws {
   let schema = Schema.array(
-    items: .string(constraints: [.anyOf(["red", "green", "blue"])]),
-    constraints: [
-      AnyArrayConstraint(.element(.pattern("^[a-z]+$")) as Constraint<[String]>),
-      AnyArrayConstraint(.element(.pattern(".{3,}")) as Constraint<[String]>),
-    ]
+    items: .string(constraints: [
+      .anyOf(["red", "green", "blue"]), .pattern("^[a-z]+$"), .pattern(".{3,}"),
+    ]),
+    constraints: []
   )
   let json = try schema.toGenerationSchema().json()
 
@@ -386,12 +385,13 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func arrayCountAndElementConstraintsConversion() throws {
   let schema = Schema.array(
-    items: .number(constraints: []),
+    items: .number(constraints: [
+      .range(lowerBound: 0.0, upperBound: nil),
+      .range(lowerBound: nil, upperBound: 100.0),
+    ]),
     constraints: [
-      AnyArrayConstraint(.minimumCount(1) as Constraint<[Double]>),
-      AnyArrayConstraint(.maximumCount(5) as Constraint<[Double]>),
-      AnyArrayConstraint(.element(.minimum(0.0)) as Constraint<[Double]>),
-      AnyArrayConstraint(.element(.maximum(100.0)) as Constraint<[Double]>),
+      ArrayConstraint.count(lowerBound: 1, upperBound: nil),
+      ArrayConstraint.count(lowerBound: nil, upperBound: 5),
     ]
   )
   let json = try schema.toGenerationSchema().json()
@@ -477,7 +477,7 @@ import FoundationModels
       schema: .array(items: .string(constraints: []), constraints: []),
       description: "List of tags",
       isOptional: false
-    )
+    ),
   ]
   let schema = Schema.object(
     name: "Item",

@@ -11,43 +11,36 @@ extension Schema {
     return try GenerationSchema(root: dynamicSchema, dependencies: [])
   }
 
-  fileprivate func toDynamicGenerationSchema(extraConstraints: [ConstraintKind] = [])
+  fileprivate func toDynamicGenerationSchema()
     throws -> DynamicGenerationSchema  // TODO: Does this need to throw?
   {
     // TODO: Add comprehensive error handling for schema conversion
     switch self {
     case .object(let name, let description, let properties):
-      assert(extraConstraints.isEmpty, "Object schemas don't support extra constraints")
       return try convertObject(name: name, description: description, properties: properties)
 
     case .array(let items, let constraints):
-      let extraArrayConstraints = extraConstraints.map { AnyArrayConstraint($0) }
       return try convertArray(
         items: items,
-        constraints: constraints + extraArrayConstraints
+        constraints: constraints
       )
 
     case .string(let constraints):
-      let extraStringConstraints = extraConstraints.map { Constraint<String>(kind: $0) }
-      let guides = try convertStringConstraints(constraints + extraStringConstraints)
+      let guides = try convertStringConstraints(constraints)
       return DynamicGenerationSchema(type: String.self, guides: guides)
 
     case .integer(let constraints):
-      let extraIntConstraints = extraConstraints.map { Constraint<Int>(kind: $0) }
-      let guides = convertIntegerConstraints(constraints + extraIntConstraints)
+      let guides = convertIntegerConstraints(constraints)
       return DynamicGenerationSchema(type: Int.self, guides: guides)
 
     case .number(let constraints):
-      let extraDoubleConstraints = extraConstraints.map { Constraint<Double>(kind: $0) }
-      let guides = convertDoubleConstraints(constraints + extraDoubleConstraints)
+      let guides = convertDoubleConstraints(constraints)
       return DynamicGenerationSchema(type: Double.self, guides: guides)
 
     case .boolean:
-      assert(extraConstraints.isEmpty, "Boolean schemas don't support extra constraints")
       return DynamicGenerationSchema(type: Bool.self, guides: [])
 
     case .anyOf(let name, let description, let schemas):
-      assert(extraConstraints.isEmpty, "AnyOf schemas don't support extra constraints")
       return try convertAnyOf(name: name, description: description, schemas: schemas)
     }
   }
@@ -76,46 +69,24 @@ private func convertObject(
 @available(iOS 26.0, macOS 26.0, *)
 private func convertArray(
   items: Schema,
-  constraints: [AnyArrayConstraint]
+  constraints: [ArrayConstraint]
 ) throws -> DynamicGenerationSchema {
-  // TODO: ARRAY ELEMENT CONSTRAINTS DESIGN DECISION
-  // We have two options for handling `.element(constraint)` array constraints:
-  //
-  // Option 1: Handle during macro expansion
-  // Pros: Clean separation, compile-time type safety, better error messages
-  // Cons: More complex macro logic, harder debugging, recursive resolution complexity
-  //
-  // Option 2: Handle during conversion (CHOSEN)
-  // Pros: Simpler macros, flexible runtime handling, centralized conversion logic, better scalability
-  // Cons: More complex conversion logic, potential runtime vs compile-time errors
-  //
-  // Current implementation uses Option 2 for separation of concerns and maintainability.
-  // Revisit if macro complexity becomes an issue or if compile-time validation is needed.
-
   var minCount: Int?
   var maxCount: Int?
-  var elementConstraints = [ConstraintKind]()
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .array(let arrayConstraint):
-      switch arrayConstraint {
-      case .count(let lowerBound, let upperBound):
-        if let lowerBound {
-          minCount = lowerBound
-        }
-        if let upperBound {
-          maxCount = upperBound
-        }
-      case .element(let constraintKind):
-        elementConstraints.append(constraintKind)
+    switch constraint {
+    case .count(let lowerBound, let upperBound):
+      if let lowerBound {
+        minCount = lowerBound
       }
-    default:
-      assertionFailure("Non-array constraint found in array constraints: \(constraint.kind)")
+      if let upperBound {
+        maxCount = upperBound
+      }
     }
   }
 
-  let itemsSchema = try items.toDynamicGenerationSchema(extraConstraints: elementConstraints)
+  let itemsSchema = try items.toDynamicGenerationSchema()
   return DynamicGenerationSchema(
     arrayOf: itemsSchema,
     minimumElements: minCount,
@@ -141,24 +112,18 @@ private func convertAnyOf(
 
 @available(iOS 26.0, macOS 26.0, *)
 private func convertStringConstraints(
-  _ constraints: [Constraint<String>]
+  _ constraints: [StringConstraint]
 ) throws -> [GenerationGuide<String>] {
   var guides: [GenerationGuide<String>] = []
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .string(let stringConstraint):
-      switch stringConstraint {
-      case .pattern(let regex):
-        guides.append(.pattern(try Regex(regex)))
-      case .constant(let value):
-        guides.append(.constant(value))
-      case .anyOf(let options):
-        guides.append(.anyOf(options))
-      }
-    default:
-      // TODO: We should throw an error or log unsupported constraints
-      continue
+    switch constraint {
+    case .pattern(let regex):
+      guides.append(.pattern(try Regex(regex)))
+    case .constant(let value):
+      guides.append(.constant(value))
+    case .anyOf(let options):
+      guides.append(.anyOf(options))
     }
   }
 
@@ -166,24 +131,18 @@ private func convertStringConstraints(
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func convertIntegerConstraints(_ constraints: [Constraint<Int>]) -> [GenerationGuide<Int>] {
+private func convertIntegerConstraints(_ constraints: [IntConstraint]) -> [GenerationGuide<Int>] {
   var guides: [GenerationGuide<Int>] = []
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .int(let intConstraint):
-      switch intConstraint {
-      case .range(let lowerBound, let upperBound):
-        if let lower = lowerBound {
-          guides.append(.minimum(lower))
-        }
-        if let upper = upperBound {
-          guides.append(.maximum(upper))
-        }
+    switch constraint {
+    case .range(let lowerBound, let upperBound):
+      if let lower = lowerBound {
+        guides.append(.minimum(lower))
       }
-    default:
-      // TODO: We should throw an error or log unsupported constraints
-      continue
+      if let upper = upperBound {
+        guides.append(.maximum(upper))
+      }
     }
   }
 
@@ -191,26 +150,20 @@ private func convertIntegerConstraints(_ constraints: [Constraint<Int>]) -> [Gen
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-private func convertDoubleConstraints(_ constraints: [Constraint<Double>]) -> [GenerationGuide<
+private func convertDoubleConstraints(_ constraints: [DoubleConstraint]) -> [GenerationGuide<
   Double
 >] {
   var guides: [GenerationGuide<Double>] = []
 
   for constraint in constraints {
-    switch constraint.kind {
-    case .double(let doubleConstraint):
-      switch doubleConstraint {
-      case .range(let lowerBound, let upperBound):
-        if let lower = lowerBound {
-          guides.append(.minimum(lower))
-        }
-        if let upper = upperBound {
-          guides.append(.maximum(upper))
-        }
+    switch constraint {
+    case .range(let lowerBound, let upperBound):
+      if let lower = lowerBound {
+        guides.append(.minimum(lower))
       }
-    default:
-      // TODO: We should throw an error or log unsupported constraints
-      continue
+      if let upper = upperBound {
+        guides.append(.maximum(upper))
+      }
     }
   }
 

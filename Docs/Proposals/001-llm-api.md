@@ -353,28 +353,33 @@ macro Guide<T>(description: String? = nil, _ constraints: Constraint<T>...)
 
 #### Constraints
 
-Define the specification of an element to generate.
+Define the specification of an element to generate. The constraint system uses a payload-based approach that can target either the current value or its sub-elements -- useful for example for targeting the elements of an array and not the array itself.
 
 ```swift
 struct Constraint<Value>: Sendable, Equatable {
-  internal let kind: ConstraintKind
+  internal let payload: ConstraintPayload
 }
 ```
 
-Under the hood the constraints are represented as.
+Under the hood the constraints are represented as
 
 ```swift
+/// The constraint payload - either constrains this value or sub-values
+internal indirect enum ConstraintPayload: Sendable, Equatable {
+  case this(ConstraintKind)      // constrains this value
+  case sub(AnyConstraint)        // constrains sub-values
+}
+
 enum ConstraintKind: Sendable, Equatable {
   case string(StringConstraint)
   case int(IntConstraint)
   case double(DoubleConstraint)
   case boolean(BooleanConstraint)
-  indirect case array(ArrayConstraint)
+  case array(ArrayConstraint)
 }
 
 enum ArrayConstraint: Sendable, Equatable {
   case count(lowerBound: Int?, upperBound: Int?)
-  case element(ConstraintKind)
 }
 
 enum StringConstraint: Sendable, Equatable {
@@ -404,6 +409,14 @@ struct User {
 
   @Guide(description: "User age", .minimum(18))
   let age: Int?
+
+  @Guide(
+    description: "User's favorite colors",
+    .minimumCount(1),
+    .maximumCount(3),
+    .element(.anyOf("red", "green", "blue"))
+  )
+  let favoriteColors: [String]
 }
 ```
 
@@ -425,6 +438,14 @@ extension User: Generable {
           schema: .integer(constraints: [.minimum(18)]),
           description: "User age",
           isOptional: true
+        ),
+        "favoriteColors": Schema.Property(
+          schema: .array(
+            items: .string(constraints: [.anyOf("red", "green", "blue")]),
+            constraints: [.count(lowerBound: 1, upperBound: 5)]
+          ),
+          description: "User's favorite colors",
+          isOptional: false
         )
       ]
     )

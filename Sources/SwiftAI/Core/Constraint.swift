@@ -2,33 +2,24 @@ import Foundation
 
 /// A type-safe constraint that can be applied to specific types during generation.
 public struct Constraint<Value>: Sendable, Equatable {
-  internal let kind: ConstraintKind
+  internal let payload: ConstraintPayload
 
-  internal init(kind: ConstraintKind) {
+  init(payload: ConstraintPayload) {
+    self.payload = payload
+  }
+
+  init(kind: ConstraintKind) {
     // TODO: The fact that the init is internal means that no external code can create new constraints.
     //  Revisit this decision.
-    self.kind = kind
+    self.payload = .this(kind)
   }
 }
 
-/// A type-erased constraint specifically designed for array schemas.
-public struct AnyArrayConstraint: Sendable, Equatable {
-  internal let kind: ConstraintKind
-
-  /**
-   * This type-erased constraint is used to make it possible to have equatable constraints for arrays constraints.
-   * Using Constraint<[Any]> would fail to compile because it cannot be equatable.
-   */
-
-  public init<Element>(_ constraint: Constraint<[Element]>) {
-    // TODO: Check that constraint.kind is an `array` constraint.
-    self.kind = constraint.kind
-  }
-
-  internal init(_ kind: ConstraintKind) {
-    // TODO: Check that constraint.kind is an `array` constraint.
-    self.kind = kind
-  }
+/// The constraint payload - either constrains this value or in case of collections constraints
+/// one or more of its sub-values.
+enum ConstraintPayload: Sendable, Equatable {
+  case this(ConstraintKind)  // constrains this value
+  indirect case sub(AnyConstraint)  // constrains sub-values
 }
 
 /// The internal representation of constraint types.
@@ -36,8 +27,27 @@ public enum ConstraintKind: Sendable, Equatable {
   case string(StringConstraint)
   case int(IntConstraint)
   case double(DoubleConstraint)
-  case boolean
-  indirect case array(ArrayConstraint)
+  case boolean(BoolConstraint)
+  case array(ArrayConstraint)
+}
+
+/// A internal type-erased constraint.
+///
+/// Used to represent `ConstraintPayload.sub(AnyConstraint)` because enums cannot have generic parameters.
+struct AnyConstraint: Sendable, Equatable {
+  let payload: ConstraintPayload
+
+  init<Value>(_ constraint: Constraint<Value>) {
+    self.payload = constraint.payload
+  }
+
+  init(payload: ConstraintPayload) {
+    self.payload = payload
+  }
+
+  init(kind: ConstraintKind) {
+    self.payload = .this(kind)
+  }
 }
 
 // MARK: - String Constraints
@@ -57,7 +67,6 @@ extension Constraint where Value == String {
   public static func anyOf(_ options: [String]) -> Constraint<String> {
     Constraint(kind: .string(.anyOf(options)))
   }
-
 }
 
 // MARK: - Integer Constraints
@@ -122,7 +131,7 @@ extension Constraint {
   /// Applies a constraint to each element in the array.
   public static func element<Element>(_ constraint: Constraint<Element>) -> Constraint<[Element]>
   where Value == [Element] {
-    Constraint(kind: .array(.element(constraint.kind)))
+    Constraint(payload: .sub(AnyConstraint(constraint)))
   }
 }
 
@@ -169,10 +178,10 @@ public enum ArrayConstraint: Sendable, Equatable {
   ///   - lowerBound: The minimum number of elements (nil for no minimum)
   ///   - upperBound: The maximum number of elements (nil for no maximum)
   case count(lowerBound: Int?, upperBound: Int?)
-
-  /// Applies a constraint to each element in the array.
-  case element(ConstraintKind)
 }
+
+/// Constraints that can be applied to boolean values.
+public enum BoolConstraint: Sendable, Equatable {}
 
 /// Constraints that can be applied to string values.
 public enum StringConstraint: Sendable, Equatable {

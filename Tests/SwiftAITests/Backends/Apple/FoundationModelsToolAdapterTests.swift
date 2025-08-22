@@ -33,11 +33,14 @@ struct FoundationModelsToolAdapterTests {
         }
         """)
     let args = try FoundationModelsToolAdapter.Args(mockGeneratedContent)
-    let result = try await adapter.call(arguments: args)
+    guard let resultPrompt = try await adapter.call(arguments: args) as? SwiftAI.Prompt else {
+      Issue.record("Expected result to be a SwiftAI.Prompt")
+      return
+    }
 
-    #expect(result.contains("Mock result"))
-    #expect(result.contains("hello world"))
-    #expect(result.contains("count: 42"))
+    #expect(resultPrompt.text.contains("Mock result"))
+    #expect(resultPrompt.text.contains("hello world"))
+    #expect(resultPrompt.text.contains("count: 42"))
   }
 
   @Test("Adapter handles bad input gracefully")

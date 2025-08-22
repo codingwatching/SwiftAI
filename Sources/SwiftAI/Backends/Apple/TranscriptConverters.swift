@@ -329,7 +329,7 @@ private func mergeMessages(_ message1: Message, _ message2: Message) throws -> M
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-extension StructuredContent: ConvertibleToGeneratedContent {
+extension StructuredContent: FoundationModels.ConvertibleToGeneratedContent {
   public var generatedContent: GeneratedContent {
     return GeneratedContent(kind: kind.asGeneratedContentKind)
   }

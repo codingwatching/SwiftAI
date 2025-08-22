@@ -282,7 +282,7 @@ let followUp = try await llm.reply(
 
 ### Messages & Content Chunks
 
-A conversation transcript consists of `Message` objects, each associated with a Role. `Message` content is composed of one or more `ContentChunk`s, allowing multimodal data (text, structured output, tool calls, etc.).
+A conversation transcript consists of `Message` objects, each associated with a Role. `Message` content is composed of one or more `ContentChunk`s, allowing multimodal data (text, structured output, etc).
 
 ```swift
 let conversation = [
@@ -299,13 +299,17 @@ protocol Message: Sendable, Equatable {
 }
 
 enum Role {
-  case system, user, ai, toolCall, toolOutput
+  case system, user, ai, toolOutput
 }
 
 enum ContentChunk: Sendable, Equatable {
   case text(String)
   case structured(json: String)
-  case toolCall(ToolCall)
+}
+
+struct AIMessage: PromptRepresentable, Equatable, Sendable {
+  let chunks: [ContentChunk]
+  let toolCalls: [ToolCall]
 }
 
 struct ToolCall: Sendable, Equatable {
@@ -324,7 +328,7 @@ SwiftAI supports type-safe structured output via compile-time macros that produc
 - `@Generable`: Makes a type conform to `Generable` and generates a [JSON schema](https://json-schema.org).
 - `@Guide`: Adds constraints and documentation to schema properties.
 
-> Naming follows Apple’s FoundationModels SDK for easier migration.
+> Naming follows Apple's FoundationModels SDK for easier migration.
 
 #### The Generable Protocol
 
@@ -471,4 +475,4 @@ protocol Tool: Sendable {
 ## Alternatives considered
 
 - **Different naming** — We considered avoiding FoundationModels terminology (`@Generable`, `@Guide`, `Tool`), but chose alignment to ease migration.
-- **Direct FoundationModels types** — We considered using Apple’s symbols directly, but this would restrict usage to environments where FoundationModels is available.
+- **Direct FoundationModels types** — We considered using Apple's symbols directly, but this would restrict usage to environments where FoundationModels is available.

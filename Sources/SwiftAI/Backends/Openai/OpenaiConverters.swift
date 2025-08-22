@@ -48,18 +48,9 @@ extension Message {
           )
         }
 
-      let textContent = chunks.map { chunk in
-        switch chunk {
-        case .text(let text):
-          return text
-        case .structured(let content):
-          return content.jsonString  // TODO: We should look if we can send structured content to Openai.
-        }
-      }.joined(separator: "")
-
       return EasyInputMessage(
         role: role,
-        content: .textInput(textContent)
+        content: .textInput(self.text)  // TODO: We should look if we can send structured content to Openai.
       )
     }
   }
@@ -114,20 +105,12 @@ extension Message.AIMessage {
 extension Message.ToolOutput {
   fileprivate var asOpenaiInputItems: [InputItem] {
     // TODO: This log is repeated several times in the codebase. Refactor it.
-    let outputText = chunks.map { chunk in
-      switch chunk {
-      case .text(let text):
-        return text
-      case .structured(let content):
-        return content.jsonString
-      }
-    }.joined(separator: "")
 
     let functionCallOutput = Components.Schemas.FunctionCallOutputItemParam(
       id: nil,  // Not required for input
       callId: id,
       _type: .functionCallOutput,
-      output: outputText,
+      output: self.text,
       status: nil
     )
 

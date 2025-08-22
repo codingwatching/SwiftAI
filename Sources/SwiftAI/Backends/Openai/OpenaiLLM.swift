@@ -160,18 +160,16 @@ public struct OpenaiLLM: LLM {
     } while thread.messages.last?.role != .ai
 
     // Extract final content from the last AI message
-    guard let finalMessage = thread.messages.last,
-      case .ai(let finalAIMessage) = finalMessage
-    else {
+    guard let finalMessage = thread.messages.last else {
       throw LLMError.generalError("Final message should be an AI message")
     }
 
     let content: T = try {
       if T.self == String.self {
-        return unsafeBitCast(finalAIMessage.text, to: T.self)
+        return unsafeBitCast(finalMessage.text, to: T.self)
       } else {
         // For structured types, parse JSON from text content
-        let jsonData = finalAIMessage.text.data(using: .utf8) ?? Data()
+        let jsonData = finalMessage.text.data(using: .utf8) ?? Data()
         let decoder = JSONDecoder()
         return try decoder.decode(T.self, from: jsonData)
       }
@@ -184,17 +182,3 @@ public struct OpenaiLLM: LLM {
   }
 }
 
-extension Message.AIMessage {
-  // TODO: This code logic is replicated a few times in the codebase. Refactor it.
-  /// Convenience property that contains the aggregated text output from all output texts chunks.
-  fileprivate var text: String {
-    chunks.map { chunk in
-      switch chunk {
-      case .text(let text):
-        return text
-      case .structured(let content):
-        return content.jsonString
-      }
-    }.joined(separator: "")
-  }
-}

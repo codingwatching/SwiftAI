@@ -99,18 +99,15 @@ struct FoundationModelsToolAdapter: FoundationModels.Tool {
     _ swiftAIPrompt: any SwiftAI.PromptRepresentable
   ) -> String {
     let textContent = swiftAIPrompt.chunks
-      .compactMap { chunk in
+      .map { chunk in
         switch chunk {
         case .text(let text):
           return text
         case .structured(let structuredText):
           return structuredText.jsonString
-        case .toolCall:
-          // TODO: Consider serializing tool calls to JSON string for better fidelity
-          return nil
         }
       }
-      .joined(separator: "\n")
+      .joined(separator: "")
 
     return textContent
   }

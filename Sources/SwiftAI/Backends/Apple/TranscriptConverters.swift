@@ -32,7 +32,7 @@ public enum TranscriptConversionError: Error, LocalizedError {
 extension ContentChunk {
   /// ContentChunk → Transcript.Segment.
   /// Returns nil for tool call chunks because they are not representable as transcript segments.
-  var asTranscriptSegment: Transcript.Segment? {
+  var asTranscriptSegment: Transcript.Segment {
     switch self {
     case .text(let content):
       let textSegment = Transcript.TextSegment(content: content)
@@ -45,10 +45,6 @@ extension ContentChunk {
           content: content.generatedContent
         )
       )
-
-    case .toolCall:
-      // No equivalent Transcript.Segment for tool calls.
-      return nil
     }
   }
 }
@@ -92,7 +88,7 @@ extension Message {
   var asTranscriptEntries: [Transcript.Entry] {
     switch self {
     case .system(let message):
-      let segments = message.chunks.compactMap { $0.asTranscriptSegment }
+      let segments = message.chunks.map { $0.asTranscriptSegment }
       let instructions = Transcript.Instructions(
         segments: segments,
         toolDefinitions: []
@@ -100,7 +96,7 @@ extension Message {
       return [.instructions(instructions)]
 
     case .user:
-      let segments = chunks.compactMap { $0.asTranscriptSegment }
+      let segments = chunks.map { $0.asTranscriptSegment }
       let prompt = Transcript.Prompt(
         segments: segments,
         options: GenerationOptions(),  // TODO: Default options used
@@ -108,26 +104,12 @@ extension Message {
       )
       return [.prompt(prompt)]
 
-    case .ai:
+    case .ai(let message):
       var entries: [Transcript.Entry] = []
 
-      let nonToolChunks = chunks.filter { chunk in
-        switch chunk {
-        case .text, .structured: return true
-        case .toolCall: return false
-        }
-      }
-
-      let toolCallChunks = chunks.compactMap { chunk -> ToolCall? in
-        switch chunk {
-        case .toolCall(let toolCall): return toolCall
-        default: return nil
-        }
-      }
-
       // If there are content chunks, create a Response entry.
-      if !nonToolChunks.isEmpty {
-        let segments = nonToolChunks.compactMap { $0.asTranscriptSegment }
+      if !message.chunks.isEmpty {
+        let segments = message.chunks.map { $0.asTranscriptSegment }
         let response = Transcript.Response(
           assetIDs: [],  // TODO: Default empty asset IDs
           segments: segments
@@ -135,9 +117,9 @@ extension Message {
         entries.append(.response(response))
       }
 
-      // If there are tool call chunks, create a ToolCalls entry.
-      if !toolCallChunks.isEmpty {
-        let transcriptToolCalls = toolCallChunks.map { toolCall in
+      // If there are tool calls, create a ToolCalls entry.
+      if !message.toolCalls.isEmpty {
+        let transcriptToolCalls = message.toolCalls.map { toolCall in
           return Transcript.ToolCall(
             id: toolCall.id,
             toolName: toolCall.toolName,
@@ -145,8 +127,8 @@ extension Message {
           )
         }
 
-        let toolCalls = Transcript.ToolCalls(transcriptToolCalls)
-        entries.append(.toolCalls(toolCalls))
+        let toolCallsEntry = Transcript.ToolCalls(transcriptToolCalls)
+        entries.append(.toolCalls(toolCallsEntry))
       }
 
       return entries
@@ -229,19 +211,18 @@ extension Transcript.Entry {
 
       case .response(let response):
         let chunks = response.segments.compactMap { $0.contentChunk }
-        return .ai(.init(chunks: chunks))
+        return .ai(.init(chunks: chunks, toolCalls: []))
 
-      case .toolCalls(let toolCalls):
-        let chunks = try toolCalls.map { toolCall in
-          return ContentChunk.toolCall(
-            .init(
-              id: toolCall.id,
-              toolName: toolCall.toolName,
-              // TODO: We can convert to StructuredContent safely by mapping the GeneratedContent.Kind to StructuredContent.Kind
-              arguments: try StructuredContent(json: toolCall.arguments.jsonString)
-            ))
+      case .toolCalls(let foundationToolCalls):
+        let swiftaiToolCalls = try foundationToolCalls.map { toolCall in
+          return Message.ToolCall(
+            id: toolCall.id,
+            toolName: toolCall.toolName,
+            // TODO: We can convert to StructuredContent safely by mapping the GeneratedContent.Kind to StructuredContent.Kind
+            arguments: try StructuredContent(json: toolCall.arguments.jsonString)
+          )
         }
-        return .ai(.init(chunks: chunks))
+        return .ai(.init(chunks: [], toolCalls: swiftaiToolCalls))
 
       case .toolOutput(let toolOutput):
         let chunks = toolOutput.segments.compactMap { $0.contentChunk }
@@ -319,17 +300,31 @@ private func canMergeMessages(_ message1: Message, _ message2: Message) -> Bool 
 private func mergeMessages(_ message1: Message, _ message2: Message) throws -> Message {
   assert(message1.role == message2.role, "Cannot merge messages with different roles")
 
-  let allChunks = message1.chunks + message2.chunks
   switch message1 {
-  case .system:
+  case .system(let msg1):
+    guard case .system(let msg2) = message2 else {
+      throw TranscriptConversionError.internalError("Cannot merge messages with different roles")
+    }
+    let allChunks = msg1.chunks + msg2.chunks
     return .system(.init(chunks: allChunks))
-  case .user:
+
+  case .user(let msg1):
+    guard case .user(let msg2) = message2 else {
+      throw TranscriptConversionError.internalError("Cannot merge messages with different roles")
+    }
+    let allChunks = msg1.chunks + msg2.chunks
     return .user(.init(chunks: allChunks))
-  case .ai:
-    return .ai(.init(chunks: allChunks))
+
+  case .ai(let msg1):
+    guard case .ai(let msg2) = message2 else {
+      throw TranscriptConversionError.internalError("Cannot merge messages with different roles")
+    }
+    let allChunks = msg1.chunks + msg2.chunks
+    let allToolCalls = msg1.toolCalls + msg2.toolCalls
+    return .ai(.init(chunks: allChunks, toolCalls: allToolCalls))
+
   case .toolOutput:
-    throw TranscriptConversionError.internalError(
-      "Cannot merge messages with toolOutput role")
+    throw TranscriptConversionError.internalError("Cannot merge tool output messages")
   }
 }
 

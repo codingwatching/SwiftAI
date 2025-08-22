@@ -32,9 +32,12 @@ import Testing
 
 @Test func chatWithTools() async throws {
   let fakeLLM = FakeLLM()
-  let fakeToolCall = FakeLLM.FakeToolCall(
-    toolName: "fake_tool",
-    arguments: try! StructuredContent(json: #"{"input": "test input"}"#),
+  let fakeToolCall: FakeLLM.ProgrammedToolCall = (
+    call: Message.ToolCall(
+      id: "tool_call_0",
+      toolName: "fake_tool",
+      arguments: try! StructuredContent(json: #"{"input": "test input"}"#)
+    ),
     expectedOutput: "Tool executed successfully"
   )
   fakeLLM.queueReply(
@@ -85,9 +88,12 @@ import Testing
 
 @Test func chatMessageHistoryWithToolCalls() async throws {
   let fakeLLM = FakeLLM()
-  let fakeToolCall = FakeLLM.FakeToolCall(
-    toolName: "fake_tool",
-    arguments: try! StructuredContent(json: #"{"input": "weather query"}"#),
+  let fakeToolCall: FakeLLM.ProgrammedToolCall = (
+    call: Message.ToolCall(
+      id: "tool_call_0",
+      toolName: "fake_tool",
+      arguments: try! StructuredContent(json: #"{"input": "weather query"}"#)
+    ),
     expectedOutput: "Sunny, 25°C"
   )
   fakeLLM.queueReply(
@@ -106,13 +112,12 @@ import Testing
   let expectedMessages: [Message] = [
     .user(.init(text: "What's the weather?")),
     .ai(
-      .init(chunks: [
-        .toolCall(
-          ToolCall(
-            id: "tool_call_0",
-            toolName: "fake_tool",
-            arguments: try! StructuredContent(json: #"{"input":"weather query"}"#)
-          ))
+      .init(chunks: [], toolCalls: [
+        Message.ToolCall(
+          id: "tool_call_0",
+          toolName: "fake_tool",
+          arguments: try! StructuredContent(json: #"{"input":"weather query"}"#)
+        )
       ])),
     .toolOutput(
       .init(

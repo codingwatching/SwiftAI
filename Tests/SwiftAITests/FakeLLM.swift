@@ -5,21 +5,18 @@ import SwiftAI
 
 /// A stateful fake LLM implementation for testing with programmable responses and tool calling.
 final class FakeLLM: LLM, @unchecked Sendable {
+  /// A tuple representing a programmed tool call and its expected output.
+  typealias ProgrammedToolCall = (call: Message.ToolCall, expectedOutput: String)
+
   /// Represents a programmed response that the fake LLM will return.
   struct ProgrammedReply {
-    let toolCalls: [FakeToolCall]?
+    let toolCalls: [ProgrammedToolCall]?
     let finalResponse: String
 
-    init(toolCalls: [FakeToolCall]? = nil, finalResponse: String) {
+    init(toolCalls: [ProgrammedToolCall]? = nil, finalResponse: String) {
       self.toolCalls = toolCalls
       self.finalResponse = finalResponse
     }
-  }
-
-  struct FakeToolCall {
-    let toolName: String
-    let arguments: StructuredContent
-    let expectedOutput: String
   }
 
   let isAvailable: Bool = true
@@ -36,7 +33,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
   }
 
   /// Queues a response with tool calls followed by a final response.
-  func queueReply(toolCalls: [FakeToolCall], finalResponse: String) {
+  func queueReply(toolCalls: [ProgrammedToolCall], finalResponse: String) {
     let reply = ProgrammedReply(toolCalls: toolCalls, finalResponse: finalResponse)
     replyQueue.append(reply)
   }
@@ -62,36 +59,26 @@ final class FakeLLM: LLM, @unchecked Sendable {
     var currentMessages = messages
 
     // Simulate tool calls if programmed
-    if let toolCalls = reply.toolCalls {
-      var aiChunks: [ContentChunk] = []
-
-      for (index, toolCall) in toolCalls.enumerated() {
-        guard tools.contains(where: { $0.name == toolCall.toolName }) else {
-          throw FakeLLMError.toolNotFound(toolCall.toolName)
-        }
-
-        aiChunks.append(
-          .toolCall(
-            ToolCall(
-              id: "tool_call_\(index)",
-              toolName: toolCall.toolName,
-              arguments: toolCall.arguments
-            )))
-      }
+    if let programmedToolCalls = reply.toolCalls {
+      let toolCallMessages = programmedToolCalls.map { $0.call }
 
       // Add AI message with tool calls
-      if !aiChunks.isEmpty {
-        let aiMessage = Message.ai(.init(chunks: aiChunks))
+      if !toolCallMessages.isEmpty {
+        let aiMessage = Message.ai(.init(chunks: [], toolCalls: toolCallMessages))
         currentMessages.append(aiMessage)
       }
 
       // Simulate tool execution
-      for (index, toolCall) in toolCalls.enumerated() {
+      for programmedToolCall in programmedToolCalls {
+        guard tools.contains(where: { $0.name == programmedToolCall.call.toolName }) else {
+          throw FakeLLMError.toolNotFound(programmedToolCall.call.toolName)
+        }
+
         let toolOutputMessage = Message.toolOutput(
           .init(
-            id: "tool_call_\(index)",
-            toolName: toolCall.toolName,
-            chunks: [.text(toolCall.expectedOutput)]
+            id: programmedToolCall.call.id,
+            toolName: programmedToolCall.call.toolName,
+            chunks: [.text(programmedToolCall.expectedOutput)]
           ))
         currentMessages.append(toolOutputMessage)
       }

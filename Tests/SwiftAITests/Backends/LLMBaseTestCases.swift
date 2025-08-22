@@ -312,17 +312,19 @@ extension LLMBaseTestCases {
         )),
       .user(.init(text: "Please calculate 15 + 27 for me")),
       .ai(
-        .init(chunks: [
-          .text("I'll calculate that for you using the calculator tool."),
-          .toolCall(
-            ToolCall(
+        .init(
+          chunks: [
+            .text("I'll calculate that for you using the calculator tool.")
+          ],
+          toolCalls: [
+            Message.ToolCall(
               id: "call-1",
               toolName: "calculator",
-              arguments: try! StructuredContent(
+              arguments: try StructuredContent(
                 json: #"{"operation": "add", "a": 15.0, "b": 27.0}"#
               )
-            )),
-        ])),
+            )
+          ])),
       .toolOutput(
         .init(
           id: "call-1",
@@ -330,25 +332,28 @@ extension LLMBaseTestCases {
           chunks: [.text("Result: 42.0")]
         )),
       .ai(
-        .init(chunks: [
-          .text("The calculation is complete."),
-          .structured(
-            try StructuredContent(
-              json: #"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#)),
-        ])),
+        .init(
+          chunks: [
+            .text("The calculation is complete."),
+            .structured(
+              try StructuredContent(
+                json: #"{"calculation": "15 + 27", "result": 42.0, "verified": true}"#)),
+          ], toolCalls: [])),
       .user(.init(text: "Now tell me about the weather in Paris")),
       .ai(
-        .init(chunks: [
-          .text("Let me check the weather in Paris for you."),
-          .toolCall(
-            ToolCall(
+        .init(
+          chunks: [
+            .text("Let me check the weather in Paris for you.")
+          ],
+          toolCalls: [
+            Message.ToolCall(
               id: "call-2",
               toolName: "get_weather",
-              arguments: try! StructuredContent(
-                json: #"{"city": "Paris", "unit": "celsius"}"#
+              arguments: try StructuredContent(
+                json: #"{"city": "Paris", "country": "France"}"#
               )
-            )),
-        ])),
+            )
+          ])),
       .toolOutput(
         .init(
           id: "call-2",

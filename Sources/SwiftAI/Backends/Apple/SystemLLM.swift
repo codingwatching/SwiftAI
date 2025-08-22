@@ -265,16 +265,14 @@ private func generateResponse<T: Generable>(
 
 @available(iOS 26.0, macOS 26.0, *)
 private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
-  let content = message.chunks.compactMap { chunk in
+  let content = message.chunks.map { chunk in
     switch chunk {
     case .text(let text):
       return text
     case .structured(let json):
       return json.jsonString
-    case .toolCall(let toolCall):
-      return "Tool call: \(toolCall.toolName) with arguments: \(toolCall.arguments.jsonString)"
     }
-  }.joined(separator: "\n")  // TODO: Revisit the separator.
+  }.joined(separator: "")
 
   return FoundationModels.Prompt(content)
 }

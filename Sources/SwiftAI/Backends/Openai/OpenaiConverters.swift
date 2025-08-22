@@ -48,14 +48,12 @@ extension Message {
           )
         }
 
-      let textContent = chunks.compactMap { chunk in
+      let textContent = chunks.map { chunk in
         switch chunk {
         case .text(let text):
           return text
         case .structured(let content):
           return content.jsonString  // TODO: We should look if we can send structured content to Openai.
-        case .toolCall(_):
-          return nil  // Tool calls are handled separately in InputItems
         }
       }.joined(separator: "")
 
@@ -90,28 +88,12 @@ extension Message.AIMessage {
     get throws {
       var items: [InputItem] = []
 
-      // Add text content as EasyInputMessage if there's any non-tool-call content
-      let hasNonToolContent = chunks.contains { chunk in
-        switch chunk {
-        case .text(_), .structured(_):
-          return true
-        case .toolCall(_):
-          return false
-        }
-      }
-
-      if hasNonToolContent {
+      // Add text content as EasyInputMessage if there's any content
+      if !chunks.isEmpty {
         items.append(.inputMessage(try Message.ai(self).asOpenaiEasyInputMessage))
       }
 
-      // Extract tool calls from the message and add each as a separate FunctionToolCall item
-      let toolCalls = chunks.compactMap { chunk -> ToolCall? in
-        if case .toolCall(let toolCall) = chunk {
-          return toolCall
-        }
-        return nil
-      }
-
+      // Add tool calls from the new toolCalls property
       for toolCall in toolCalls {
         let functionToolCall = Components.Schemas.FunctionToolCall(
           id: nil,
@@ -132,14 +114,12 @@ extension Message.AIMessage {
 extension Message.ToolOutput {
   fileprivate var asOpenaiInputItems: [InputItem] {
     // TODO: This log is repeated several times in the codebase. Refactor it.
-    let outputText = chunks.compactMap { chunk in
+    let outputText = chunks.map { chunk in
       switch chunk {
       case .text(let text):
         return text
       case .structured(let content):
         return content.jsonString
-      case .toolCall(_):
-        return nil  // Tool calls shouldn't be in tool outputs
       }
     }.joined(separator: "")
 
@@ -407,6 +387,7 @@ extension ResponseObject {
   var asSwiftAIMessage: Message.AIMessage {
     get throws {
       var chunks = [ContentChunk]()
+      var toolCalls = [Message.ToolCall]()
 
       for outputItem in output {
         switch outputItem {
@@ -425,13 +406,12 @@ extension ResponseObject {
             }
           }
         case .functionToolCall(let fnCall):
-          // Convert function calls to tool call chunks
-          let toolCall = ToolCall(
+          let toolCall = Message.ToolCall(
             id: fnCall.callId,
             toolName: fnCall.name,
             arguments: try StructuredContent(json: fnCall.arguments)
           )
-          chunks.append(.toolCall(toolCall))
+          toolCalls.append(toolCall)
         default:
           // TODO: Audit other output types to make sure we handle them correctly.
           // Skip other output types for now
@@ -439,7 +419,7 @@ extension ResponseObject {
         }
       }
 
-      return .init(chunks: chunks)
+      return .init(chunks: chunks, toolCalls: toolCalls)
     }
   }
 }

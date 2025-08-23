@@ -10,6 +10,23 @@ public protocol PromptRepresentable {
   var chunks: [ContentChunk] { get }
 }
 
+extension PromptRepresentable {
+  /// A convenience property that contains the aggregated text output from all text representable chunks.
+  ///
+  /// - .text chunks are returned as is.
+  /// - .structured chunks are converted to JSON string
+  public var text: String {
+    chunks.map { chunk in
+      switch chunk {
+      case .text(let text):
+        return text
+      case .structured(let content):
+        return content.jsonString
+      }
+    }.joined(separator: "")
+  }
+}
+
 /// A structured representation of content to be sent to language models.
 ///
 /// Prompts provide a type-safe way to construct and compose content for LLM interactions.

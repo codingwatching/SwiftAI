@@ -66,7 +66,7 @@ struct FoundationModelsToolAdapter: FoundationModels.Tool {
     true
   }
 
-  func call(arguments: Args) async throws -> String {
+  func call(arguments: Args) async throws -> SwiftAI.Prompt {
     do {
       // Convert GeneratedContent to UTF-8 data
       guard let jsonData = arguments.content.jsonString.data(using: .utf8) else {
@@ -77,42 +77,28 @@ struct FoundationModelsToolAdapter: FoundationModels.Tool {
       }
 
       let swiftAIResult = try await swiftAITool.call(jsonData)
-      return convertToFoundationModelsPromptRepresentable(swiftAIResult)
+      return SwiftAI.Prompt(chunks: swiftAIResult.chunks)
     } catch {
       // TODO: The catch block is too wide, and we may be casting other errors as `toolExecutionFailed`.
       // We should catch specific errors and map them to the relevant LLMError cases.
       throw LLMError.toolExecutionFailed(tool: swiftAITool, underlyingError: error)
     }
   }
+}
 
-  // MARK: - Helper Methods
-
-  /// Converts SwiftAI PromptRepresentable to a String suitable for FoundationModels.
-  ///
-  /// This method extracts text and structured content from SwiftAI content chunks,
-  /// joining them with newlines to create a single string representation.
-  /// Tool calls are currently omitted from the output.
-  ///
-  /// - Parameter swiftAIPrompt: The SwiftAI prompt to convert
-  /// - Returns: A string representation of the prompt content
-  private func convertToFoundationModelsPromptRepresentable(
-    _ swiftAIPrompt: any SwiftAI.PromptRepresentable
-  ) -> String {
-    let textContent = swiftAIPrompt.chunks
-      .compactMap { chunk in
+@available(iOS 26.0, macOS 26.0, *)
+extension SwiftAI.Prompt: FoundationModels.PromptRepresentable {
+  public var promptRepresentation: FoundationModels.Prompt {
+    FoundationModels.Prompt {
+      for chunk in chunks {
         switch chunk {
         case .text(let text):
-          return text
-        case .structured(let structuredText):
-          return structuredText.jsonString
-        case .toolCall:
-          // TODO: Consider serializing tool calls to JSON string for better fidelity
-          return nil
+          text
+        case .structured(let content):
+          content.generatedContent
         }
       }
-      .joined(separator: "\n")
-
-    return textContent
+    }
   }
 }
 #endif

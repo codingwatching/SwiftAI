@@ -144,11 +144,9 @@ public struct OpenaiLLM: LLM {
         .withNewMessage(.ai(aiMsg))
         .withNewResponseID(response.id)
 
-      let funcCalls = aiMsg.functionCalls
-
-      if !funcCalls.isEmpty {
+      if !aiMsg.toolCalls.isEmpty {
         var outputToolMessages = [Message]()
-        for toolCall in funcCalls {
+        for toolCall in aiMsg.toolCalls {
           // TODO: Consider sending the error to the LLM.
           let toolOutput = try await thread.execute(toolCall: toolCall)
           let toolOutputMessage = Message.toolOutput(toolOutput)
@@ -162,18 +160,16 @@ public struct OpenaiLLM: LLM {
     } while thread.messages.last?.role != .ai
 
     // Extract final content from the last AI message
-    guard let finalMessage = thread.messages.last,
-      case .ai(let finalAIMessage) = finalMessage
-    else {
+    guard let finalMessage = thread.messages.last else {
       throw LLMError.generalError("Final message should be an AI message")
     }
 
     let content: T = try {
       if T.self == String.self {
-        return unsafeBitCast(finalAIMessage.text, to: T.self)
+        return unsafeBitCast(finalMessage.text, to: T.self)
       } else {
         // For structured types, parse JSON from text content
-        let jsonData = finalAIMessage.text.data(using: .utf8) ?? Data()
+        let jsonData = finalMessage.text.data(using: .utf8) ?? Data()
         let decoder = JSONDecoder()
         return try decoder.decode(T.self, from: jsonData)
       }
@@ -186,32 +182,3 @@ public struct OpenaiLLM: LLM {
   }
 }
 
-extension Message.AIMessage {
-  /// Extracts function calls from this AI message.
-  ///
-  /// This computed property can be used anywhere in the codebase to extract
-  /// tool calls from AI messages, making it reusable and testable.
-  fileprivate var functionCalls: [ToolCall] {
-    chunks.compactMap { chunk in
-      if case .toolCall(let toolCall) = chunk {
-        return toolCall
-      }
-      return nil
-    }
-  }
-
-  // TODO: This code logic is replicated a few times in the codebase. Refactor it.
-  /// Convenience property that contains the aggregated text output from all output texts chunks.
-  fileprivate var text: String {
-    chunks.compactMap { chunk in
-      switch chunk {
-      case .text(let text):
-        return text
-      case .structured(let content):
-        return content.jsonString
-      case .toolCall(_):
-        return nil
-      }
-    }.joined(separator: "")
-  }
-}

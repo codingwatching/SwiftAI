@@ -40,17 +40,6 @@ import FoundationModels
 }
 
 @available(iOS 26.0, macOS 26.0, *)
-@Test func ToolCallChunkToSegment_ReturnsNil() throws {
-  let toolCall = ToolCall(
-    id: "call-1", toolName: "calculator", arguments: try! StructuredContent(json: #"{"a": 5}"#))
-  let toolCallChunk = ContentChunk.toolCall(toolCall)
-
-  let segment = toolCallChunk.asTranscriptSegment
-
-  #expect(segment == nil)
-}
-
-@available(iOS 26.0, macOS 26.0, *)
 @Test func StructuredChunkToSegment_InvalidJSON_ThrowsError() throws {
   let invalidJSON = "{ invalid json }"
 
@@ -162,10 +151,10 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func aiMessageToTranscriptEntry_AIMessageWithToolCalls() throws {
-  let toolCall = ToolCall(
+  let toolCall = Message.ToolCall(
     id: "call-1", toolName: "get_weather",
     arguments: try! StructuredContent(json: #"{"city": "Paris"}"#))
-  let aiMessage = Message.ai(.init(chunks: [.toolCall(toolCall)]))
+  let aiMessage = Message.ai(.init(chunks: [], toolCalls: [toolCall]))
 
   let entries = aiMessage.asTranscriptEntries
 
@@ -212,19 +201,19 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func AIMessageToTranscriptEntries_MixedContentAndToolCalls() throws {
-  let toolCall1 = ToolCall(
+  let toolCall1 = Message.ToolCall(
     id: "call-1", toolName: "calculator",
     arguments: try! StructuredContent(json: #"{"a": 23, "b": 2}"#))
-  let toolCall2 = ToolCall(
+  let toolCall2 = Message.ToolCall(
     id: "call-2", toolName: "calculator",
     arguments: try! StructuredContent(json: #"{"a": 4, "b": 12}"#))
+
   let aiMessage = Message.ai(
-    .init(chunks: [
-      .text("I'll calculate that for you."),
-      .toolCall(toolCall1),
-      .toolCall(toolCall2),
-      .text("The calculation is complete."),
-    ]))
+    .init(
+      chunks: [
+        .text("I'll calculate that for you."),
+        .text("The calculation is complete."),
+      ], toolCalls: [toolCall1, toolCall2]))
 
   let entries = aiMessage.asTranscriptEntries
 
@@ -250,23 +239,19 @@ import FoundationModels
   let transcriptToolCall1 = toolCalls[0]
   #expect(transcriptToolCall1.id == "call-1")
   #expect(transcriptToolCall1.toolName == "calculator")
-  let expectedArgs1 = #"{"a": 23, "b": 2}"#
-  let actualArgs1 = transcriptToolCall1.arguments.jsonString
-  try expectJSONEqual(expectedArgs1, actualArgs1)
+  try expectJSONEqual(transcriptToolCall1.arguments.jsonString, #"{"a": 23, "b": 2}"#)
 
   let transcriptToolCall2 = toolCalls[1]
   #expect(transcriptToolCall2.id == "call-2")
   #expect(transcriptToolCall2.toolName == "calculator")
-  let expectedArgs2 = #"{"a": 4, "b": 12}"#
-  let actualArgs2 = transcriptToolCall2.arguments.jsonString
-  try expectJSONEqual(expectedArgs2, actualArgs2)
-
+  try expectJSONEqual(transcriptToolCall2.arguments.jsonString, #"{"a": 4, "b": 12}"#)
 }
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func AIMessageToTranscriptEntry_StructuredContent() throws {
   let jsonString = #"{"result": "success", "data": {"count": 42}}"#
-  let aiMessage = Message.ai(.init(chunks: [.structured(try StructuredContent(json: jsonString))]))
+  let aiMessage = Message.ai(
+    .init(chunks: [.structured(try StructuredContent(json: jsonString))], toolCalls: []))
 
   let entries = aiMessage.asTranscriptEntries
 
@@ -375,7 +360,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func MessagesToTranscript_AIMessageWithToolCalls_CreatesMultipleEntries() throws {
-  let toolCall = ToolCall(
+  let toolCall = Message.ToolCall(
     id: "call-1",
     toolName: "calculator",
     arguments: try! StructuredContent(json: #"{"a": 10, "b": 5}"#)
@@ -384,10 +369,10 @@ import FoundationModels
     .system(.init(text: "You are a calculator assistant.")),
     .user(.init(text: "Calculate 10 + 5")),
     .ai(
-      .init(chunks: [
-        .text("I'll calculate that for you."),
-        .toolCall(toolCall),
-      ])),
+      .init(
+        chunks: [
+          .text("I'll calculate that for you.")
+        ], toolCalls: [toolCall])),
     .toolOutput(
       .init(
         id: "call-1",
@@ -589,7 +574,7 @@ import FoundationModels
 
   #expect(messages.count == 1)  // Should be compacted into one AIMessage
   #expect(messages[0].role == .ai)
-  #expect(messages[0].chunks.count == 2)
+  #expect(messages[0].chunks.count == 1)
 
   // Check text chunk
   if case .text(let content) = messages[0].chunks[0] {
@@ -598,14 +583,15 @@ import FoundationModels
     Issue.record("Expected text chunk")
   }
 
-  // Check tool call chunk
-  if case .toolCall(let swiftAIToolCall) = messages[0].chunks[1] {
+  // Check tool call
+  if case .ai(let aiMessage) = messages[0], aiMessage.toolCalls.count == 1 {
+    let swiftAIToolCall = aiMessage.toolCalls[0]
     #expect(swiftAIToolCall.id == "call-1")
     #expect(swiftAIToolCall.toolName == "calculator")
     try expectJSONEqual(
       swiftAIToolCall.arguments.jsonString, #"{"operation": "add", "a": 5, "b": 3}"#)
   } else {
-    Issue.record("Expected tool call chunk")
+    Issue.record("Expected tool call in AI message")
   }
 }
 
@@ -782,7 +768,7 @@ import FoundationModels
 
   // Check compacted AIMessage
   #expect(messages[0].role == .ai)
-  #expect(messages[0].chunks.count == 4)  // 3 from Response + 1 from ToolCalls
+  #expect(messages[0].chunks.count == 3)
 
   // Verify Response chunks
   if case .text(let content1) = messages[0].chunks[0] {
@@ -803,13 +789,14 @@ import FoundationModels
     Issue.record("Expected third chunk to be text")
   }
 
-  // Verify ToolCall chunk
-  if case .toolCall(let swiftAIToolCall) = messages[0].chunks[3] {
+  // Verify ToolCall
+  if case .ai(let aiMessage) = messages[0], aiMessage.toolCalls.count == 1 {
+    let swiftAIToolCall = aiMessage.toolCalls[0]
     #expect(swiftAIToolCall.id == "call-1")
     #expect(swiftAIToolCall.toolName == "calculator")
     try expectJSONEqual(swiftAIToolCall.arguments.jsonString, calculationJSON)
   } else {
-    Issue.record("Expected fourth chunk to be tool call")
+    Issue.record("Expected tool call in AI message")
   }
 
   // Check ToolOutput message

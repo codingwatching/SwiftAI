@@ -33,11 +33,11 @@ struct FoundationModelsToolAdapterTests {
         }
         """)
     let args = try FoundationModelsToolAdapter.Args(mockGeneratedContent)
-    let result = try await adapter.call(arguments: args)
+    let resultPrompt = try await adapter.call(arguments: args)
 
-    #expect(result.contains("Mock result"))
-    #expect(result.contains("hello world"))
-    #expect(result.contains("count: 42"))
+    #expect(resultPrompt.text.contains("Mock result"))
+    #expect(resultPrompt.text.contains("hello world"))
+    #expect(resultPrompt.text.contains("count: 42"))
   }
 
   @Test("Adapter handles bad input gracefully")

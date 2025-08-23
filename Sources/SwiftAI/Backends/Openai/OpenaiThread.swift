@@ -42,7 +42,7 @@ public final class OpenaiConversationThread: Sendable {
     return OpenaiConversationThread(messages: messages, previousResponseID: responseID, tools: tools)
   }
 
-  func execute(toolCall: ToolCall) async throws -> Message.ToolOutput {
+  func execute(toolCall: Message.ToolCall) async throws -> Message.ToolOutput {
     guard let tool = tools.first(where: { $0.name == toolCall.toolName }) else {
       throw LLMError.generalError("Tool '\(toolCall.toolName)' not found")
     }

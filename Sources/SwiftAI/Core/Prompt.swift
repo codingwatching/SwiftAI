@@ -11,7 +11,10 @@ public protocol PromptRepresentable {
 }
 
 extension PromptRepresentable {
-  /// Default implementation that maps chunks to text content.
+  /// A convenience property that contains the aggregated text output from all text representable chunks.
+  ///
+  /// - .text chunks are returned as is.
+  /// - .structured chunks are converted to JSON string
   public var text: String {
     chunks.map { chunk in
       switch chunk {

@@ -79,7 +79,7 @@ extension Message.AIMessage {
     get throws {
       var items: [InputItem] = []
 
-      // Add text content as EasyInputMessage if there's any content
+      // Add text content as EasyInputMessage if there's any non-tool-call content
       if !chunks.isEmpty {
         items.append(.inputMessage(try Message.ai(self).asOpenaiEasyInputMessage))
       }
@@ -104,14 +104,12 @@ extension Message.AIMessage {
 
 extension Message.ToolOutput {
   fileprivate var asOpenaiInputItems: [InputItem] {
-    // TODO: This log is repeated several times in the codebase. Refactor it.
-
     let functionCallOutput = Components.Schemas.FunctionCallOutputItemParam(
       id: nil,  // Not required for input
       callId: id,
       _type: .functionCallOutput,
       output: self.text,
-      status: nil
+      status: nil  // TODO: Add status
     )
 
     return [.item(Components.Schemas.Item.functionCallOutputItemParam(functionCallOutput))]

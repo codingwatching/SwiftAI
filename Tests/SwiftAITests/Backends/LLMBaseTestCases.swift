@@ -350,7 +350,7 @@ extension LLMBaseTestCases {
               id: "call-2",
               toolName: "get_weather",
               arguments: try StructuredContent(
-                json: #"{"city": "Paris", "country": "France"}"#
+                json: #"{"city": "Paris", "unit": "celsius"}"#
               )
             )
           ])),

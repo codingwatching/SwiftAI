@@ -66,7 +66,7 @@ struct FoundationModelsToolAdapter: FoundationModels.Tool {
     true
   }
 
-  func call(arguments: Args) async throws -> some FoundationModels.PromptRepresentable {
+  func call(arguments: Args) async throws -> SwiftAI.Prompt {
     do {
       // Convert GeneratedContent to UTF-8 data
       guard let jsonData = arguments.content.jsonString.data(using: .utf8) else {

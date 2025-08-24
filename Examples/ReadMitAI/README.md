@@ -93,7 +93,7 @@ Strategy: ChunkSize=8000, OverlapSize=500
 
 The 500-character overlap preserves context across chunk boundaries, preventing loss of meaning when sentences are split mid-thought.
 
-### 2. LLM Abstraction - Dependency Injection
+### 3. LLM Abstraction
 
 SwiftAI represents all language models using a single API called `LLM`. This makes it easy to swap implementations in production and tests without changing your business logic.
 

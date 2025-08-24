@@ -31,10 +31,10 @@ ReadMitAI/
 │       ├── ⭐ EssayDetailViewModel.swift  # SwiftAI coordination
 │       ├── Summarization/
 │       │   └── ⭐ Summarizer.swift        # Core chunking + AI patterns
-│       └── 📁 MetadataGeneration/
+│       └── MetadataGeneration/
 │           ├── ⭐ EssayMetadata.swift     # @Generable example
 │           └── ⭐ MetadataGenerator.swift # Structured output
-└── 📁 Utils/
+└── Utils/
     └── Chunking.swift                     # Text processing strategy
 ```
 
@@ -92,6 +92,8 @@ Strategy: ChunkSize=8000, OverlapSize=500
 ```
 
 The 500-character overlap preserves context across chunk boundaries, preventing loss of meaning when sentences are split mid-thought.
+
+Note: A token is roughly 2 to 4 characters.
 
 ### 3. LLM Abstraction
 

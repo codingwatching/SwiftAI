@@ -26,6 +26,7 @@ protocol LLMBaseTestCases {
   func testReply_WithMultipleTools_SelectsCorrectTool() async throws
   func testReply_WithTools_ReturningStructured_ReturnsCorrectContent() async throws
   func testReply_WithTools_InThread_MaintainsContext() async throws
+  func testReply_MultiTurnToolLoop() async throws
   func testReply_WithFailingTool_HandlesErrors() async throws
 
   // MARK: - Complex Conversation Tests
@@ -277,6 +278,24 @@ extension LLMBaseTestCases {
     if let args = weatherTool.wasCalledWith {
       #expect(args.city == "Paris")
     }
+  }
+
+  func testReply_MultiTurnToolLoop_Impl() async throws {
+    let weatherTool = MockWeatherTool()
+    let locationTool = GetCurrentLocationTool()
+
+    let reply = try await llm.reply(
+      to: "what is the weather like in my current location?",
+      tools: [weatherTool, locationTool]
+    )
+
+    #expect(locationTool.wasCalledWith != nil)
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "Berlin")
+    } else {
+      Issue.record("Weather tool was not called")
+    }
+    #expect(reply.content.contains("22°C"))
   }
 
   func testReply_WithFailingTool_HandlesErrors_Impl() async throws {
@@ -685,6 +704,28 @@ final class MockCalculatorTool: @unchecked Sendable, Tool {
     default:
       throw LLMError.generalError("Unsupported operation: \(arguments.operation)")
     }
+  }
+}
+
+final class GetCurrentLocationTool: @unchecked Sendable, Tool {
+  @Generable
+  struct Arguments {}
+
+  let name = "get_current_location"
+  let description = "Gets the current location of the user."
+
+  private(set) var callHistory: [Arguments] = []
+  var wasCalledWith: Arguments?
+
+  func resetCallHistory() {
+    callHistory.removeAll()
+    wasCalledWith = nil
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    callHistory.append(arguments)
+    wasCalledWith = arguments
+    return "Berlin"
   }
 }
 

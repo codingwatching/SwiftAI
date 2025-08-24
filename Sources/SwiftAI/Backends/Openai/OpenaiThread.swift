@@ -40,16 +40,12 @@ public final actor OpenaiConversationThread {
     let userMessage = Message.user(.init(chunks: prompt.chunks))
 
     var input: CreateModelResponseQuery.Input
-    var currentPreviousResponseID: String?
-
-    if let responseID = self.previousResponseID {
+    if self.previousResponseID != nil {
       // Continue from previous response.
       input = try CreateModelResponseQuery.Input.from([userMessage])
-      currentPreviousResponseID = responseID
     } else {
       // Start a new conversation with the user message.
       input = try CreateModelResponseQuery.Input.from(messages + [userMessage])
-      currentPreviousResponseID = nil
     }
 
     // Configure output format.
@@ -60,44 +56,47 @@ public final actor OpenaiConversationThread {
       return try .jsonSchema(makeStructuredOutputConfig(for: type))
     }()
 
-    messages.append(userMessage)
+    self.messages.append(userMessage)
 
-    // Tool loop.
-    repeat {
-      let query = CreateModelResponseQuery(
-        input: input,
-        model: model,
-        previousResponseId: currentPreviousResponseID,
-        text: textConfig,
-        tools: try openaiTools.map { .functionTool($0) }
-      )
+    let finalMessage: Message.AIMessage = try await {
+      // Tool loop.
+      while true {
+        let response: ResponseObject = try await client.responses.createResponse(
+          query: CreateModelResponseQuery(
+            input: input,
+            model: model,
+            previousResponseId: self.previousResponseID,
+            text: textConfig,
+            tools: try openaiTools.map { .functionTool($0) }
+          )
+        )
 
-      let response: ResponseObject = try await client.responses.createResponse(query: query)
-      let aiMsg = try response.asSwiftAIMessage
+        // Update the conversation state.
+        let aiMsg = try response.asSwiftAIMessage
+        self.messages.append(.ai(aiMsg))
+        self.previousResponseID = response.id
 
-      self.messages.append(.ai(aiMsg))
-      self.previousResponseID = response.id
+        if aiMsg.toolCalls.isEmpty {
+          // No more tool calls, we're done.
+          return aiMsg
+        }
 
-      if !aiMsg.toolCalls.isEmpty {
+        // Execute tool calls and update the conversation state.
         var outputToolMessages = [Message]()
         for toolCall in aiMsg.toolCalls {
           // TODO: Consider sending the error to the LLM.
           let toolOutput = try await execute(toolCall: toolCall)
-          let toolOutputMessage = Message.toolOutput(toolOutput)
-          messages.append(toolOutputMessage)
-          outputToolMessages.append(toolOutputMessage)
+          outputToolMessages.append(.toolOutput(toolOutput))
         }
 
+        self.messages.append(contentsOf: outputToolMessages)
+
+        // Prepare the next input.
         input = try CreateModelResponseQuery.Input.from(outputToolMessages)
-        currentPreviousResponseID = response.id
       }
-    } while messages.last?.role != .ai
+    }()
 
     // Extract final content from the last AI message
-    guard let finalMessage = messages.last else {
-      throw LLMError.generalError("Final message should be an AI message")
-    }
-
     let content: T = try {
       if T.self == String.self {
         return unsafeBitCast(finalMessage.text, to: T.self)

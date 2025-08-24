@@ -77,6 +77,11 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_WithTools_InThread_MaintainsContext_Impl()
   }
 
+  @Test("Multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
+  func testReply_MultiTurnToolLoop() async throws {
+    try await testReply_MultiTurnToolLoop_Impl()
+  }
+
   @Test("Tool calling - error handling", .enabled(if: apiKeyIsPresent()))
   func testReply_WithFailingTool_HandlesErrors() async throws {
     try await testReply_WithFailingTool_HandlesErrors_Impl()

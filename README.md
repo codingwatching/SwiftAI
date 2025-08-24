@@ -1,6 +1,6 @@
 # SwiftAI
 
-A modern, type-safe Swift library for building AI-powered iOS and macOS applications. SwiftAI provides a unified API that works seamlessly across different AI models - from Apple's on-device models to cloud-based services like OpenAI.
+A modern, type-safe Swift library for building AI-powered. SwiftAI provides a unified API that works seamlessly across different AI models - from Apple's on-device models to cloud-based services like OpenAI.
 
 [![Swift 5.10+](https://img.shields.io/badge/Swift-5.10+-orange.svg)](https://swift.org)
 [![iOS 17.0+](https://img.shields.io/badge/iOS-17.0+-blue.svg)](https://developer.apple.com/ios/)
@@ -11,8 +11,8 @@ A modern, type-safe Swift library for building AI-powered iOS and macOS applicat
 
 - 🤖 **Model Agnostic**: Unified API across Apple's on-device models, OpenAI, Anthropic, and custom backends
 - 🎯 **Structured Output**: Strongly-typed structured outputs with compile-time validation
-- 🔧 **Tool Use**: First-class support for function calling and custom tools  
-- 💬 **Conversations**: Stateful chat sessions with automatic context management and tool loop
+- 🔧 **Agent Tool Loop**: First-class support for tool use
+- 💬 **Conversations**: Stateful chat sessions with automatic context management
 - 🏗️ **Extensible**: Plugin architecture for custom models and tools
 - ⚡ **Swift-Native**: Built with async/await and modern Swift concurrency
 
@@ -40,7 +40,7 @@ print(response.content) // "Paris"
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mi12labs/SwiftAI", from: "0.1.0-alpha")
+    .package(url: "https://github.com/mi12labs/SwiftAI", from: "main")
 ]
 ```
 
@@ -77,7 +77,7 @@ Instead of getting plain text, let's get structured data that your app can use d
 @Generable
 struct CityInfo {
   let name: String
-  let country: String  
+  let country: String
   let population: Int
 }
 
@@ -111,12 +111,12 @@ Let your AI call functions in your app to get real-time information:
 // Create a tool the AI can use
 struct WeatherTool: Tool {
   let description = "Get current weather for a city"
-  
+
   @Generable
   struct Arguments {
     let city: String
   }
-  
+
   func call(arguments: Arguments) async throws -> String {
     // Your weather API logic here
     return "It's 72°F and sunny in \(arguments.city)"
@@ -205,10 +205,10 @@ Add validation rules and descriptions to guide AI generation:
 struct UserProfile {
   @Guide(description: "A valid username starting with a letter", .pattern("^[a-zA-Z][a-zA-Z0-9_]{2,}$"))
   let username: String
-  
+
   @Guide(description: "User age in years", .minimum(13), .maximum(120))
   let age: Int
-  
+
   @Guide(description: "One to three favorite colors", .minimumCount(1), .maximumCount(3))
   let favoriteColors: [String]
 }
@@ -227,21 +227,21 @@ Constraints ensure the AI follows your business rules.
 
 ## 🎯 Quick Reference
 
-| What You Want | What To Use | Example |
-|---------------|-------------|---------|
-| Simple text response | `reply(to:)` | `reply(to: "Hello")` |
-| Structured data | `reply(to:returning:)` | `reply(to: "...", returning: MyStruct.self)` |
-| Function calling | `reply(to:tools:)` | `reply(to: "...", tools: [myTool])` |
-| Conversation | `Chat` | `chat.send("Hello")` |
-| Model switching | `any LLM` | `SystemLLM()` or `OpenaiLLM()` |
+| What You Want        | What To Use            | Example                                      |
+| -------------------- | ---------------------- | -------------------------------------------- |
+| Simple text response | `reply(to:)`           | `reply(to: "Hello")`                         |
+| Structured data      | `reply(to:returning:)` | `reply(to: "...", returning: MyStruct.self)` |
+| Function calling     | `reply(to:tools:)`     | `reply(to: "...", tools: [myTool])`          |
+| Conversation         | `Chat`                 | `chat.send("Hello")`                         |
+| Model switching      | `any LLM`              | `SystemLLM()` or `OpenaiLLM()`               |
 
 ## 🔧 Supported Models
 
-| Model | Type | Privacy | Capabilities | Cost |
-|-------|------|---------|--------------|------|
-| **SystemLLM** | On-device | 🔒 Private | Good | 🆓 Free |
-| **OpenaiLLM** | Cloud API | ⚠️ Shared | Excellent | 💰 Paid |
-| **CustomLLM** | Your choice | Your choice | Your choice | Your choice |
+| Model         | Type        | Privacy     | Capabilities | Cost        |
+| ------------- | ----------- | ----------- | ------------ | ----------- |
+| **SystemLLM** | On-device   | 🔒 Private  | Good         | 🆓 Free     |
+| **OpenaiLLM** | Cloud API   | ⚠️ Shared   | Excellent    | 💰 Paid     |
+| **CustomLLM** | Your choice | Your choice | Your choice  | Your choice |
 
 ## 📖 Examples
 
@@ -249,10 +249,10 @@ Constraints ensure the AI follows your business rules.
 
 ## ⚡ Feature Parity Status vs FoundationModels SDK
 
-| Feature | Status |
-|---------|--------|
-| Streaming responses | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/2) |
-| Model prewarming | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/3) |
+| Feature                      | Status                                                    |
+| ---------------------------- | --------------------------------------------------------- |
+| Streaming responses          | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/2) |
+| Model prewarming             | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/3) |
 | Structured outputs for enums | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/4) |
 
 ## 🤝 Contributing

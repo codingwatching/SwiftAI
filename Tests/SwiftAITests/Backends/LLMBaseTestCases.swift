@@ -26,6 +26,7 @@ protocol LLMBaseTestCases {
   func testReply_WithMultipleTools_SelectsCorrectTool() async throws
   func testReply_WithTools_ReturningStructured_ReturnsCorrectContent() async throws
   func testReply_WithTools_InThread_MaintainsContext() async throws
+  func testReply_MultiTurnToolLoop() async throws
   func testReply_WithFailingTool_HandlesErrors() async throws
 
   // MARK: - Complex Conversation Tests
@@ -146,14 +147,14 @@ extension LLMBaseTestCases {
 
   func testReply_InThread_MaintainsContext_Impl() async throws {
     // Create a new conversation thread for conversation
-    var thread = llm.makeConversationThread(instructions: {
+    let thread = llm.makeConversationThread(instructions: {
       "You are a helpful assistant."
     })
 
     // Turn 1: Introduce name
     let reply1 = try await llm.reply(
       to: "Hi my name is Tom",
-      in: &thread
+      in: thread
     )
 
     #expect(!reply1.content.isEmpty)
@@ -165,7 +166,7 @@ extension LLMBaseTestCases {
     // Turn 2: Ask for name recall
     let reply2 = try await llm.reply(
       to: "What's my name?",
-      in: &thread
+      in: thread
     )
 
     #expect(!reply2.content.isEmpty)
@@ -176,7 +177,7 @@ extension LLMBaseTestCases {
     let reply3 = try await llm.reply(
       to: "Create a SimpleResponse with my name in the message, count 1, and isValid true",
       returning: SimpleResponse.self,
-      in: &thread
+      in: thread
     )
 
     #expect(reply3.content.message.lowercased().contains("tom"))  // Should include name in structured response
@@ -246,12 +247,12 @@ extension LLMBaseTestCases {
     let weatherTool = MockWeatherTool()
 
     // Create conversation thread with tools
-    var thread = llm.makeConversationThread(tools: [calculatorTool, weatherTool])
+    let thread = llm.makeConversationThread(tools: [calculatorTool, weatherTool])
 
     // First interaction: calculator
     let _ = try await llm.reply(
       to: "Calculate 5 + 3",
-      in: &thread
+      in: thread
     )
 
     // Verify calculator was called correctly
@@ -267,7 +268,7 @@ extension LLMBaseTestCases {
     // Second interaction: weather (should maintain context)
     let _ = try await llm.reply(
       to: "Now tell me about the weather in Paris",
-      in: &thread
+      in: thread
     )
 
     // Verify weather tool was called and calculator was not called again
@@ -277,6 +278,24 @@ extension LLMBaseTestCases {
     if let args = weatherTool.wasCalledWith {
       #expect(args.city == "Paris")
     }
+  }
+
+  func testReply_MultiTurnToolLoop_Impl() async throws {
+    let weatherTool = MockWeatherTool()
+    let locationTool = GetCurrentLocationTool()
+
+    let reply = try await llm.reply(
+      to: "what is the weather like in my current location?",
+      tools: [weatherTool, locationTool]
+    )
+
+    #expect(locationTool.wasCalledWith != nil)
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "Berlin")
+    } else {
+      Issue.record("Weather tool was not called")
+    }
+    #expect(reply.content.contains("22°C"))
   }
 
   func testReply_WithFailingTool_HandlesErrors_Impl() async throws {
@@ -424,7 +443,7 @@ extension LLMBaseTestCases {
 
   func testReply_InThread_ReturningStructured_MaintainsContext_Impl() async throws {
     // Create conversation thread with initial context
-    var thread = llm.makeConversationThread(
+    let thread = llm.makeConversationThread(
       messages: [.system(.init(text: "You are a helpful assistant that creates user profiles."))]
     )
 
@@ -432,7 +451,7 @@ extension LLMBaseTestCases {
     let firstResponse = try await llm.reply(
       to: "Create a profile for Alice Johnson, age 25",
       returning: UserProfile.self,
-      in: &thread
+      in: thread
     )
 
     #expect(firstResponse.content.name.lowercased() == "alice johnson")
@@ -441,7 +460,7 @@ extension LLMBaseTestCases {
     // Second exchange - should remember the context and create another profile
     let secondResponse = try await llm.reply(
       to: "What's the age of Alice?",
-      in: &thread
+      in: thread
     )
 
     #expect(secondResponse.content.contains("25"))
@@ -685,6 +704,28 @@ final class MockCalculatorTool: @unchecked Sendable, Tool {
     default:
       throw LLMError.generalError("Unsupported operation: \(arguments.operation)")
     }
+  }
+}
+
+final class GetCurrentLocationTool: @unchecked Sendable, Tool {
+  @Generable
+  struct Arguments {}
+
+  let name = "get_current_location"
+  let description = "Gets the current location of the user."
+
+  private(set) var callHistory: [Arguments] = []
+  var wasCalledWith: Arguments?
+
+  func resetCallHistory() {
+    callHistory.removeAll()
+    wasCalledWith = nil
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    callHistory.append(arguments)
+    wasCalledWith = arguments
+    return "Berlin"
   }
 }
 

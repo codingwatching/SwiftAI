@@ -2,7 +2,7 @@ import Foundation
 
 /// Large language model.
 public protocol LLM: Model {
-  /// The type used to maintain conversation state across interactions.
+  /// The type used to maintain the state of a conversation.
   ///
   /// Each LLM implementation defines its own conversation thread type to capture
   /// conversation context. Conversation threads must be reference types (`AnyObject`)
@@ -19,11 +19,14 @@ public protocol LLM: Model {
   ///
   /// // API-based LLM tracking messages
   /// final class ClaudeConversationThread: Sendable {
-  ///   let messages: [Message]
+  ///   var messages: [Message]
   /// }
   /// ```
   ///
   /// For stateless implementations use `NullConversationThread`.
+  ///
+  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
+  ///   Use a new conversation thread for each new conversation.
   associatedtype ConversationThread: AnyObject & Sendable = NullConversationThread
 
   /// Whether the LLM can be used.
@@ -90,6 +93,9 @@ public protocol LLM: Model {
   ///   messages: [message1, message2]
   /// )
   /// ```
+  ///
+  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
+  ///   Use a new conversation thread for each new conversation.
   func makeConversationThread(tools: [any Tool], messages: [Message]) -> ConversationThread
 
   /// Generates a response to a prompt within a conversation thread.
@@ -111,21 +117,25 @@ public protocol LLM: Model {
   ///   var thread = llm.makeConversationThread()
   ///   let greeting = try await llm.reply(
   ///       to: "Hello my name is Manal",
-  ///       in: &thread
+  ///       in: thread
   ///   )
   ///
   ///   // Conversation thread now contains context from the greeting exchange
   ///   let followUp = try await llm.reply(
   ///      to: "what's my name?",
-  ///      in: &thread
+  ///      in: thread
   ///   )
   /// ```
   ///
-  /// - Important: The conversation thread is mutable. It is updated after each reply to maintain conversation continuity.
+  /// - Note: The conversation thread is mutable. It is updated after each reply to maintain
+  ///   conversation continuity.
+  ///
+  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
+  ///   Use a new conversation thread for each new conversation.
   func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout ConversationThread,
+    in thread: ConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 }
@@ -150,7 +160,7 @@ extension LLM where ConversationThread == NullConversationThread {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout NullConversationThread,
+    in thread: NullConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     throw LLMError.generalError(
@@ -222,23 +232,25 @@ extension LLM {
   }
 
   /// Convenience method for threaded replies with default parameters.
+  @discardableResult
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type = String.self,
-    in thread: inout ConversationThread,
+    in thread: ConversationThread,
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
-    return try await reply(to: prompt, returning: type, in: &thread, options: options)
+    return try await reply(to: prompt, returning: type, in: thread, options: options)
   }
 
   /// Convenience method for threaded replies with PromptBuilder.
+  @discardableResult
   public func reply<T: Generable>(
     returning type: T.Type = String.self,
-    in thread: inout ConversationThread,
+    in thread: ConversationThread,
     options: LLMReplyOptions = .default,
     @PromptBuilder to content: () -> Prompt
   ) async throws -> LLMReply<T> {
-    return try await reply(to: content(), returning: type, in: &thread, options: options)
+    return try await reply(to: content(), returning: type, in: thread, options: options)
   }
 }
 

@@ -2,10 +2,7 @@ import Foundation
 import OpenAI
 
 /// Maintains the state of a conversation with an Openai language model.
-///
-/// - Note: This class is not thread-safe. It is not meant to be shared between
-///   multiple concurrent calls because it represents a single conversation.
-public final class OpenaiConversationThread: @unchecked Sendable {
+public final actor OpenaiConversationThread {
   private(set) var messages: [Message]
   private(set) var previousResponseID: String?
   let tools: [any SwiftAI.Tool]
@@ -33,14 +30,89 @@ public final class OpenaiConversationThread: @unchecked Sendable {
     self.tools = tools
   }
 
-  /// Appends a message to the conversation history.
-  func append(message: Message) {
-    messages.append(message)
-  }
+  func generateResponse<T: Generable>(
+    to prompt: any PromptRepresentable,
+    returning type: T.Type,
+    options: LLMReplyOptions,
+    client: OpenAIProtocol,
+    model: String
+  ) async throws -> LLMReply<T> {
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
 
-  /// Sets the previous response ID.
-  func setPreviousResponseID(_ responseID: String) {
-    previousResponseID = responseID
+    var input: CreateModelResponseQuery.Input
+    var currentPreviousResponseID: String?
+
+    if let responseID = self.previousResponseID {
+      // Continue from previous response.
+      input = try CreateModelResponseQuery.Input.from([userMessage])
+      currentPreviousResponseID = responseID
+    } else {
+      // Start a new conversation with the user message.
+      input = try CreateModelResponseQuery.Input.from(messages + [userMessage])
+      currentPreviousResponseID = nil
+    }
+
+    // Configure output format.
+    let textConfig = try {
+      if type == String.self {
+        return CreateModelResponseQuery.TextResponseConfigurationOptions.text
+      }
+      return try .jsonSchema(makeStructuredOutputConfig(for: type))
+    }()
+
+    messages.append(userMessage)
+
+    // Tool loop.
+    repeat {
+      let query = CreateModelResponseQuery(
+        input: input,
+        model: model,
+        previousResponseId: currentPreviousResponseID,
+        text: textConfig,
+        tools: try openaiTools.map { .functionTool($0) }
+      )
+
+      let response: ResponseObject = try await client.responses.createResponse(query: query)
+      let aiMsg = try response.asSwiftAIMessage
+
+      self.messages.append(.ai(aiMsg))
+      self.previousResponseID = response.id
+
+      if !aiMsg.toolCalls.isEmpty {
+        var outputToolMessages = [Message]()
+        for toolCall in aiMsg.toolCalls {
+          // TODO: Consider sending the error to the LLM.
+          let toolOutput = try await execute(toolCall: toolCall)
+          let toolOutputMessage = Message.toolOutput(toolOutput)
+          messages.append(toolOutputMessage)
+          outputToolMessages.append(toolOutputMessage)
+        }
+
+        input = try CreateModelResponseQuery.Input.from(outputToolMessages)
+        currentPreviousResponseID = response.id
+      }
+    } while messages.last?.role != .ai
+
+    // Extract final content from the last AI message
+    guard let finalMessage = messages.last else {
+      throw LLMError.generalError("Final message should be an AI message")
+    }
+
+    let content: T = try {
+      if T.self == String.self {
+        return unsafeBitCast(finalMessage.text, to: T.self)
+      } else {
+        // For structured types, parse JSON from text content
+        let jsonData = finalMessage.text.data(using: .utf8) ?? Data()
+        let decoder = JSONDecoder()
+        return try decoder.decode(T.self, from: jsonData)
+      }
+    }()
+
+    return LLMReply(
+      content: content,
+      history: messages
+    )
   }
 
   func execute(toolCall: Message.ToolCall) async throws -> Message.ToolOutput {

@@ -101,83 +101,12 @@ public struct OpenaiLLM: LLM {
     in thread: OpenaiConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-
-    let userMessage = Message.user(.init(chunks: prompt.chunks))
-
-    var input: CreateModelResponseQuery.Input
-    var previousResponseID: String?
-
-    if let responseID = thread.previousResponseID {
-      // Continue from previous response.
-      input = try CreateModelResponseQuery.Input.from([userMessage])
-      previousResponseID = responseID
-    } else {
-      // Start a new conversation with the user message.
-      input = try CreateModelResponseQuery.Input.from(thread.messages + [userMessage])
-      previousResponseID = nil
-    }
-
-    // Configure structured output if needed.
-    let textConfig = try {
-      if type == String.self {
-        return CreateModelResponseQuery.TextResponseConfigurationOptions.text
-      }
-      return try .jsonSchema(makeStructuredOutputConfig(for: type))
-    }()
-
-    // Add user message to thread first.
-    thread.append(message: userMessage)
-
-    repeat {
-      let query = CreateModelResponseQuery(
-        input: input,
-        model: model,
-        previousResponseId: previousResponseID,
-        text: textConfig,
-        tools: try thread.openaiTools.map { .functionTool($0) }
-      )
-
-      // Convert response to AI message
-      let response: ResponseObject = try await client.responses.createResponse(query: query)
-      let aiMsg = try response.asSwiftAIMessage
-
-      thread.append(message: .ai(aiMsg))
-      thread.setPreviousResponseID(response.id)
-
-      if !aiMsg.toolCalls.isEmpty {
-        var outputToolMessages = [Message]()
-        for toolCall in aiMsg.toolCalls {
-          // TODO: Consider sending the error to the LLM.
-          let toolOutput = try await thread.execute(toolCall: toolCall)
-          let toolOutputMessage = Message.toolOutput(toolOutput)
-          thread.append(message: toolOutputMessage)
-          outputToolMessages.append(toolOutputMessage)
-        }
-
-        input = try CreateModelResponseQuery.Input.from(outputToolMessages)
-        previousResponseID = response.id
-      }
-    } while thread.messages.last?.role != .ai
-
-    // Extract final content from the last AI message
-    guard let finalMessage = thread.messages.last else {
-      throw LLMError.generalError("Final message should be an AI message")
-    }
-
-    let content: T = try {
-      if T.self == String.self {
-        return unsafeBitCast(finalMessage.text, to: T.self)
-      } else {
-        // For structured types, parse JSON from text content
-        let jsonData = finalMessage.text.data(using: .utf8) ?? Data()
-        let decoder = JSONDecoder()
-        return try decoder.decode(T.self, from: jsonData)
-      }
-    }()
-
-    return LLMReply(
-      content: content,
-      history: thread.messages
+    return try await thread.generateResponse(
+      to: prompt,
+      returning: type,
+      options: options,
+      client: client,
+      model: model
     )
   }
 }

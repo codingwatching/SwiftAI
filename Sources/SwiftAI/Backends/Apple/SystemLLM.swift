@@ -198,8 +198,7 @@ public struct SystemLLM: LLM {
 
     let userMessage = Message.user(.init(chunks: prompt.chunks))
     do {
-      return try await generateResponse(
-        session: thread.session,
+      return try await thread.generateResponse(
         userMessage: userMessage,
         type: type
       )
@@ -213,11 +212,10 @@ public struct SystemLLM: LLM {
 
 /// A conversation thread that maintains stateful interactions with Apple's on-device language model.
 @available(iOS 26.0, macOS 26.0, *)
-public final class FoundationLMConversationThread: @unchecked Sendable {
-  /// The underlying Apple FoundationModels session that maintains conversation state.
-  internal let session: LanguageModelSession
+public final actor FoundationLMConversationThread {
+  let session: LanguageModelSession
 
-  internal init(
+  init(
     model: SystemLanguageModel,
     tools: [any Tool],
     messages: [Message]
@@ -231,41 +229,38 @@ public final class FoundationLMConversationThread: @unchecked Sendable {
       transcript: transcript
     )
   }
-}
 
-@available(iOS 26.0, macOS 26.0, *)
-private func generateResponse<T: Generable>(
-  session: LanguageModelSession,
-  userMessage: Message,
-  type: T.Type
-) async throws -> LLMReply<T> {
-  let prompt = toFoundationPrompt(message: userMessage)
+  func generateResponse<T: Generable>(
+    userMessage: Message,
+    type: T.Type
+  ) async throws -> LLMReply<T> {
+    let prompt = toFoundationPrompt(message: userMessage)
 
-  let content: T?
-  if T.self == String.self {
-    let response = try await session.respond(to: prompt)
-    content = response.content as? T
-  } else {
-    let foundationSchema = try T.schema.toGenerationSchema()
-    let response = try await session.respond(to: prompt, schema: foundationSchema)
-    guard let jsonData = response.content.jsonString.data(using: .utf8) else {
-      throw LLMError.generalError("Failed to convert JSON string to Data")
-    }
-    content = try JSONDecoder().decode(T.self, from: jsonData)
+    let content: T = try await {
+      if T.self == String.self {
+        let response: LanguageModelSession.Response<String> = try await session.respond(to: prompt)
+        return unsafeBitCast(response.content, to: T.self)
+      } else {
+        let response = try await session.respond(
+          to: prompt,
+          schema: try T.schema.toGenerationSchema()
+        )
+        // TODO: Add a protocol extension on `Generable` to conform `GeneratedContentConvertible`
+        // and use it here.
+        guard let jsonData = response.content.jsonString.data(using: .utf8) else {
+          throw LLMError.generalError("Failed to convert JSON string to Data")
+        }
+        return try JSONDecoder().decode(T.self, from: jsonData)
+      }
+    }()
+
+    let messages = try session.transcript.messages
+    return LLMReply(content: content, history: messages)
   }
 
-  guard let content else {
-    throw LLMError.generalError("Type mismatch: Expected \(T.self)")
+  private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
+    return FoundationModels.Prompt(message.text)
   }
-
-  let messages = try session.transcript.messages
-  return LLMReply(content: content, history: messages)
-
-}
-
-@available(iOS 26.0, macOS 26.0, *)
-private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
-  return FoundationModels.Prompt(message.text)
 }
 
 @available(iOS 26.0, macOS 26.0, *)

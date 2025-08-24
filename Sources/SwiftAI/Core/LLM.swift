@@ -26,7 +26,7 @@ public protocol LLM: Model {
   /// For stateless implementations use `NullConversationThread`.
   ///
   /// - Note: A conversation thread represents a single conversation between the LLM and the user.
-  ///   It is not meant to be used concurrently. Use a new conversation thread for each new conversation.
+  ///   Use a new conversation thread for each new conversation.
   associatedtype ConversationThread: AnyObject & Sendable = NullConversationThread
 
   /// Whether the LLM can be used.
@@ -93,6 +93,9 @@ public protocol LLM: Model {
   ///   messages: [message1, message2]
   /// )
   /// ```
+  ///
+  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
+  ///   Use a new conversation thread for each new conversation.
   func makeConversationThread(tools: [any Tool], messages: [Message]) -> ConversationThread
 
   /// Generates a response to a prompt within a conversation thread.
@@ -124,7 +127,11 @@ public protocol LLM: Model {
   ///   )
   /// ```
   ///
-  /// - Important: The conversation thread is mutable. It is updated after each reply to maintain conversation continuity.
+  /// - Note: The conversation thread is mutable. It is updated after each reply to maintain
+  ///   conversation continuity.
+  ///
+  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
+  ///   Use a new conversation thread for each new conversation.
   func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,

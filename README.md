@@ -1,6 +1,6 @@
 # SwiftAI
 
-A modern, type-safe Swift library for building AI-powered. SwiftAI provides a unified API that works seamlessly across different AI models - from Apple's on-device models to cloud-based services like OpenAI.
+A modern, type-safe Swift library for building AI-powered apps. SwiftAI provides a unified API that works seamlessly across different AI models - from Apple's on-device models to cloud-based services like OpenAI.
 
 [![Swift 5.10+](https://img.shields.io/badge/Swift-5.10+-orange.svg)](https://swift.org)
 [![iOS 17.0+](https://img.shields.io/badge/iOS-17.0+-blue.svg)](https://developer.apple.com/ios/)

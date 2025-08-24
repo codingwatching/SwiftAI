@@ -1,6 +1,6 @@
 # ReadMitAI: SwiftAI Educational Demo
 
-> **Learn SwiftAI through a practical essay reading app that demonstrates structured AI output, text chunking, and parallel processing.**
+> **Learn SwiftAI through a practical essay reading app that demonstrates structured AI output, text chunking.**
 
 Read _mit_ (_with_ in German) me. Is a sample demo app where you can read Paul Graham's essay. Each essay has an AI overview.
 

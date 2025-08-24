@@ -86,12 +86,12 @@ import Foundation
 ///
 /// let reply1 = try await systemLLM.reply(
 ///   to: "My name is Alice",
-///   in: &thread
+///   in: thread
 /// )
 ///
 /// let reply2 = try await systemLLM.reply(
 ///   to: "What's my name?", // Will remember "Alice"
-///   in: &thread
+///   in: thread
 /// )
 /// ```
 ///
@@ -158,13 +158,13 @@ public struct SystemLLM: LLM {
     let contextMessages = Array(messages.dropLast())
 
     // Create thread with context
-    var thread = makeConversationThread(tools: tools, messages: contextMessages)
+    let thread = makeConversationThread(tools: tools, messages: contextMessages)
 
     // Use the threaded reply method
     return try await reply(
       to: lastMessage,
       returning: type,
-      in: &thread,
+      in: thread,
       options: options
     )
   }
@@ -186,7 +186,7 @@ public struct SystemLLM: LLM {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,  // TODO: This should probably be a UserMessage to avoid `reply(to: AIMessage(...))`
     returning type: T.Type,
-    in thread: inout FoundationLMConversationThread,
+    in thread: FoundationLMConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     // TODO: Implement LLMReplyOptions support (temperature, maxTokens, etc.)

@@ -61,14 +61,12 @@ public actor Chat<LLMType: LLM> {
     options: LLMReplyOptions = .default
   ) async throws -> T {
     if let thread {
-      var currentThread = thread
       let reply = try await llm.reply(
         to: prompt,
         returning: type,
-        in: &currentThread,
+        in: thread,
         options: options
       )
-      self.thread = currentThread
       self.messages = reply.history
       return reply.content
     } else {

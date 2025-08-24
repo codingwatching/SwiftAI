@@ -254,7 +254,7 @@ protocol LLM: Model {
   func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout ConversationThread,
+    in thread: ConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 }
@@ -263,20 +263,20 @@ protocol LLM: Model {
 ##### Usage
 
 ```swift
-var thread = llm.makeConversationThread() {
+let thread = llm.makeConversationThread() {
     // System instructions (aka SystemMessage).
     "You are a helpful assistant. Always be polite."
 }
 
 let greeting = try await llm.reply(
   to: "Hello, my name is Alice",
-  in: &thread
+  in: thread
 )
 
 // Conversation thread maintains context from previous exchanges
 let followUp = try await llm.reply(
   to: "What's my name?",
-  in: &thread
+  in: thread
 )
 ```
 

@@ -49,7 +49,9 @@ public struct OpenaiLLM: LLM {
   ///   - messages: Initial conversation history
   ///
   /// - Returns: A new Openai conversation thread for stateful conversations
-  public func makeConversationThread(tools: [any Tool], messages: [Message]) -> OpenaiConversationThread {
+  public func makeConversationThread(tools: [any Tool], messages: [Message])
+    -> OpenaiConversationThread
+  {
     return OpenaiConversationThread(messages: messages, tools: tools)
   }
 
@@ -74,12 +76,12 @@ public struct OpenaiLLM: LLM {
 
     // Create a conversation thread with the conversation history excluding the last user message
     let contextMessages = Array(messages.dropLast())
-    var thread = makeConversationThread(tools: tools, messages: contextMessages)
+    let thread = makeConversationThread(tools: tools, messages: contextMessages)
 
     return try await reply(
       to: lastMessage,
       returning: type,
-      in: &thread,
+      in: thread,
       options: options
     )
   }
@@ -96,7 +98,7 @@ public struct OpenaiLLM: LLM {
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: inout OpenaiConversationThread,
+    in thread: OpenaiConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
 
@@ -124,7 +126,7 @@ public struct OpenaiLLM: LLM {
     }()
 
     // Add user message to thread first.
-    thread = thread.withNewMessage(userMessage)
+    thread.append(message: userMessage)
 
     repeat {
       let query = CreateModelResponseQuery(
@@ -139,10 +141,8 @@ public struct OpenaiLLM: LLM {
       let response: ResponseObject = try await client.responses.createResponse(query: query)
       let aiMsg = try response.asSwiftAIMessage
 
-      thread =
-        thread
-        .withNewMessage(.ai(aiMsg))
-        .withNewResponseID(response.id)
+      thread.append(message: .ai(aiMsg))
+      thread.setPreviousResponseID(response.id)
 
       if !aiMsg.toolCalls.isEmpty {
         var outputToolMessages = [Message]()
@@ -150,7 +150,7 @@ public struct OpenaiLLM: LLM {
           // TODO: Consider sending the error to the LLM.
           let toolOutput = try await thread.execute(toolCall: toolCall)
           let toolOutputMessage = Message.toolOutput(toolOutput)
-          thread = thread.withNewMessage(toolOutputMessage)
+          thread.append(message: toolOutputMessage)
           outputToolMessages.append(toolOutputMessage)
         }
 
@@ -181,4 +181,3 @@ public struct OpenaiLLM: LLM {
     )
   }
 }
-

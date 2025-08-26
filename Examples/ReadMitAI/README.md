@@ -4,6 +4,13 @@
 
 Read _mit_ (_with_ in German) me. Is a sample demo app where you can read Paul Graham's essay. Each essay has an AI overview.
 
+## 📱 App Features
+
+- Browse a list of Paul Graham’s essays
+- Each essay includes an AI-generated overview
+- Key topics are automatically detected
+- Read the full essay
+
 ## 🎯 What You'll Learn
 
 This demo teaches essential **SwiftAI** patterns:

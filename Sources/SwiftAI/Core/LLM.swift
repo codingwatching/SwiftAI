@@ -101,7 +101,7 @@ public protocol LLM: Model {
   /// Generates a response to a prompt within a conversation thread.
   ///
   /// - Parameters:
-  ///   - prompt: user message to respond to
+  ///   - prompt: user message to respond to.
   ///   - type: The expected response type.
   ///   - thread: The conversation thread maintaining context.
   ///     The conversation thread will be mutated during execution to capture updated conversation state.
@@ -132,8 +132,9 @@ public protocol LLM: Model {
   ///
   /// - Note: A conversation thread represents a single conversation between the LLM and the user.
   ///   Use a new conversation thread for each new conversation.
+  @discardableResult
   func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     in thread: ConversationThread,
     options: LLMReplyOptions
@@ -158,7 +159,7 @@ extension LLM where ConversationThread == NullConversationThread {
 
   /// Default implementation that throws an error for stateless LLMs.
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     in thread: NullConversationThread,
     options: LLMReplyOptions
@@ -200,7 +201,7 @@ extension LLM {
 
   /// Convenience method for prompt-based queries with default parameters.
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type = String.self,
     tools: [any Tool] = [],
     options: LLMReplyOptions = .default
@@ -208,6 +209,21 @@ extension LLM {
     let userMessage = Message.user(.init(chunks: prompt.chunks))
     return try await reply(
       to: [userMessage],
+      returning: type,
+      tools: tools,
+      options: options
+    )
+  }
+
+  /// Convenience method for prompt-based queries with default parameters.
+  public func reply<T: Generable>(
+    to prompt: String,
+    returning type: T.Type = String.self,
+    tools: [any Tool] = [],
+    options: LLMReplyOptions = .default
+  ) async throws -> LLMReply<T> {
+    return try await reply(
+      to: Prompt(prompt),
       returning: type,
       tools: tools,
       options: options
@@ -234,12 +250,23 @@ extension LLM {
   /// Convenience method for threaded replies with default parameters.
   @discardableResult
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type = String.self,
     in thread: ConversationThread,
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
     return try await reply(to: prompt, returning: type, in: thread, options: options)
+  }
+
+  /// Convenience method for threaded replies with string prompt and default parameters.
+  @discardableResult
+  public func reply<T: Generable>(
+    to prompt: String,
+    returning type: T.Type = String.self,
+    in thread: ConversationThread,
+    options: LLMReplyOptions = .default
+  ) async throws -> LLMReply<T> {
+    return try await reply(to: Prompt(prompt), returning: type, in: thread, options: options)
   }
 
   /// Convenience method for threaded replies with PromptBuilder.
@@ -257,7 +284,7 @@ extension LLM {
 // MARK: - LLMReply and Options
 
 /// The response from a language model query.
-public struct LLMReply<T: Generable> {
+public struct LLMReply<T: Generable>: Sendable {
   /// The generated content parsed into the requested type.
   public let content: T
 

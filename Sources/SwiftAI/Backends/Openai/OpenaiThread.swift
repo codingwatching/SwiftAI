@@ -31,7 +31,7 @@ public final actor OpenaiConversationThread {
   }
 
   func generateResponse<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     options: LLMReplyOptions,
     client: OpenAIProtocol,

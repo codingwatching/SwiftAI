@@ -78,8 +78,9 @@ public struct OpenaiLLM: LLM {
     let contextMessages = Array(messages.dropLast())
     let thread = makeConversationThread(tools: tools, messages: contextMessages)
 
+    let prompt = Prompt(chunks: lastMessage.chunks)
     return try await reply(
-      to: lastMessage,
+      to: prompt,
       returning: type,
       in: thread,
       options: options
@@ -96,7 +97,7 @@ public struct OpenaiLLM: LLM {
   ///
   /// - Returns: The model's response and updated conversation history
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     in thread: OpenaiConversationThread,
     options: LLMReplyOptions

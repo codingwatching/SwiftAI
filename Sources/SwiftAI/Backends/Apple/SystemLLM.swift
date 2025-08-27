@@ -187,8 +187,6 @@ public struct SystemLLM: LLM {
     in thread: SystemLLMConversationThread,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    // TODO: Implement LLMReplyOptions support (temperature, maxTokens, etc.)
-
     guard isAvailable else {
       // TODO: Throw a more specific error
       throw LLMError.generalError("Model unavailable")
@@ -198,7 +196,8 @@ public struct SystemLLM: LLM {
     do {
       return try await thread.generateResponse(
         userMessage: userMessage,
-        type: type
+        type: type,
+        options: options
       )
     } catch let error as LanguageModelSession.GenerationError {
       throw mapAppleError(error)

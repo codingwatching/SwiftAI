@@ -24,18 +24,24 @@ public final actor SystemLLMConversationThread {
 
   func generateResponse<T: Generable>(
     userMessage: Message,
-    type: T.Type
+    type: T.Type,
+    options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     let prompt = toFoundationPrompt(message: userMessage)
+    let generationOptions = toFoundationGenerationOptions(options)
 
     let content: T = try await {
       if T.self == String.self {
-        let response: LanguageModelSession.Response<String> = try await session.respond(to: prompt)
+        let response: LanguageModelSession.Response<String> = try await session.respond(
+          to: prompt,
+          options: generationOptions
+        )
         return unsafeBitCast(response.content, to: T.self)
       } else {
         let response = try await session.respond(
           to: prompt,
-          schema: try T.schema.toGenerationSchema()
+          schema: try T.schema.toGenerationSchema(),
+          options: generationOptions
         )
         // TODO: Add a protocol extension on `Generable` to conform `GeneratedContentConvertible`
         // and use it here.
@@ -52,6 +58,27 @@ public final actor SystemLLMConversationThread {
 
   private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
     return FoundationModels.Prompt(message.text)
+  }
+
+  private func toFoundationGenerationOptions(_ options: LLMReplyOptions)
+    -> FoundationModels.GenerationOptions
+  {
+    let samplingMode: GenerationOptions.SamplingMode? = {
+      guard let mode = options.samplingMode else { return nil }
+
+      switch mode {
+      case .greedy:
+        return .greedy
+      case .topP(let p):
+        return .random(probabilityThreshold: p)
+      }
+    }()
+
+    return FoundationModels.GenerationOptions(
+      sampling: samplingMode,
+      temperature: options.temperature,
+      maximumResponseTokens: options.maximumTokens
+    )
   }
 }
 

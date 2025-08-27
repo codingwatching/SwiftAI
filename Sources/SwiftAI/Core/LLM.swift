@@ -278,24 +278,75 @@ public struct LLMReply<T: Generable> {
 /// These options provide fine-grained control over the model's output characteristics,
 /// allowing applications to tune the model's creativity and response length to match
 /// specific use cases and requirements.
-public struct LLMReplyOptions {
-  /// Controls randomness in the model's output. Lower values make output more deterministic.
+public struct LLMReplyOptions: Sendable, Equatable {
+
+  public enum SamplingMode: Sendable, Equatable {
+    /// With top-p sampling, tokens are sorted by likelihood and added to a
+    /// pool of candidates until the cumulative probability of the pool exceeds
+    /// the specified threshold, and then a token is sampled from the pool.
+    ///
+    /// Also known as nucleus sampling.
+    ///
+    /// The probability threshold is a number between `0.0` and `1.0` inclusive that
+    /// increases sampling pool size.
+    ///
+    /// - Parameter value: The cumulative probability threshold (0.0 to 1.0) for top-p sampling.
+    case topP(Double)
+
+    /// A mode that always chooses the most likely token.
+    ///
+    /// Using this mode will always result in the same output for a given input.
+    case greedy
+  }
+
+  /// Controls randomness of the model responses.
   ///
-  /// Range: 0.0 (deterministic) to 2.0 (maximum creativity). Default varies by model.
+  /// Temperature rescales token probabilities before sampling: lower values increases the probability
+  /// of likely tokens even more (more focused), while higher values flatten the distribution (more random).
+  ///
+  /// The possible values are between 0.0 (more deterministic) and 1.0 (maximum creativity). The temperature
+  /// will be clamped to the range [0.0, 1.0].
+  ///
+  /// ## Recommended Usage
+  ///
+  /// - **Factual tasks** (code generation, data extraction, Q&A): `0.0-0.2`
+  /// - **Balanced tasks** (writing assistance, explanations): `0.3-0.5`
+  /// - **Creative tasks** (storytelling, brainstorming, poetry): `0.6-0.9`
+  ///
+  /// Set to nil for model default.
+  ///
+  /// Note: It is recommended to either modify the `temperature` or the `samplingMode`, but not both.
   public let temperature: Double?
 
-  /// Maximum number of tokens the model can generate in its response.
+  /// Sets the maximum number of tokens the model must generate in its response.
   ///
-  /// Helps control response length and prevent runaway generation. Set to nil for model default.
+  /// Helps control response length and prevent runaway generation.
+  ///
+  /// The model will not try to adapt to the maximum tokens limit. Instead, the
+  /// response will be truncated.
   public let maximumTokens: Int?
 
-  // TODO: Add sampling modes.
+  /// The sampling mode to use token selection.
+  ///
+  /// Recommended for advanced use cases only. You usually only need to use `temperature`.
+  ///
+  /// Note: It is recommended to either modify the `temperature` or the `samplingMode`, but not both.
+  public let samplingMode: SamplingMode?
 
   /// Default configuration with model-specific defaults for all parameters.
   public static let `default` = LLMReplyOptions()
 
-  public init(temperature: Double? = nil, maximumTokens: Int? = nil) {
-    self.temperature = temperature
+  public init(
+    temperature: Double? = nil,
+    maximumTokens: Int? = nil,
+    samplingMode: SamplingMode? = nil
+  ) {
+    if let temperature {
+      self.temperature = min(max(temperature, 0.0), 1.0)
+    } else {
+      self.temperature = nil
+    }
     self.maximumTokens = maximumTokens
+    self.samplingMode = samplingMode
   }
 }

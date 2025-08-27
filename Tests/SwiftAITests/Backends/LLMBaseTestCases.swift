@@ -10,6 +10,7 @@ protocol LLMBaseTestCases {
   // MARK: - Basic Tests
   func testReply_ToPrompt() async throws
   func testReply_ToPrompt_ReturnsCorrectHistory() async throws
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws
 
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
@@ -68,6 +69,20 @@ extension LLMBaseTestCases {
     let aiMessage = reply.history[1]
     #expect(aiMessage.role == .ai, "Second message should be from AI")
     #expect(aiMessage.chunks == [.text(reply.content)])
+  }
+
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl() async throws {
+    let options = LLMReplyOptions(maximumTokens: 1)
+
+    let reply = try await llm.reply(
+      to: "Write a long story about space exploration",
+      options: options
+    )
+
+    // Verify that the response is very short when maxTokens is set to 1
+    // Note: 1 token can be multiple characters, so we expect it to be less than 7 characters
+    #expect(
+      reply.content.count < 7, "Response should be very short (<7 characters) when maxTokens = 1")
   }
 
   func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {
@@ -280,14 +295,16 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_MultiTurnToolLoop_Impl() async throws {
+  func testReply_MultiTurnToolLoop_Impl(using llm: any LLM) async throws {
     let weatherTool = MockWeatherTool()
     let locationTool = GetCurrentLocationTool()
 
     let reply = try await llm.reply(
-      to: "what is the weather like in my current location?",
-      tools: [weatherTool, locationTool]
-    )
+      tools: [weatherTool, locationTool],
+      options: .init(temperature: 0.0)
+    ) {
+      "what is the weather like in my current location?"
+    }
 
     #expect(locationTool.wasCalledWith != nil)
     if let args = weatherTool.wasCalledWith {
@@ -638,7 +655,9 @@ struct ComprehensiveProfile: Equatable {
 final class MockWeatherTool: @unchecked Sendable, Tool {
   @Generable
   struct Arguments {
+    @Guide(description: "City to get the weather for. Must be a valid city name.")
     let city: String
+
     @Guide(description: "Unit for temperature", .anyOf(["celsius", "fahrenheit"]))
     let unit: String?
   }
@@ -657,6 +676,10 @@ final class MockWeatherTool: @unchecked Sendable, Tool {
   func call(arguments: Arguments) async throws -> String {
     callHistory.append(arguments)
     wasCalledWith = arguments
+
+    if arguments.city.isEmpty {
+      return "City name is empty"
+    }
 
     let unit = arguments.unit ?? "celsius"
     return "Weather in \(arguments.city): 22°\(unit == "fahrenheit" ? "F" : "C"), sunny"

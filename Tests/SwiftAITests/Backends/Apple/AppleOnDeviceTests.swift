@@ -25,6 +25,11 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ToPrompt_ReturnsCorrectHistory_Impl()
   }
 
+  @Test("Max tokens constraint - very short response", .enabled(if: appleIntelligenceIAvailable()))
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws {
+    try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
+  }
+
   // MARK: - Structured Output Tests
 
   @Test("Structured output - primitives content", .enabled(if: appleIntelligenceIAvailable()))
@@ -83,7 +88,7 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
 
   @Test("Multi-turn tool loop", .enabled(if: appleIntelligenceIAvailable()))
   func testReply_MultiTurnToolLoop() async throws {
-    try await testReply_MultiTurnToolLoop_Impl()
+    try await testReply_MultiTurnToolLoop_Impl(using: llm)
   }
 
   @Test("Tool calling - error handling", .enabled(if: appleIntelligenceIAvailable()))

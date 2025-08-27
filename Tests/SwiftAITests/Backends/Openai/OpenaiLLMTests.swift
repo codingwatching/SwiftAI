@@ -23,8 +23,9 @@ struct OpenaiLLMTests: LLMBaseTestCases {
 
   @Test(
     "Max tokens constraint - very short response",
-    .disabled("llm reply options not supported yet"),
-    .enabled(if: apiKeyIsPresent()))
+    .disabled("Openai needs at least 16 tokens. We currently don't have good means to test this."),
+    .enabled(if: apiKeyIsPresent())
+  )
   func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws {
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
@@ -87,7 +88,8 @@ struct OpenaiLLMTests: LLMBaseTestCases {
 
   @Test("Multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
   func testReply_MultiTurnToolLoop() async throws {
-    try await testReply_MultiTurnToolLoop_Impl()
+    // Using smarter model because the nano model is not good enough.
+    try await testReply_MultiTurnToolLoop_Impl(using: OpenaiLLM(model: "gpt-4.1-mini"))
   }
 
   @Test("Tool calling - error handling", .enabled(if: apiKeyIsPresent()))

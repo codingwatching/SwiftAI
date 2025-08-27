@@ -88,7 +88,7 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
 
   @Test("Multi-turn tool loop", .enabled(if: appleIntelligenceIAvailable()))
   func testReply_MultiTurnToolLoop() async throws {
-    try await testReply_MultiTurnToolLoop_Impl()
+    try await testReply_MultiTurnToolLoop_Impl(using: llm)
   }
 
   @Test("Tool calling - error handling", .enabled(if: appleIntelligenceIAvailable()))

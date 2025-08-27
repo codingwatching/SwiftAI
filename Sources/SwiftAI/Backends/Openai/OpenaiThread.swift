@@ -65,9 +65,12 @@ public final actor OpenaiConversationThread {
           query: CreateModelResponseQuery(
             input: input,
             model: model,
+            maxOutputTokens: options.maximumTokens,
             previousResponseId: self.previousResponseID,
+            temperature: options.temperature.map { $0 * 2.0 },  // OpenAI uses a range between 0.0 and 2.0
             text: textConfig,
-            tools: try openaiTools.map { .functionTool($0) }
+            tools: try openaiTools.map { .functionTool($0) },
+            topP: extractTopPThreshold(from: options.samplingMode)
           )
         )
 
@@ -127,5 +130,16 @@ public final actor OpenaiConversationThread {
       toolName: toolCall.toolName,
       chunks: result.chunks
     )
+  }
+
+  private func extractTopPThreshold(from samplingMode: LLMReplyOptions.SamplingMode?) -> Double? {
+    guard let samplingMode = samplingMode else { return nil }
+
+    switch samplingMode {
+    case .topP(let probabilityThreshold):
+      return probabilityThreshold
+    case .greedy:
+      return 0.0
+    }
   }
 }

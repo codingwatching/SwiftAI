@@ -295,14 +295,16 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_MultiTurnToolLoop_Impl() async throws {
+  func testReply_MultiTurnToolLoop_Impl(using llm: any LLM) async throws {
     let weatherTool = MockWeatherTool()
     let locationTool = GetCurrentLocationTool()
 
     let reply = try await llm.reply(
-      to: "what is the weather like in my current location?",
-      tools: [weatherTool, locationTool]
-    )
+      tools: [weatherTool, locationTool],
+      options: .init(temperature: 0.0)
+    ) {
+      "what is the weather like in my current location?"
+    }
 
     #expect(locationTool.wasCalledWith != nil)
     if let args = weatherTool.wasCalledWith {
@@ -653,7 +655,9 @@ struct ComprehensiveProfile: Equatable {
 final class MockWeatherTool: @unchecked Sendable, Tool {
   @Generable
   struct Arguments {
+    @Guide(description: "City to get the weather for. Must be a valid city name.")
     let city: String
+
     @Guide(description: "Unit for temperature", .anyOf(["celsius", "fahrenheit"]))
     let unit: String?
   }
@@ -672,6 +676,10 @@ final class MockWeatherTool: @unchecked Sendable, Tool {
   func call(arguments: Arguments) async throws -> String {
     callHistory.append(arguments)
     wasCalledWith = arguments
+
+    if arguments.city.isEmpty {
+      return "City name is empty"
+    }
 
     let unit = arguments.unit ?? "celsius"
     return "Weather in \(arguments.city): 22°\(unit == "fahrenheit" ? "F" : "C"), sunny"

@@ -457,6 +457,27 @@ extension User: Generable {
 }
 ```
 
+### Generation Options
+
+SwiftAI provides fine-grained control over LLM generation behavior through `LLMReplyOptions`. These options allow applications to tune the model's creativity, response length, and sampling strategy to match specific use cases and requirements.
+
+#### LLMReplyOptions Structure
+
+```swift
+public struct LLMReplyOptions: Sendable, Equatable {
+  public let temperature: Double?
+  public let maximumTokens: Int?
+  public let samplingMode: SamplingMode?
+}
+```
+
+```swift
+public enum SamplingMode: Sendable, Equatable {
+  case topP(Double)
+  case greedy
+}
+```
+
 ### Tools
 
 SwiftAI enables LLMs to call functions through a structured tool system. Tools extend LLM capabilities by providing access to external data sources, APIs, and custom business logic.

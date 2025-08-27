@@ -21,6 +21,14 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_ToPrompt_ReturnsCorrectHistory_Impl()
   }
 
+  @Test(
+    "Max tokens constraint - very short response",
+    .disabled("llm reply options not supported yet"),
+    .enabled(if: apiKeyIsPresent()))
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws {
+    try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
+  }
+
   @Test("Structured output - primitives content", .enabled(if: apiKeyIsPresent()))
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws {
     try await testReply_ReturningPrimitives_ReturnsCorrectContent_Impl()

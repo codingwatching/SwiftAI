@@ -10,6 +10,7 @@ protocol LLMBaseTestCases {
   // MARK: - Basic Tests
   func testReply_ToPrompt() async throws
   func testReply_ToPrompt_ReturnsCorrectHistory() async throws
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws
 
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
@@ -68,6 +69,20 @@ extension LLMBaseTestCases {
     let aiMessage = reply.history[1]
     #expect(aiMessage.role == .ai, "Second message should be from AI")
     #expect(aiMessage.chunks == [.text(reply.content)])
+  }
+
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl() async throws {
+    let options = LLMReplyOptions(maximumTokens: 1)
+
+    let reply = try await llm.reply(
+      to: "Write a long story about space exploration",
+      options: options
+    )
+
+    // Verify that the response is very short when maxTokens is set to 1
+    // Note: 1 token can be multiple characters, so we expect it to be less than 7 characters
+    #expect(
+      reply.content.count < 7, "Response should be very short (<7 characters) when maxTokens = 1")
   }
 
   func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {

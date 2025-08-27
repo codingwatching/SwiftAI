@@ -25,6 +25,11 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ToPrompt_ReturnsCorrectHistory_Impl()
   }
 
+  @Test("Max tokens constraint - very short response", .enabled(if: appleIntelligenceIAvailable()))
+  func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws {
+    try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
+  }
+
   // MARK: - Structured Output Tests
 
   @Test("Structured output - primitives content", .enabled(if: appleIntelligenceIAvailable()))

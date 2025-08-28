@@ -31,23 +31,23 @@ public final actor SystemLLMSession: LLMSession {
   }
 
   func generateResponse<T: Generable>(
-    userMessage: Message,
+    prompt: Prompt,
     type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    let prompt = toFoundationPrompt(message: userMessage)
+    let foundationPrompt = prompt.promptRepresentation
     let generationOptions = toFoundationGenerationOptions(options)
 
     let content: T = try await {
       if T.self == String.self {
         let response: LanguageModelSession.Response<String> = try await session.respond(
-          to: prompt,
+          to: foundationPrompt,
           options: generationOptions
         )
         return unsafeBitCast(response.content, to: T.self)
       } else {
         let response = try await session.respond(
-          to: prompt,
+          to: foundationPrompt,
           schema: try T.schema.toGenerationSchema(),
           options: generationOptions
         )
@@ -62,10 +62,6 @@ public final actor SystemLLMSession: LLMSession {
 
     let messages = try session.transcript.messages
     return LLMReply(content: content, history: messages)
-  }
-
-  private func toFoundationPrompt(message: Message) -> FoundationModels.Prompt {
-    return FoundationModels.Prompt(message.text)
   }
 
   private func toFoundationGenerationOptions(_ options: LLMReplyOptions)

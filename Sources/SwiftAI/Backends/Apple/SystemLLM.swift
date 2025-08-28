@@ -144,31 +144,17 @@ public struct SystemLLM: LLM {
     // Create session with context
     let session = makeSession(tools: tools, messages: contextMessages)
 
-    // Use the session-based reply method
+    let prompt = Prompt(chunks: lastMessage.chunks)
     return try await reply(
-      to: lastMessage,
+      to: prompt,
       returning: type,
       in: session,
       options: options
     )
   }
 
-  /// Generates a response within an existing session
-  ///
-  /// This method continues an established conversation by generating a response to a new prompt
-  /// while maintaining the full conversation context stored in the session. The session automatically
-  /// accumulates the conversation history across multiple interactions.
-  ///
-  /// - Parameters:
-  ///   - prompt: The user's prompt represented as any `PromptRepresentable` (typically a string)
-  ///   - type: The expected return type conforming to `Generable`
-  ///   - session: The session to continue. **This will be modified** to include
-  ///             the new user prompt and AI response in its conversation history
-  ///   - options: Generation options (currently not implemented - will be added in future versions)
-  ///
-  /// - Returns: An `LLMReply<T>` containing the generated content and complete conversation history
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,  // TODO: This should probably be a UserMessage to avoid `reply(to: AIMessage(...))`
+    to prompt: Prompt,
     returning type: T.Type,
     in session: SystemLLMSession,
     options: LLMReplyOptions
@@ -178,10 +164,9 @@ public struct SystemLLM: LLM {
       throw LLMError.generalError("Model unavailable")
     }
 
-    let userMessage = Message.user(.init(chunks: prompt.chunks))
     do {
       return try await session.generateResponse(
-        userMessage: userMessage,
+        prompt: prompt,
         type: type,
         options: options
       )

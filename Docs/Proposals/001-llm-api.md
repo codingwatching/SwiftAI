@@ -183,7 +183,7 @@ The LLM protocol defines the core interface for language model interaction.
 ```swift
 protocol LLM: Model {
   func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     tools: [any Tool],
     returning type: T.Type,
     options: LLMReplyOptions
@@ -242,7 +242,7 @@ let report = try await llm.reply(
 The LLM API is stateless by design. For multi-turn interactions, `LLMSession` objects persist conversation context.
 
 ```swift
-protocol LLM: Model {
+protocol LLM {
   associatedtype Session: LLMSession = NullLLMSession
 
   func makeSession(
@@ -253,7 +253,7 @@ protocol LLM: Model {
   ) -> Session
 
   func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     in session: Session,
     options: LLMReplyOptions

@@ -41,7 +41,7 @@ public final actor OpenaiSession: LLMSession {
   public nonisolated func prewarm(promptPrefix: Prompt?) {}
 
   func generateResponse<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {

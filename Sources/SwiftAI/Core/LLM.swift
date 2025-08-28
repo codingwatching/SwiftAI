@@ -75,7 +75,7 @@ public protocol LLM: Model {
   /// Generates a response to a prompt within a session.
   ///
   /// - Parameters:
-  ///   - prompt: user message to respond to
+  ///   - prompt: user message to respond to.
   ///   - type: The expected response type.
   ///   - session: The session maintaining context.
   ///     The session will be mutated during execution to capture updated conversation state.
@@ -106,8 +106,9 @@ public protocol LLM: Model {
   ///
   /// - Note: A session represents a single conversation between the LLM and the user.
   ///   Use a new session for each new conversation.
+  @discardableResult
   func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     in session: Session,
     options: LLMReplyOptions
@@ -132,7 +133,7 @@ extension LLM where Session == NullLLMSession {
 
   /// Default implementation that throws an error for stateless LLMs.
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type,
     in session: NullLLMSession,
     options: LLMReplyOptions
@@ -172,7 +173,7 @@ extension LLM {
 
   /// Convenience method for prompt-based queries with default parameters.
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type = String.self,
     tools: [any Tool] = [],
     options: LLMReplyOptions = .default
@@ -180,6 +181,21 @@ extension LLM {
     let userMessage = Message.user(.init(chunks: prompt.chunks))
     return try await reply(
       to: [userMessage],
+      returning: type,
+      tools: tools,
+      options: options
+    )
+  }
+
+  /// Convenience method for string-based prompt queries with default parameters.
+  public func reply<T: Generable>(
+    to prompt: String,
+    returning type: T.Type = String.self,
+    tools: [any Tool] = [],
+    options: LLMReplyOptions = .default
+  ) async throws -> LLMReply<T> {
+    return try await reply(
+      to: Prompt(prompt),
       returning: type,
       tools: tools,
       options: options
@@ -206,12 +222,23 @@ extension LLM {
   /// Convenience method for session-based replies with default parameters.
   @discardableResult
   public func reply<T: Generable>(
-    to prompt: any PromptRepresentable,
+    to prompt: Prompt,
     returning type: T.Type = String.self,
     in session: Session,
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
     return try await reply(to: prompt, returning: type, in: session, options: options)
+  }
+
+  /// Convenience method for session-based replies with string prompt and default parameters.
+  @discardableResult
+  public func reply<T: Generable>(
+    to prompt: String,
+    returning type: T.Type = String.self,
+    in session: Session,
+    options: LLMReplyOptions = .default
+  ) async throws -> LLMReply<T> {
+    return try await reply(to: Prompt(prompt), returning: type, in: session, options: options)
   }
 
   /// Convenience method for session-based replies with PromptBuilder.
@@ -274,7 +301,7 @@ extension LLMSession {
 // MARK: - LLMReply and Options
 
 /// The response from a language model query.
-public struct LLMReply<T: Generable> {
+public struct LLMReply<T: Generable>: Sendable {
   /// The generated content parsed into the requested type.
   public let content: T
 

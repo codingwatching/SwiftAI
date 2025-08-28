@@ -56,7 +56,7 @@ public actor Chat<LLMType: LLM> {
   ///   - options: Configuration options for the LLM request
   /// - Returns: The generated response of the specified type
   public func send<T: Generable>(
-    _ prompt: PromptRepresentable,
+    _ prompt: Prompt,
     returning type: T.Type = String.self,
     options: LLMReplyOptions = .default
   ) async throws -> T {
@@ -80,6 +80,15 @@ public actor Chat<LLMType: LLM> {
       self.messages = reply.history
       return reply.content
     }
+  }
+
+  /// Sends a string prompt to the LLM and returns the generated response.
+  public func send<T: Generable>(
+    _ prompt: String,
+    returning type: T.Type = String.self,
+    options: LLMReplyOptions = .default
+  ) async throws -> T {
+    return try await send(Prompt(prompt), returning: type, options: options)
   }
 
   /// Sends a prompt constructed with PromptBuilder to the LLM and returns the generated response.

@@ -61,9 +61,9 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_ReturningNestedObjects_ReturnsCorrectContent_Impl()
   }
 
-  @Test("Thread maintains conversation context", .enabled(if: apiKeyIsPresent()))
-  func testReply_InThread_MaintainsContext() async throws {
-    try await testReply_InThread_MaintainsContext_Impl()
+  @Test("Session maintains conversation context", .enabled(if: apiKeyIsPresent()))
+  func testReply_InSession_MaintainsContext() async throws {
+    try await testReply_InSession_MaintainsContext_Impl()
   }
 
   @Test("Tool calling - basic calculation", .enabled(if: apiKeyIsPresent()))
@@ -81,9 +81,9 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_WithTools_ReturningStructured_ReturnsCorrectContent_Impl()
   }
 
-  @Test("Tool calling - threaded conversation", .enabled(if: apiKeyIsPresent()))
-  func testReply_WithTools_InThread_MaintainsContext() async throws {
-    try await testReply_WithTools_InThread_MaintainsContext_Impl()
+  @Test("Tool calling - session-based conversation", .enabled(if: apiKeyIsPresent()))
+  func testReply_WithTools_InSession_MaintainsContext() async throws {
+    try await testReply_WithTools_InSession_MaintainsContext_Impl()
   }
 
   @Test("Multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
@@ -107,9 +107,9 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_ToSeededHistory_MaintainsContext_Impl()
   }
 
-  @Test("Threaded structured output conversation", .enabled(if: apiKeyIsPresent()))
-  func testReply_InThread_ReturningStructured_MaintainsContext() async throws {
-    try await testReply_InThread_ReturningStructured_MaintainsContext_Impl()
+  @Test("Session-based structured output conversation", .enabled(if: apiKeyIsPresent()))
+  func testReply_InSession_ReturningStructured_MaintainsContext() async throws {
+    try await testReply_InSession_ReturningStructured_MaintainsContext_Impl()
   }
 
   @Test("All constraint types with @Guide", .enabled(if: apiKeyIsPresent()))

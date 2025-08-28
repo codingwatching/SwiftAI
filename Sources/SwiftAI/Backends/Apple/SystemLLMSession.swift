@@ -2,9 +2,9 @@
 import FoundationModels
 import Foundation
 
-/// A conversation thread that maintains stateful interactions with Apple's on-device language model.
+/// A session that maintains stateful interactions with Apple's on-device language model.
 @available(iOS 26.0, macOS 26.0, *)
-public final actor SystemLLMConversationThread {
+public final actor SystemLLMSession: LLMSession {
   let session: LanguageModelSession
 
   init(

@@ -2,32 +2,8 @@ import Foundation
 
 /// Large language model.
 public protocol LLM: Model {
-  /// The type used to maintain the state of a conversation.
-  ///
-  /// Each LLM implementation defines its own conversation thread type to capture
-  /// conversation context. Conversation threads must be reference types (`AnyObject`)
-  /// to support in-place state updates, and `Sendable` to safely
-  /// cross concurrency boundaries.
-  ///
-  /// Implementations typically wrap session objects or message histories:
-  ///
-  /// ```swift
-  /// // OnDevice LLM with mutable session
-  /// final class AppleFoundationModelConversationThread: @unchecked Sendable {
-  ///   let session: LanguageModelSession
-  /// }
-  ///
-  /// // API-based LLM tracking messages
-  /// final class ClaudeConversationThread: Sendable {
-  ///   var messages: [Message]
-  /// }
-  /// ```
-  ///
-  /// For stateless implementations use `NullConversationThread`.
-  ///
-  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
-  ///   Use a new conversation thread for each new conversation.
-  associatedtype ConversationThread: AnyObject & Sendable = NullConversationThread
+  /// The type that maintains the state of a conversation.
+  associatedtype Session: LLMSession = NullLLMSession
 
   /// Whether the LLM can be used.
   var isAvailable: Bool { get }
@@ -74,97 +50,93 @@ public protocol LLM: Model {
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 
-  /// Creates a new conversation thread for maintaining conversation context.
+  /// Creates a new session that maintains conversation history.
   ///
   /// - Parameters:
   ///   - tools: Functions available to the model during conversation.
-  ///   - messages: Initial conversation history to seed the conversation thread.
+  ///   - messages: Initial conversation history to seed the session.
   ///
-  /// - Returns: A new conversation thread instance initialized with the provided conversation history.
-  ///
-  /// Each conversation thread maintains independent conversation state. Multiple conversation threads
-  /// can exist simultaneously for parallel conversations:
+  /// Each session maintains independent conversation state. Multiple sessions
+  /// can exist simultaneously for parallel conversations.
   ///
   /// ```swift
   /// let llm = MyLLM()
-  /// let customerConversationThread = llm.makeConversationThread()
-  /// let supportConversationThread = llm.makeConversationThread(
+  /// let customerSession = llm.makeSession()
+  /// let supportSession = llm.makeSession(
   ///   tools: [tool1, tool2],
   ///   messages: [message1, message2]
   /// )
   /// ```
   ///
-  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
-  ///   Use a new conversation thread for each new conversation.
-  func makeConversationThread(tools: [any Tool], messages: [Message]) -> ConversationThread
+  /// - Note: A session represents a single conversation between the LLM and the user.
+  ///   Use a new session for each new conversation.
+  func makeSession(tools: [any Tool], messages: [Message]) -> Session
 
-  /// Generates a response to a prompt within a conversation thread.
+  /// Generates a response to a prompt within a session.
   ///
   /// - Parameters:
   ///   - prompt: user message to respond to
   ///   - type: The expected response type.
-  ///   - thread: The conversation thread maintaining context.
-  ///     The conversation thread will be mutated during execution to capture updated conversation state.
+  ///   - session: The session maintaining context.
+  ///     The session will be mutated during execution to capture updated conversation state.
   ///   - options: Configuration for response generation.
   ///
   /// - Returns: The model's response containing the generated content and message history.
   ///
   /// - Throws: `LLMError` describing the failure reason.
   ///
-  /// The conversation thread preserves context across multiple interactions:
+  /// The session preserves context across multiple interactions:
   ///
   /// ```swift
-  ///   var thread = llm.makeConversationThread()
+  ///   var session = llm.makeSession()
   ///   let greeting = try await llm.reply(
   ///       to: "Hello my name is Manal",
-  ///       in: thread
+  ///       in: session
   ///   )
   ///
-  ///   // Conversation thread now contains context from the greeting exchange
+  ///   // The session now contains context from the greeting exchange
   ///   let followUp = try await llm.reply(
   ///      to: "what's my name?",
-  ///      in: thread
+  ///      in: session
   ///   )
   /// ```
   ///
-  /// - Note: The conversation thread is mutable. It is updated after each reply to maintain
+  /// - Note: The session is mutable. It is updated after each reply to maintain
   ///   conversation continuity.
   ///
-  /// - Note: A conversation thread represents a single conversation between the LLM and the user.
-  ///   Use a new conversation thread for each new conversation.
+  /// - Note: A session represents a single conversation between the LLM and the user.
+  ///   Use a new session for each new conversation.
   func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: ConversationThread,
+    in session: Session,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 }
 
-/// A conversation thread implementation that maintains no conversation state.
+/// A session implementation that maintains no conversation state.
 ///
-/// Used as the default conversation thread type for LLM implementations that don't
+/// Used as the default session type for LLM implementations that don't
 /// preserve context between interactions.
-public final class NullConversationThread: Sendable {}
+public final class NullLLMSession: LLMSession {}
 
-/// MARK: - NullConversationThread Default Implementations
+/// MARK: - NullLLMSession Default Implementations
 
-extension LLM where ConversationThread == NullConversationThread {
+extension LLM where Session == NullLLMSession {
   /// Default implementation for stateless LLMs.
-  public func makeConversationThread(tools: [any Tool], messages: [Message])
-    -> NullConversationThread
-  {
-    return NullConversationThread()
+  public func makeSession(tools: [any Tool], messages: [Message]) -> NullLLMSession {
+    return NullLLMSession()
   }
 
   /// Default implementation that throws an error for stateless LLMs.
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    in thread: NullConversationThread,
+    in session: NullLLMSession,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     throw LLMError.generalError(
-      "Conversation threading not supported for stateless LLM implementations")
+      "Session management not supported for stateless LLM implementations")
   }
 }
 
@@ -181,21 +153,19 @@ extension LLM {
     return try await reply(to: messages, returning: type, tools: tools, options: options)
   }
 
-  /// Convenience method to create a conversation thread with default empty tools and messages.
-  public func makeConversationThread(tools: [any Tool] = [], messages: [Message] = [])
-    -> ConversationThread
-  {
-    return makeConversationThread(tools: tools, messages: messages)
+  /// Convenience method to create a session with default empty tools and messages.
+  public func makeSession(tools: [any Tool] = [], messages: [Message] = []) -> Session {
+    return makeSession(tools: tools, messages: messages)
   }
 
-  /// Convenience method to create a conversation thread with PromptBuilder instructions.
-  public func makeConversationThread(
+  /// Convenience method to create a session with a PromptBuilder instructions.
+  public func makeSession(
     tools: [any Tool] = [],
     @PromptBuilder instructions: () -> Prompt
-  ) -> ConversationThread {
+  ) -> Session {
     let prompt = instructions()
     let systemMessage = Message.system(.init(chunks: prompt.chunks))
-    return makeConversationThread(tools: tools, messages: [systemMessage])
+    return makeSession(tools: tools, messages: [systemMessage])
   }
 
   /// Convenience method for prompt-based queries with default parameters.
@@ -231,28 +201,55 @@ extension LLM {
     )
   }
 
-  /// Convenience method for threaded replies with default parameters.
+  /// Convenience method for session-based replies with default parameters.
   @discardableResult
   public func reply<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type = String.self,
-    in thread: ConversationThread,
+    in session: Session,
     options: LLMReplyOptions = .default
   ) async throws -> LLMReply<T> {
-    return try await reply(to: prompt, returning: type, in: thread, options: options)
+    return try await reply(to: prompt, returning: type, in: session, options: options)
   }
 
-  /// Convenience method for threaded replies with PromptBuilder.
+  /// Convenience method for session-based replies with PromptBuilder.
   @discardableResult
   public func reply<T: Generable>(
     returning type: T.Type = String.self,
-    in thread: ConversationThread,
+    in session: Session,
     options: LLMReplyOptions = .default,
     @PromptBuilder to content: () -> Prompt
   ) async throws -> LLMReply<T> {
-    return try await reply(to: content(), returning: type, in: thread, options: options)
+    return try await reply(to: content(), returning: type, in: session, options: options)
   }
 }
+
+// MARK: - LLMSession
+
+/// The type used to maintain the state of a conversation.
+///
+/// Each LLM implementation defines its own session type to capture
+/// conversation context. Sessions must be reference types (`AnyObject`)
+/// to support in-place state updates, and `Sendable` to safely
+/// cross concurrency boundaries.
+///
+/// Implementations typically wrap session objects or message histories:
+///
+/// ```swift
+/// // OnDevice LLM with mutable session
+/// final class AppleFoundationModelSession: @unchecked Sendable {
+///   let session: LanguageModelSession
+/// }
+///
+/// // API-based LLM tracking messages
+/// final class ClaudeSession: Sendable {
+///   var messages: [Message]
+/// }
+/// ```
+///
+/// - Note: A session represents a single conversation between the LLM and the user.
+///   Use a new session for each new conversation.
+public protocol LLMSession: AnyObject, Sendable {}
 
 // MARK: - LLMReply and Options
 

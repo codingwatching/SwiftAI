@@ -2,10 +2,12 @@ import Foundation
 import OpenAI
 
 /// Maintains the state of a conversation with an Openai language model.
-public final actor OpenaiConversationThread {
+public final actor OpenaiSession: LLMSession {
   private(set) var messages: [Message]
   private(set) var previousResponseID: String?
   let tools: [any SwiftAI.Tool]
+  private let client: OpenAIProtocol
+  private let model: String
 
   var openaiTools: [FunctionTool] {
     get throws {
@@ -23,19 +25,22 @@ public final actor OpenaiConversationThread {
   init(
     messages: [Message] = [],
     previousResponseID: String? = nil,
-    tools: [any SwiftAI.Tool] = []
+    tools: [any SwiftAI.Tool] = [],
+    client: OpenAIProtocol,
+    model: String
   ) {
     self.messages = messages
     self.previousResponseID = previousResponseID
     self.tools = tools
+    self.client = client
+    self.model = model
   }
+
 
   func generateResponse<T: Generable>(
     to prompt: any PromptRepresentable,
     returning type: T.Type,
-    options: LLMReplyOptions,
-    client: OpenAIProtocol,
-    model: String
+    options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     let userMessage = Message.user(.init(chunks: prompt.chunks))
 

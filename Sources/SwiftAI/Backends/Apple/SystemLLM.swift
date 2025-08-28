@@ -168,7 +168,7 @@ public struct SystemLLM: LLM {
   }
 
   public func reply<T: Generable>(
-    to prompt: Prompt,  // TODO: This should probably be a UserMessage to avoid `reply(to: AIMessage(...))`
+    to prompt: Prompt,
     returning type: T.Type,
     in thread: SystemLLMConversationThread,
     options: LLMReplyOptions

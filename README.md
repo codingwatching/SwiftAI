@@ -245,14 +245,13 @@ Constraints ensure the AI follows your business rules.
 
 ## 📖 Examples
 
-- [ ] TODO: Add example projects.
+Check the `Examples/` directory for sample apps that uses SwiftAI.
 
 ## ⚡ Feature Parity Status vs FoundationModels SDK
 
 | Feature                      | Status                                                    |
 | ---------------------------- | --------------------------------------------------------- |
 | Streaming responses          | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/2) |
-| Model prewarming             | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/3) |
 | Structured outputs for enums | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/4) |
 
 ## 🤝 Contributing

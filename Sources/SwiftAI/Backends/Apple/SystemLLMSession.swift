@@ -22,6 +22,14 @@ public final actor SystemLLMSession: LLMSession {
     )
   }
 
+  public nonisolated func prewarm(promptPrefix: Prompt?) {
+    if let p = promptPrefix {
+      self.session.prewarm(promptPrefix: p.promptRepresentation)
+    } else {
+      self.session.prewarm()
+    }
+  }
+
   func generateResponse<T: Generable>(
     userMessage: Message,
     type: T.Type,

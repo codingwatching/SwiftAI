@@ -66,6 +66,13 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_InSession_MaintainsContext_Impl()
   }
 
+  // MARK: - Prewarming Tests
+
+  @Test("Prewarming does not break normal operation", .enabled(if: apiKeyIsPresent()))
+  func testPrewarm_DoesNotBreakNormalOperation() async throws {
+    try await testPrewarm_DoesNotBreakNormalOperation_Impl()
+  }
+
   @Test("Tool calling - basic calculation", .enabled(if: apiKeyIsPresent()))
   func testReply_WithTools_CallsCorrectTool() async throws {
     try await testReply_WithTools_CallsCorrectTool_Impl()

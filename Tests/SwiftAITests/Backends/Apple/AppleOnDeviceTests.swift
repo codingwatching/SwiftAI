@@ -64,6 +64,13 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_InSession_MaintainsContext_Impl()
   }
 
+  // MARK: - Prewarming Tests
+
+  @Test("Prewarming does not break normal operation", .enabled(if: appleIntelligenceIAvailable()))
+  func testPrewarm_DoesNotBreakNormalOperation() async throws {
+    try await testPrewarm_DoesNotBreakNormalOperation_Impl()
+  }
+
   // MARK: - Tool Calling Tests
 
   @Test("Tool calling - basic calculation", .enabled(if: appleIntelligenceIAvailable()))

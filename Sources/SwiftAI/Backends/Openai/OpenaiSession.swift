@@ -36,6 +36,9 @@ public final actor OpenaiSession: LLMSession {
     self.model = model
   }
 
+  // No op.
+  // OpenAI automatically caches prompt prefixes that are > 1024 tokens by default.
+  public nonisolated func prewarm(promptPrefix: Prompt?) {}
 
   func generateResponse<T: Generable>(
     to prompt: any PromptRepresentable,

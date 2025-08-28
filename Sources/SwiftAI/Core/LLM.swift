@@ -118,7 +118,9 @@ public protocol LLM: Model {
 ///
 /// Used as the default session type for LLM implementations that don't
 /// preserve context between interactions.
-public final class NullLLMSession: LLMSession {}
+public final class NullLLMSession: LLMSession {
+  public func prewarm(promptPrefix: Prompt?) {}
+}
 
 /// MARK: - NullLLMSession Default Implementations
 
@@ -249,7 +251,25 @@ extension LLM {
 ///
 /// - Note: A session represents a single conversation between the LLM and the user.
 ///   Use a new session for each new conversation.
-public protocol LLMSession: AnyObject, Sendable {}
+public protocol LLMSession: AnyObject, Sendable {
+  /// Requests the session to prepare for an upcoming `reply`.
+  ///
+  /// Calling this method can reduce the *time to first token* when `reply` is
+  /// called shortly after.
+  ///
+  /// Use it when you know a request is likely to happen soon, and you have at
+  /// least ~1 second before making the actual `reply` call.
+  ///
+  /// - Important: This is a best-effort optimization. It may improve latency,
+  ///   but no reduction is guaranteed.
+  func prewarm(promptPrefix: Prompt?)
+}
+
+extension LLMSession {
+  public func prewarm() {
+    prewarm(promptPrefix: nil)
+  }
+}
 
 // MARK: - LLMReply and Options
 

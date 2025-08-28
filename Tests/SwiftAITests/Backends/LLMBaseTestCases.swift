@@ -22,6 +22,9 @@ protocol LLMBaseTestCases {
   // MARK: - Session-based Conversation Tests
   func testReply_InSession_MaintainsContext() async throws
 
+  // MARK: - Prewarming Tests
+  func testPrewarm_DoesNotBreakNormalOperation() async throws
+
   // MARK: - Tool Calling Tests
   func testReply_WithTools_CallsCorrectTool() async throws
   func testReply_WithMultipleTools_SelectsCorrectTool() async throws
@@ -198,6 +201,28 @@ extension LLMBaseTestCases {
     #expect(reply3.content.message.lowercased().contains("tom"))  // Should include name in structured response
     #expect(reply3.content.count == 1)
     #expect(reply3.content.isValid == true)
+  }
+
+  func testPrewarm_DoesNotBreakNormalOperation_Impl() async throws {
+    let session = llm.makeSession()
+    
+    // Call prewarm multiple times
+    session.prewarm()
+    session.prewarm()
+    
+    // Verify normal operation still works after prewarming
+    let response = try await llm.reply(
+        to: "What is 2+2?",
+        in: session
+    )
+    
+    #expect(!response.content.isEmpty, "Response should not be empty")
+    #expect(response.content.contains("4"), "Response should contain the correct answer")
+    
+    // Verify session history is maintained correctly
+    #expect(response.history.count == 2, "Should have at least user and AI messages")
+    #expect(response.history[0].role == .user, "First message should be from user")
+    #expect(response.history[1].role == .ai, "Second message should be from AI")
   }
 
   // MARK: - Tool Calling Tests

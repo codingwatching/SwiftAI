@@ -19,21 +19,24 @@ protocol LLMBaseTestCases {
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws
   func testReply_ReturningNestedObjects_ReturnsCorrectContent() async throws
 
-  // MARK: - Conversation Threading Tests
-  func testReply_InThread_MaintainsContext() async throws
+  // MARK: - Session-based Conversation Tests
+  func testReply_InSession_MaintainsContext() async throws
+
+  // MARK: - Prewarming Tests
+  func testPrewarm_DoesNotBreakNormalOperation() async throws
 
   // MARK: - Tool Calling Tests
   func testReply_WithTools_CallsCorrectTool() async throws
   func testReply_WithMultipleTools_SelectsCorrectTool() async throws
   func testReply_WithTools_ReturningStructured_ReturnsCorrectContent() async throws
-  func testReply_WithTools_InThread_MaintainsContext() async throws
+  func testReply_WithTools_InSession_MaintainsContext() async throws
   func testReply_MultiTurnToolLoop() async throws
   func testReply_WithFailingTool_HandlesErrors() async throws
 
   // MARK: - Complex Conversation Tests
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws
   func testReply_ToSeededHistory_MaintainsContext() async throws
-  func testReply_InThread_ReturningStructured_MaintainsContext() async throws
+  func testReply_InSession_ReturningStructured_MaintainsContext() async throws
   func testReply_ReturningConstrainedTypes_ReturnsCorrectContent() async throws
   func testReply_ToSystemPrompt_ReturnsCorrectResponse() async throws
 }
@@ -160,16 +163,16 @@ extension LLMBaseTestCases {
     #expect(reply.content == expected)
   }
 
-  func testReply_InThread_MaintainsContext_Impl() async throws {
-    // Create a new conversation thread for conversation
-    let thread = llm.makeConversationThread(instructions: {
+  func testReply_InSession_MaintainsContext_Impl() async throws {
+    // Create a new session for conversation
+    let session = llm.makeSession(instructions: {
       "You are a helpful assistant."
     })
 
     // Turn 1: Introduce name
     let reply1 = try await llm.reply(
       to: "Hi my name is Tom",
-      in: thread
+      in: session
     )
 
     #expect(!reply1.content.isEmpty)
@@ -181,7 +184,7 @@ extension LLMBaseTestCases {
     // Turn 2: Ask for name recall
     let reply2 = try await llm.reply(
       to: "What's my name?",
-      in: thread
+      in: session
     )
 
     #expect(!reply2.content.isEmpty)
@@ -192,12 +195,34 @@ extension LLMBaseTestCases {
     let reply3 = try await llm.reply(
       to: "Create a SimpleResponse with my name in the message, count 1, and isValid true",
       returning: SimpleResponse.self,
-      in: thread
+      in: session
     )
 
     #expect(reply3.content.message.lowercased().contains("tom"))  // Should include name in structured response
     #expect(reply3.content.count == 1)
     #expect(reply3.content.isValid == true)
+  }
+
+  func testPrewarm_DoesNotBreakNormalOperation_Impl() async throws {
+    let session = llm.makeSession()
+    
+    // Call prewarm multiple times
+    session.prewarm()
+    session.prewarm()
+    
+    // Verify normal operation still works after prewarming
+    let response = try await llm.reply(
+        to: "What is 2+2?",
+        in: session
+    )
+    
+    #expect(!response.content.isEmpty, "Response should not be empty")
+    #expect(response.content.contains("4"), "Response should contain the correct answer")
+    
+    // Verify session history is maintained correctly
+    #expect(response.history.count == 2, "Should have at least user and AI messages")
+    #expect(response.history[0].role == .user, "First message should be from user")
+    #expect(response.history[1].role == .ai, "Second message should be from AI")
   }
 
   // MARK: - Tool Calling Tests
@@ -257,17 +282,17 @@ extension LLMBaseTestCases {
     #expect(reply.content.result == 50.0)
   }
 
-  func testReply_WithTools_InThread_MaintainsContext_Impl() async throws {
+  func testReply_WithTools_InSession_MaintainsContext_Impl() async throws {
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
-    // Create conversation thread with tools
-    let thread = llm.makeConversationThread(tools: [calculatorTool, weatherTool])
+    // Create session with tools
+    let session = llm.makeSession(tools: [calculatorTool, weatherTool])
 
     // First interaction: calculator
     let _ = try await llm.reply(
       to: "Calculate 5 + 3",
-      in: thread
+      in: session
     )
 
     // Verify calculator was called correctly
@@ -283,7 +308,7 @@ extension LLMBaseTestCases {
     // Second interaction: weather (should maintain context)
     let _ = try await llm.reply(
       to: "Now tell me about the weather in Paris",
-      in: thread
+      in: session
     )
 
     // Verify weather tool was called and calculator was not called again
@@ -458,9 +483,9 @@ extension LLMBaseTestCases {
       "Should preserve full conversation flow")
   }
 
-  func testReply_InThread_ReturningStructured_MaintainsContext_Impl() async throws {
-    // Create conversation thread with initial context
-    let thread = llm.makeConversationThread(
+  func testReply_InSession_ReturningStructured_MaintainsContext_Impl() async throws {
+    // Create session with initial context
+    let session = llm.makeSession(
       messages: [.system(.init(text: "You are a helpful assistant that creates user profiles."))]
     )
 
@@ -468,7 +493,7 @@ extension LLMBaseTestCases {
     let firstResponse = try await llm.reply(
       to: "Create a profile for Alice Johnson, age 25",
       returning: UserProfile.self,
-      in: thread
+      in: session
     )
 
     #expect(firstResponse.content.name.lowercased() == "alice johnson")
@@ -477,7 +502,7 @@ extension LLMBaseTestCases {
     // Second exchange - should remember the context and create another profile
     let secondResponse = try await llm.reply(
       to: "What's the age of Alice?",
-      in: thread
+      in: session
     )
 
     #expect(secondResponse.content.contains("25"))

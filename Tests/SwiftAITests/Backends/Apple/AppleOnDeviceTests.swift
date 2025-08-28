@@ -57,11 +57,18 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ReturningNestedObjects_ReturnsCorrectContent_Impl()
   }
 
-  // MARK: - Threading Tests
+  // MARK: - Session Tests
 
-  @Test("Thread maintains conversation context", .enabled(if: appleIntelligenceIAvailable()))
-  func testReply_InThread_MaintainsContext() async throws {
-    try await testReply_InThread_MaintainsContext_Impl()
+  @Test("Session maintains conversation context", .enabled(if: appleIntelligenceIAvailable()))
+  func testReply_InSession_MaintainsContext() async throws {
+    try await testReply_InSession_MaintainsContext_Impl()
+  }
+
+  // MARK: - Prewarming Tests
+
+  @Test("Prewarming does not break normal operation", .enabled(if: appleIntelligenceIAvailable()))
+  func testPrewarm_DoesNotBreakNormalOperation() async throws {
+    try await testPrewarm_DoesNotBreakNormalOperation_Impl()
   }
 
   // MARK: - Tool Calling Tests
@@ -81,9 +88,9 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithTools_ReturningStructured_ReturnsCorrectContent_Impl()
   }
 
-  @Test("Tool calling - threaded conversation", .enabled(if: appleIntelligenceIAvailable()))
-  func testReply_WithTools_InThread_MaintainsContext() async throws {
-    try await testReply_WithTools_InThread_MaintainsContext_Impl()
+  @Test("Tool calling - session-based conversation", .enabled(if: appleIntelligenceIAvailable()))
+  func testReply_WithTools_InSession_MaintainsContext() async throws {
+    try await testReply_WithTools_InSession_MaintainsContext_Impl()
   }
 
   @Test("Multi-turn tool loop", .enabled(if: appleIntelligenceIAvailable()))
@@ -110,9 +117,9 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ToSeededHistory_MaintainsContext_Impl()
   }
 
-  @Test("Threaded structured output conversation", .enabled(if: appleIntelligenceIAvailable()))
-  func testReply_InThread_ReturningStructured_MaintainsContext() async throws {
-    try await testReply_InThread_ReturningStructured_MaintainsContext_Impl()
+  @Test("Session-based structured output conversation", .enabled(if: appleIntelligenceIAvailable()))
+  func testReply_InSession_ReturningStructured_MaintainsContext() async throws {
+    try await testReply_InSession_ReturningStructured_MaintainsContext_Impl()
   }
 
   @Test("All constraint types with @Guide", .enabled(if: appleIntelligenceIAvailable()))

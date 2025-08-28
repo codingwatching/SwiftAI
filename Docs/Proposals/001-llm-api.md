@@ -132,7 +132,7 @@ It provides:
 
 - Prompt-to-response with type-safe structured output
 - Tool calling for model-initiated actions
-- Conversation threading for multi-turn exchanges
+- Session-based conversations for multi-turn exchanges
 - Schema-driven generation using Swift macros
 
 The design prioritizes portability: developers can adopt it with minimal changes whether targeting Apple’s FoundationModels or custom server-hosted models.
@@ -239,22 +239,23 @@ let report = try await llm.reply(
 
 #### Conversation Management
 
-The LLM API is stateless by design. For multi-turn interactions, `ConversationThread` objects persist conversation context.
+The LLM API is stateless by design. For multi-turn interactions, `LLMSession` objects persist conversation context.
 
 ```swift
 protocol LLM {
-  associatedtype ConversationThread: AnyObject & Sendable = NullConversationThread
+  associatedtype Session: LLMSession = NullLLMSession
 
-  func makeConversationThread(
+  func makeSession(
     tools: [any Tool],
-    messages: [any Message] // Useful for resuming existing conversations
-                            // or passing system instructions.
-  ) throws -> ConversationThread
+    // Useful for resuming existing conversations, or
+    // passing system instructions.
+    messages: [any Message]
+  ) -> Session
 
   func reply<T: Generable>(
     to prompt: Prompt,
     returning type: T.Type,
-    in thread: ConversationThread,
+    in session: Session,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
 }
@@ -263,20 +264,20 @@ protocol LLM {
 ##### Usage
 
 ```swift
-let thread = llm.makeConversationThread() {
+let session = llm.makeSession() {
     // System instructions (aka SystemMessage).
     "You are a helpful assistant. Always be polite."
 }
 
 let greeting = try await llm.reply(
   to: "Hello, my name is Alice",
-  in: thread
+  in: session
 )
 
-// Conversation thread maintains context from previous exchanges
+// The sessions maintains context from previous exchanges
 let followUp = try await llm.reply(
   to: "What's my name?",
-  in: thread
+  in: session
 )
 ```
 

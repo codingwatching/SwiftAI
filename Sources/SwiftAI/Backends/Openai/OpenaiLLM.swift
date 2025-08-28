@@ -3,7 +3,7 @@ import OpenAI
 
 /// Openai's language model integration using the Response API.
 public struct OpenaiLLM: LLM {
-  public typealias ConversationThread = OpenaiConversationThread
+  public typealias Session = OpenaiSession
 
   private let client: OpenAIProtocol
   private let model: String
@@ -42,17 +42,8 @@ public struct OpenaiLLM: LLM {
     hasApiToken
   }
 
-  /// Creates a new conversation thread for maintaining context.
-  ///
-  /// - Parameters:
-  ///   - tools: Tools available for the conversation
-  ///   - messages: Initial conversation history
-  ///
-  /// - Returns: A new Openai conversation thread for stateful conversations
-  public func makeConversationThread(tools: [any Tool], messages: [Message])
-    -> OpenaiConversationThread
-  {
-    return OpenaiConversationThread(messages: messages, tools: tools)
+  public func makeSession(tools: [any Tool], messages: [Message]) -> OpenaiSession {
+    return OpenaiSession(messages: messages, tools: tools, client: client, model: model)
   }
 
   /// Generates a response to a conversation using Openai's Response API.
@@ -74,40 +65,38 @@ public struct OpenaiLLM: LLM {
       throw LLMError.generalError("Conversation must end with a user message")
     }
 
-    // Create a conversation thread with the conversation history excluding the last user message
+    // Create a session with the conversation history excluding the last user message
     let contextMessages = Array(messages.dropLast())
-    let thread = makeConversationThread(tools: tools, messages: contextMessages)
+    let session = makeSession(tools: tools, messages: contextMessages)
 
     let prompt = Prompt(chunks: lastMessage.chunks)
     return try await reply(
       to: prompt,
       returning: type,
-      in: thread,
+      in: session,
       options: options
     )
   }
 
-  /// Generates a response within an existing conversation thread.
+  /// Generates a response within an existing session.
   ///
   /// - Parameters:
   ///   - prompt: The user's prompt
   ///   - type: The expected return type
-  ///   - thread: The conversation thread (will be modified)
+  ///   - session: The session (will be modified)
   ///   - options: Generation options
   ///
   /// - Returns: The model's response and updated conversation history
   public func reply<T: Generable>(
     to prompt: Prompt,
     returning type: T.Type,
-    in thread: OpenaiConversationThread,
+    in session: OpenaiSession,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    return try await thread.generateResponse(
+    return try await session.generateResponse(
       to: prompt,
       returning: type,
-      options: options,
-      client: client,
-      model: model
+      options: options
     )
   }
 }

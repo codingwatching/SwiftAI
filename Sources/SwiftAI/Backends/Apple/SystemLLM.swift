@@ -77,27 +77,25 @@ import Foundation
 /// )
 /// ```
 ///
-/// ### Threaded Conversations
+/// ### Session-based Conversations
 ///
 /// ```swift
-/// var thread = systemLLM.makeConversationThread(tools: [], messages: [])
+/// var session = systemLLM.makeSession()
 ///
 /// let reply1 = try await systemLLM.reply(
 ///   to: "My name is Alice",
-///   in: thread
+///   in: session
 /// )
 ///
 /// let reply2 = try await systemLLM.reply(
 ///   to: "What's my name?", // Will remember "Alice"
-///   in: thread
+///   in: session
 /// )
 /// ```
 ///
 /// - Note: Always check `isAvailable` before making inference calls and handle errors appropriately.
 @available(iOS 26.0, macOS 26.0, *)
 public struct SystemLLM: LLM {
-  public typealias ConversationThread = SystemLLMConversationThread
-
   private let model: SystemLanguageModel
 
   public init() {
@@ -118,23 +116,11 @@ public struct SystemLLM: LLM {
 
   // TODO: Add throwing documentation, and if any requirements on the messages.
 
-  /// Creates a new conversation thread with the specified tools and initial message history,
-  ///
-  /// The conversation thread enables conversation continuation by passing it to `reply`, preserving
-  /// context and tool availability across turns.
-  ///
-  /// - Parameters:
-  ///   - tools: Array of tools available for the conversation. Tools are automatically
-  ///            integrated into the conversation context and can be called by the model
-  ///   - messages: Initial conversation history to seed the conversation thread. Can be empty for
-  ///               new conversations or contain previous messages to continue a conversation
-  ///
-  /// - Returns: A `FoundationLanguageModelConversationThread` that maintains conversation state
-  public func makeConversationThread(
+  public func makeSession(
     tools: [any Tool],
     messages: [Message]
-  ) -> SystemLLMConversationThread {
-    return SystemLLMConversationThread(
+  ) -> SystemLLMSession {
+    return SystemLLMSession(
       model: model,
       tools: tools,
       messages: messages
@@ -155,14 +141,14 @@ public struct SystemLLM: LLM {
     // Split conversation: context (prefix) and the user prompt (last message)
     let contextMessages = Array(messages.dropLast())
 
-    // Create thread with context
-    let thread = makeConversationThread(tools: tools, messages: contextMessages)
+    // Create session with context
+    let session = makeSession(tools: tools, messages: contextMessages)
 
     let prompt = Prompt(chunks: lastMessage.chunks)
     return try await reply(
       to: prompt,
       returning: type,
-      in: thread,
+      in: session,
       options: options
     )
   }
@@ -170,7 +156,7 @@ public struct SystemLLM: LLM {
   public func reply<T: Generable>(
     to prompt: Prompt,
     returning type: T.Type,
-    in thread: SystemLLMConversationThread,
+    in session: SystemLLMSession,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard isAvailable else {
@@ -179,7 +165,7 @@ public struct SystemLLM: LLM {
     }
 
     do {
-      return try await thread.generateResponse(
+      return try await session.generateResponse(
         prompt: prompt,
         type: type,
         options: options

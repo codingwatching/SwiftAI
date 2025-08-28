@@ -215,7 +215,7 @@ extension LLM {
     )
   }
 
-  /// Convenience method for prompt-based queries with default parameters.
+  /// Convenience method for string-based prompt queries with default parameters.
   public func reply<T: Generable>(
     to prompt: String,
     returning type: T.Type = String.self,

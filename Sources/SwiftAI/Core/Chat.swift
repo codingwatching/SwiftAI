@@ -82,7 +82,7 @@ public actor Chat<LLMType: LLM> {
     }
   }
 
-  /// Sends a prompt to the LLM and returns the generated response.
+  /// Sends a string prompt to the LLM and returns the generated response.
   public func send<T: Generable>(
     _ prompt: String,
     returning type: T.Type = String.self,

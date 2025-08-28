@@ -27,7 +27,7 @@ public final actor SystemLLMConversationThread {
     type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    let foundationPrompt = FoundationModels.Prompt(prompt.text)
+    let foundationPrompt = prompt.promptRepresentation
     let generationOptions = toFoundationGenerationOptions(options)
 
     let content: T = try await {

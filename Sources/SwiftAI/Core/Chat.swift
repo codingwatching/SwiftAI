@@ -22,9 +22,9 @@ public actor Chat<LLMType: LLM> {
   /// The tools available for the LLM to use during the conversation.
   public let tools: [any Tool]
 
-  /// The conversation thread for LLMs that support threading.
-  /// Nil for stateless LLMs (NullConversationThread).
-  private var thread: LLMType.ConversationThread?
+  /// The session for LLMs that support session based conversations.
+  /// Nil for stateless LLMs (NullLLMSession).
+  private var session: LLMType.Session?
 
   /// Creates a new chat instance with the specified LLM and tools.
   ///
@@ -41,9 +41,9 @@ public actor Chat<LLMType: LLM> {
     self.tools = tools
     self.messages = initialMessages
 
-    // Initialize conversation thread for LLMs that support threading (non-NullConversationThread)
-    let createdThread = llm.makeConversationThread(tools: tools, messages: initialMessages)
-    self.thread = (createdThread is NullConversationThread) ? nil : createdThread
+    // Initialize session for LLMs that support session management (non-NullLLMSession)
+    let createdSession = llm.makeSession(tools: tools, messages: initialMessages)
+    self.session = (createdSession is NullLLMSession) ? nil : createdSession
   }
 
   // TODO: Add an init with a system prompt PromptBuilder to allow constructing.
@@ -60,11 +60,11 @@ public actor Chat<LLMType: LLM> {
     returning type: T.Type = String.self,
     options: LLMReplyOptions = .default
   ) async throws -> T {
-    if let thread {
+    if let session {
       let reply = try await llm.reply(
         to: prompt,
         returning: type,
-        in: thread,
+        in: session,
         options: options
       )
       self.messages = reply.history

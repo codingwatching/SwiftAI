@@ -103,6 +103,16 @@ public struct MlxLLM: LLM {
   /// - Parameter configuration: The model configuration to use.
   public init(configuration: ModelConfiguration) {
     self.configuration = configuration
+    
+    // Start a non-blocking task to preload the model
+    Task {
+      do {
+        _ = try await Self.defaultManager.getOrLoadModel(forConfiguration: configuration)
+      } catch {
+        // Silently ignore errors during preloading - they will be handled
+        // when the model is actually used
+      }
+    }
   }
 
   // MARK: - Static Configuration

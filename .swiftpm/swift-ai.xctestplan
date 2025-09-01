@@ -1,0 +1,36 @@
+{
+  "configurations" : [
+    {
+      "id" : "5C67449B-0A6D-4757-8D40-DD9C52B8DB10",
+      "name" : "Test Scheme Action",
+      "options" : {
+        "environmentVariableEntries" : [
+          {
+            "key" : "MLX_TEST_MODEL_DIR",
+            "value" : ""
+          }
+        ]
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SwiftAIMacrosTests",
+        "name" : "SwiftAIMacrosTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SwiftAITests",
+        "name" : "SwiftAITests"
+      }
+    }
+  ],
+  "version" : 1
+}

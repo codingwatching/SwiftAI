@@ -73,23 +73,61 @@ import MLXLMCommon
 /// )
 /// ```
 public struct MlxLLM: LLM {
-  public typealias Session = MlxSession
+  // MARK: - Static Properties
 
+  /// Default directory for storing model files.
+  static public let defaultStorageDirectory = URL.documentsDirectory.appending(path: "mlx-models")
+
+  // FIXME: Can we make this safer? It's not thread-safe now.
+  /// Internal storage for the default model manager.
+  private static var defaultManager = MlxModelManager(storageDirectory: defaultStorageDirectory)
+
+  // MARK: - Instance Properties
+
+  /// Configuration for the MLX model.
   private let configuration: ModelConfiguration
-  private let manager = MlxModelManager.shared
 
-  /// Creates a new MLX LLM instance from a model configuration.
-  public init(configuration: ModelConfiguration) {
-    self.configuration = configuration
-  }
+  // MARK: - Computed Properties
 
   /// Indicates whether the MLX model is currently available for use.
   ///
   /// The model is available if the model files (weights and tokenizer) are downloaded.
   public var isAvailable: Bool {
-    // TODO: Implement
-    return false
+    return Self.defaultManager.areModelFilesAvailableLocally(configuration: configuration)
   }
+
+  // MARK: - Initialization
+
+  /// Creates a new MLX LLM instance from a model configuration.
+  ///
+  /// - Parameter configuration: The model configuration to use.
+  public init(configuration: ModelConfiguration) {
+    self.configuration = configuration
+  }
+
+  // MARK: - Static Configuration
+
+  /// Configures where model files will be stored.
+  ///
+  /// This method should be called during app startup, before using any
+  /// `MlxLLM` instance.
+  ///
+  /// - Parameter storageDirectory: The directory where model files will be stored.
+  /// - Note: If this method is not called, `MlxLLM` instances will use the default storage directory.
+  /// - Warning: This method is not thread-safe. It's recommended to call it from the main thread during app startup.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// // During app startup
+  /// let customDirectory = URL.documentsDirectory.appending(path: "custom-models")
+  /// MlxLLM.configure(storageDirectory: customDirectory)
+  /// ```
+  public static func configure(storageDirectory: URL) {
+    defaultManager = MlxModelManager(storageDirectory: storageDirectory)
+  }
+
+  // MARK: - Session Management
 
   public func makeSession(
     tools: [any Tool],
@@ -99,11 +137,12 @@ public struct MlxLLM: LLM {
       configuration: configuration,
       tools: tools,
       messages: messages,
-      modelManager: manager
+      modelManager: Self.defaultManager
     )
   }
 
-  /// Generates a response to a conversation using a MLX language model.
+  // MARK: - Response Generation
+
   public func reply<T: Generable>(
     to messages: [Message],
     returning type: T.Type,
@@ -135,7 +174,9 @@ public struct MlxLLM: LLM {
     in session: MlxSession,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    // FIXME: Maybe check for isAvailable?
+    guard isAvailable else {
+      throw LLMError.generalError("Model unavailable")
+    }
 
     return try await session.generateResponse(
       prompt: prompt,

@@ -7,121 +7,182 @@ import MLXLMCommon
 /// This manager handles:
 /// - Model downloading
 /// - Model sharing between multiple LLM instances
-public actor MlxModelManager {
-  /// Shared instance of the global model manager.
-  static private var _shared: MlxModelManager?
-  static private var wasConfigured = false
-  static public let defaultStorageDirectory = URL.documentsDirectory.appending(path: "mlx-models")
+actor MlxModelManager {
 
-  /// Configures the global model manager with a custom storage directory.
-  ///
-  /// This method should be called once during app startup, before accessing the shared instance.
-  /// Subsequent calls to this method will be ignored.
-  ///
-  /// - Parameter storageDirectory: The directory where model files will be stored.
-  /// - Note: If this method is not called, the shared instance will use the default storage directory.
-  /// - Warning: This method should only be called from the main thread during app startup.
-  ///
-  /// # Example
-  ///
-  /// ```swift
-  /// // During app startup
-  /// let customDirectory = URL.documentsDirectory.appending(path: "custom-models")
-  /// MlxModelManager.configureOnce(storageDirectory: customDirectory)
-  /// ```
-  public static func configureOnce(storageDirectory: URL) {
-    guard !wasConfigured else {
-      return
-    }
-
-    wasConfigured = true
-    _shared = MlxModelManager(storageDirectory: storageDirectory)
-  }
-
-  /// The shared instance of the model manager.
-  ///
-  /// If `configureOnce(storageDirectory:)` was called, returns the configured instance.
-  /// Otherwise, returns an instance using the default storage directory.
-  ///
-  /// - Returns: The shared MlxModelManager instance.
-  public static var shared: MlxModelManager {
-    if let instance = _shared {
-      return instance
-    }
-
-    // Create default instance if not configured
-    let defaultInstance = MlxModelManager()
-    if !wasConfigured {
-      _shared = defaultInstance
-      wasConfigured = true
-    }
-    return defaultInstance
-  }
-
-  #if DEBUG
-  /// Resets the configuration for testing purposes.
-  ///
-  /// - Warning: This method is only available in DEBUG builds and should only be used in tests.
-  public static func _resetForTesting() {
-    _shared = nil
-    wasConfigured = false
-  }
-  #endif
+  // MARK: - Properties
 
   /// Cache for loaded model containers.
+  ///
+  /// This avoids loading the same model in memory multiple times.
+  /// Cached models are subject to eviction when resources are low.
   private let modelCache = NSCache<NSString, ModelContainer>()
 
   /// Hub API instance for downloading models.
-  private let hubAPI: HubApi
+  ///
+  /// Marked as `nonisolated` because HubApi is thread-safe and needs to be accessed
+  /// from `nonisolated` methods like `areModelFilesAvailableLocally`.
+  private nonisolated let hubAPI: HubApi
+
+  // MARK: - Initialization
 
   /// Creates a new model manager instance.
   ///
   /// - Parameter storageDirectory: The directory where model files will be stored.
-  ///   Defaults to `~/Documents/mlx-models/`.
-  private init(storageDirectory: URL = defaultStorageDirectory) {
+  init(storageDirectory: URL) {
     self.hubAPI = HubApi(downloadBase: storageDirectory)
   }
 
-  /// Check if model files exist on disk
-  func isModelDownloaded(configuration: ModelConfiguration) -> Bool {
-    // Placeholder implementation - will be fully implemented in Milestone 2
-    return false
-  }
+  // MARK: - Public Interface
 
-  /// Get or load a model container for the given configuration
-  func getOrLoadModelContainer(for configuration: ModelConfiguration) async throws -> ModelContainer
-  {
-    let key = makeModelCacheKey(configuration: configuration)
+  /// Get or load a model container for the given configuration.
+  ///
+  /// This method first checks the cache for an existing model container. If not found,
+  /// it loads the model from disk/downloads it, caches it, and returns the container.
+  ///
+  /// - Parameter configuration: The model configuration to load.
+  /// - Returns: A loaded ModelContainer instance.
+  /// - Throws: An error if the model cannot be loaded.
+  func getOrLoadModel(
+    forConfiguration configuration: ModelConfiguration
+  ) async throws -> ModelContainer {
+    let key = makeModelCacheKey(fromConfiguration: configuration)
+
+    // Check cache first.
     if let modelContainer = modelCache.object(forKey: key) {
       return modelContainer
     }
 
+    // Load the model.
     let modelContainer = try await MLXLMCommon.loadModelContainer(
       hub: self.hubAPI,
       configuration: configuration
     )
+
+    // Mark the model as downloaded since we successfully loaded it.
+    try markModelAsDownloaded(configuration: configuration)
+
+    // Cache the loaded model.
     modelCache.setObject(modelContainer, forKey: key)
 
     return modelContainer
   }
-}
 
-func makeModelCacheKey(configuration: ModelConfiguration) -> NSString {
-  var hasher = Hasher()
-  switch configuration.id {
-  case .id(let id, let revision):
-    hasher.combine(id)
-    hasher.combine(revision)
-  case .directory(let url):
-    hasher.combine(url)
-  @unknown default:
-    // TODO: IS there a better way to handle this?
-    fatalError("Unknown model configuration type")
+  /// Check if model files exist locally on disk.
+  ///
+  /// For remote models, this checks both that the repository directory exists
+  /// and that a `.downloaded` marker file is present. For local directory models,
+  /// it simply checks if the directory exists.
+  ///
+  /// - Parameter configuration: The model configuration to check.
+  /// - Returns: `true` if the model files are available locally, `false` otherwise.
+  nonisolated func areModelFilesAvailableLocally(configuration: ModelConfiguration) -> Bool {
+    switch configuration.id {
+    case .id(let id, _):
+      return isRemoteModelAvailable(id: id)
+
+    case .directory(let url):
+      return isLocalDirectoryModelAvailable(url: url)
+
+    @unknown default:
+      return false
+    }
   }
-  hasher.combine(configuration.tokenizerId)
-  hasher.combine(configuration.overrideTokenizer)
-  hasher.combine(configuration.defaultPrompt)
-  hasher.combine(configuration.extraEOSTokens)
-  let hash = hasher.finalize()
-  return NSString(string: String(format: "%02X", hash))
+
+  // MARK: - Private Helpers - Model Availability
+
+  /// Check if a remote model is available locally.
+  ///
+  /// - Parameter id: The model repository ID.
+  /// - Returns: `true` if the model is downloaded and ready to use.
+  private nonisolated func isRemoteModelAvailable(id: String) -> Bool {
+    let repo = Hub.Repo(id: id)
+    let localRepoPath = hubAPI.localRepoLocation(repo)
+
+    // Check if the repository directory exists
+    guard FileManager.default.fileExists(atPath: localRepoPath.path) else {
+      return false
+    }
+
+    // Check if the .downloaded marker file exists
+    let downloadedMarkerPath = localRepoPath.appending(path: ".downloaded")
+    return FileManager.default.fileExists(atPath: downloadedMarkerPath.path)
+  }
+
+  /// Check if a local directory model is available.
+  ///
+  /// - Parameter url: The local directory URL.
+  /// - Returns: `true` if the directory exists.
+  private nonisolated func isLocalDirectoryModelAvailable(url: URL) -> Bool {
+    return FileManager.default.fileExists(atPath: url.path)
+  }
+
+  // MARK: - Private Helpers - Download Management
+
+  /// Mark a model as downloaded by creating a .downloaded marker file.
+  ///
+  /// This method only applies to remote models. Local directory models
+  /// don't need download markers.
+  ///
+  /// - Parameter configuration: The model configuration to mark as downloaded.
+  /// - Throws: An error if the marker file cannot be created.
+  private func markModelAsDownloaded(configuration: ModelConfiguration) throws {
+    switch configuration.id {
+    case .id(let id, _):
+      try createDownloadMarker(for: id)
+
+    case .directory(_):
+      // Local directory models don't need download markers
+      return
+
+    @unknown default:
+      throw LLMError.generalError("Unknown model configuration type")
+    }
+  }
+
+  /// Create a download marker file for a remote model.
+  ///
+  /// - Parameter id: The model repository ID.
+  /// - Throws: An error if the marker file cannot be created.
+  private func createDownloadMarker(for id: String) throws {
+    let repo = Hub.Repo(id: id)
+    let localRepoPath = hubAPI.localRepoLocation(repo)
+    let downloadedMarkerPath = localRepoPath.appending(path: ".downloaded")
+
+    try "".write(to: downloadedMarkerPath, atomically: true, encoding: .utf8)
+  }
+
+  // MARK: - Private Helpers - Cache Management
+
+  /// Generate a cache key for the given model configuration.
+  ///
+  /// The key is generated by hashing all relevant configuration properties
+  /// to ensure that different configurations get different cache entries.
+  ///
+  /// - Parameter configuration: The model configuration.
+  /// - Returns: A cache key string.
+  private func makeModelCacheKey(fromConfiguration: ModelConfiguration) -> NSString {
+    var hasher = Hasher()
+
+    // Hash the model ID
+    switch fromConfiguration.id {
+    case .id(let id, let revision):
+      hasher.combine(id)
+      hasher.combine(revision)
+    case .directory(let url):
+      hasher.combine(url)
+    @unknown default:
+      // TODO: Is there a better way to handle this?
+      assertionFailure("Unknown model configuration type")
+      return ""
+    }
+
+    // Hash other configuration properties
+    hasher.combine(fromConfiguration.tokenizerId)
+    hasher.combine(fromConfiguration.overrideTokenizer)
+    hasher.combine(fromConfiguration.defaultPrompt)
+    hasher.combine(fromConfiguration.extraEOSTokens)
+
+    let hash = hasher.finalize()
+    return NSString(string: String(format: "%02X", hash))
+  }
 }

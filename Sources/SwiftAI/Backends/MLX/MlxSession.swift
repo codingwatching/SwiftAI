@@ -40,7 +40,7 @@ public final actor MlxSession: LLMSession {
 
     messages.append(Message.user(.init(text: prompt.text)))
 
-    let modelContainer = try await modelManager.getOrLoadModelContainer(for: configuration)
+    let modelContainer = try await modelManager.getOrLoadModel(forConfiguration: configuration)
     let stream = try await modelContainer.perform { context in
       // TODO: Support tools and additional context.
       // TODO: Add support to LLMReplyOptions

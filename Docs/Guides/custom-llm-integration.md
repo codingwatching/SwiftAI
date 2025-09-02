@@ -76,7 +76,7 @@ SwiftAI uses a unified [Message](https://github.com/mi12labs/SwiftAI/blob/d07e5c
 ```swift
 private func convertMessages(_ messages: [Message]) -> [YourAPIFormat] {
   // Map system/user/ai/toolOutput roles
-  // Extract text or JSON from [ContentChunk](https://github.com/mi12labs/SwiftAI/blob/d07e5c6c2dfd688b9c0f92e5f832c4f66217b8c5/Sources/SwiftAI/Core/Message.swift#L156) values
+  // Extract text or JSON from the message.
 }
 ```
 

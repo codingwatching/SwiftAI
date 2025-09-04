@@ -18,12 +18,10 @@ struct MlxLLMTests {
 
   @Test(.enabled(if: testModelDirectoryIsSet()))
   func testMlxLLMBasicTextGeneration() async throws {
-    // Test basic text generation
-    let messages = [Message.user(.init(text: "Hello, how are you?"))]
+    await waitUntilAvailable(llm, timeout: .seconds(10))
 
-    let reply = try await llm.reply(to: messages)
+    let reply = try await llm.reply(to: "Hello, how are you")
 
-    // Verify we got a response
     #expect(reply.content.count > 0)
     #expect(reply.history.count == 2)
   }
@@ -52,4 +50,19 @@ private func testModelDirectoryIsSet() -> Bool {
     return false
   }
   return !modelDir.isEmpty
+}
+
+@discardableResult
+private func waitUntilAvailable(_ llm: any LLM, timeout: Duration) async -> Bool {
+  let clock = ContinuousClock()
+  let deadline = clock.now.advanced(by: timeout)
+
+  if llm.isAvailable { return true }
+
+  while clock.now < deadline {
+    try? await Task.sleep(for: .milliseconds(25))
+    if llm.isAvailable { return true }
+  }
+
+  return llm.isAvailable
 }

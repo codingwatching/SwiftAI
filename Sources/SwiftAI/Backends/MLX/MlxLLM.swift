@@ -25,8 +25,7 @@ import MLXLMCommon
 /// let mlxLLM = MlxLLM(configuration: .init(id: "mlx-community/gemma-2-2b-it-4bit"))
 ///
 /// let response = try await llm.reply(
-///   to: "What is the capital of France?",
-///   returning: String.self
+///   to: "What is the capital of France?"
 /// )
 ///
 /// print(response.content) // "Paris"
@@ -89,11 +88,9 @@ public struct MlxLLM: LLM {
 
   // MARK: - Computed Properties
 
-  /// Indicates whether the MLX model is currently available for use.
-  ///
-  /// The model is available if the model files (weights and tokenizer) are downloaded.
+  /// Indicates whether the MLX model is currently loaded in memory.
   public var isAvailable: Bool {
-    return Self.defaultManager.areModelFilesAvailableLocally(configuration: configuration)
+    return Self.defaultManager.isModelLoadedInMemory(configuration)
   }
 
   // MARK: - Initialization
@@ -103,7 +100,7 @@ public struct MlxLLM: LLM {
   /// - Parameter configuration: The model configuration to use.
   public init(configuration: ModelConfiguration) {
     self.configuration = configuration
-    
+
     // Start a non-blocking task to preload the model
     Task {
       do {

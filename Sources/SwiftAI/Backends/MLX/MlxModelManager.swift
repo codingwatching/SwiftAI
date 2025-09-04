@@ -10,7 +10,7 @@ import os
 /// This manager handles:
 /// - Model downloading
 /// - Model sharing between multiple LLM instances
-final class MlxModelManager: @unchecked Sendable {
+public final class MlxModelManager: @unchecked Sendable {
 
   // MARK: - Properties
 
@@ -33,11 +33,18 @@ final class MlxModelManager: @unchecked Sendable {
   /// Creates a new model manager instance.
   ///
   /// - Parameter storageDirectory: The directory where model files will be stored.
-  init(storageDirectory: URL) {
+  public init(storageDirectory: URL) {
     self.hubAPI = HubApi(downloadBase: storageDirectory)
   }
 
   // MARK: - Public Interface
+
+  /// Creates an LLM instance using this manager.
+  public func llm(with configuration: ModelConfiguration) -> MlxLLM {
+    return MlxLLM(configuration: configuration, modelManager: self)
+  }
+
+  // MARK: - Internal Interface
 
   func getOrLoadModel(
     forConfiguration configuration: ModelConfiguration
@@ -89,6 +96,12 @@ final class MlxModelManager: @unchecked Sendable {
     let key = cacheKey(fromConfiguration: configuration)
     return modelCache.object(forKey: key as NSString) != nil
   }
+}
+
+extension MlxModelManager {
+  public static let shared = MlxModelManager(
+    storageDirectory: URL.documentsDirectory.appending(path: "mlx-models")
+  )
 }
 
 /// Generate a cache key for the given model configuration.

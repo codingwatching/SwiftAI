@@ -8,8 +8,8 @@ protocol LLMBaseTestCases {
   var llm: LLMType { get }
 
   // MARK: - Basic Tests
-  func testReply_ToPrompt() async throws
-  func testReply_ToPrompt_ReturnsCorrectHistory() async throws
+  func testReplyToPrompt() async throws
+  func testReplyToPrompt_ReturnsCorrectHistory() async throws
   func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws
 
   // MARK: - Structured Output Tests
@@ -31,18 +31,18 @@ protocol LLMBaseTestCases {
   func testReply_WithTools_ReturningStructured_ReturnsCorrectContent() async throws
   func testReply_WithTools_InSession_MaintainsContext() async throws
   func testReply_MultiTurnToolLoop() async throws
-  func testReply_WithFailingTool_HandlesErrors() async throws
+  func testReply_WithFailingTool_Fails() async throws
 
   // MARK: - Complex Conversation Tests
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws
-  func testReply_ToSeededHistory_MaintainsContext() async throws
+  func testReply_ToChatContinuation() async throws
   func testReply_InSession_ReturningStructured_MaintainsContext() async throws
   func testReply_ReturningConstrainedTypes_ReturnsCorrectContent() async throws
-  func testReply_ToSystemPrompt_ReturnsCorrectResponse() async throws
+  func testReply_WithSystemPrompt() async throws
 }
 
 extension LLMBaseTestCases {
-  func testReply_ToPrompt_Impl() async throws {
+  func testReplyToPrompt_Impl() async throws {
     let haiku = try await llm.reply {
       "Write a haiku about Paris"
     }.content
@@ -55,7 +55,7 @@ extension LLMBaseTestCases {
     #expect(verdict.isHaiku == true)
   }
 
-  func testReply_ToPrompt_ReturnsCorrectHistory_Impl() async throws {
+  func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {
     let reply = try await llm.reply {
       "Tell me a short story about a cat."
     }
@@ -205,20 +205,20 @@ extension LLMBaseTestCases {
 
   func testPrewarm_DoesNotBreakNormalOperation_Impl() async throws {
     let session = llm.makeSession()
-    
+
     // Call prewarm multiple times
     session.prewarm()
     session.prewarm()
-    
+
     // Verify normal operation still works after prewarming
     let response = try await llm.reply(
-        to: "What is 2+2?",
-        in: session
+      to: "What is 2+2?",
+      in: session
     )
-    
+
     #expect(!response.content.isEmpty, "Response should not be empty")
     #expect(response.content.contains("4"), "Response should contain the correct answer")
-    
+
     // Verify session history is maintained correctly
     #expect(response.history.count == 2, "Should have at least user and AI messages")
     #expect(response.history[0].role == .user, "First message should be from user")
@@ -307,7 +307,7 @@ extension LLMBaseTestCases {
 
     // Second interaction: weather (should maintain context)
     let _ = try await llm.reply(
-      to: "Now tell me about the weather in Paris",
+      to: "Now tell me about the weather in Paris in celsius",
       in: session
     )
 
@@ -340,7 +340,7 @@ extension LLMBaseTestCases {
     #expect(reply.content.contains("22°C"))
   }
 
-  func testReply_WithFailingTool_HandlesErrors_Impl() async throws {
+  func testReply_WithFailingTool_Fails_Impl() async throws {
     let failingTool = FailingTool()
 
     // Test that tool errors are properly handled
@@ -449,7 +449,7 @@ extension LLMBaseTestCases {
       "Should contain full history plus new response")
   }
 
-  func testReply_ToSeededHistory_MaintainsContext_Impl() async throws {
+  func testReply_ToChatContinuation_Impl() async throws {
     let weatherTool = MockWeatherTool()
 
     // First inference: Start a conversation about weather
@@ -466,12 +466,12 @@ extension LLMBaseTestCases {
     #expect(firstReply.history.count == 5)  // System + User + Tool Call + Tool Output + AI
 
     // Seed the complete history from first reply into second call
-    let historyBasedConversation =
+    let conversation =
       firstReply.history + [
         .user(.init(text: "Which city did I ask about in our conversation?"))
       ]
     let secondReply = try await llm.reply(
-      to: historyBasedConversation,
+      to: conversation,
       tools: [weatherTool]
     )
 
@@ -479,7 +479,7 @@ extension LLMBaseTestCases {
     #expect(secondReply.content.contains("Tokyo"), "Should remember Tokyo was mentioned")
     // Verify conversation continuity - second reply should build on first
     #expect(
-      secondReply.history.count >= historyBasedConversation.count + 1,
+      secondReply.history.count >= conversation.count + 1,
       "Should preserve full conversation flow")
   }
 
@@ -552,7 +552,7 @@ extension LLMBaseTestCases {
     // #expect(response.content.description == nil)
   }
 
-  func testReply_ToSystemPrompt_ReturnsCorrectResponse_Impl() async throws {
+  func testReply_WithSystemPrompt_Impl() async throws {
     let messages: [Message] = [
       .system(.init(text: "You are a helpful math tutor. Always show your work.")),
       .user(.init(text: "What is 15 × 7?")),
@@ -680,10 +680,12 @@ struct ComprehensiveProfile: Equatable {
 final class MockWeatherTool: @unchecked Sendable, Tool {
   @Generable
   struct Arguments {
-    @Guide(description: "City to get the weather for. Must be a valid city name.")
+    @Guide(description: "City to get the weather for. Must be a valid city name")
     let city: String
 
-    @Guide(description: "Unit for temperature", .anyOf(["celsius", "fahrenheit"]))
+    @Guide(
+      description: "Optional temperature unit. Default is 'celsius'",
+      .anyOf(["celsius", "fahrenheit"]))
     let unit: String?
   }
 

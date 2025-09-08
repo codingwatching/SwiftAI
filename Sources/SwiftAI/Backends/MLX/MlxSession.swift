@@ -51,9 +51,9 @@ public final actor MlxSession: LLMSession {
         let lmInput = try await context.processor.prepare(
           input: UserInput(chat: chat, tools: toolSpecs)
         )
-        // TODO: Add support to LLMReplyOptions
+        let parameters: GenerateParameters = makeGenerationParams(from: options)
         return try MLXLMCommon.generate(
-          input: lmInput, parameters: GenerateParameters(), context: context)
+          input: lmInput, parameters: parameters, context: context)
       }
 
       var text = ""
@@ -117,4 +117,24 @@ public final actor MlxSession: LLMSession {
     let result = try await tool.call(argumentsData)
     return .init(id: toolCall.id, toolName: toolCall.toolName, chunks: result.chunks)
   }
+}
+
+private nonisolated func makeGenerationParams(from options: LLMReplyOptions) -> GenerateParameters {
+  var params = GenerateParameters()
+  if let max = options.maximumTokens { params.maxTokens = max }
+
+  switch options.samplingMode {
+  case .some(.greedy):
+    params.temperature = 0
+  case .some(.topP(let p)):
+    params.topP = Float(p)
+  case .none:
+    break
+  }
+
+  if let t = options.temperature, options.samplingMode != .some(.greedy) {
+    params.temperature = Float(t)
+  }
+
+  return params
 }

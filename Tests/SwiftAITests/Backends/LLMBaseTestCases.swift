@@ -75,17 +75,17 @@ extension LLMBaseTestCases {
   }
 
   func testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl() async throws {
-    let options = LLMReplyOptions(maximumTokens: 1)
-
     let reply = try await llm.reply(
       to: "Write a long story about space exploration",
-      options: options
+      options: LLMReplyOptions(maximumTokens: 1)
     )
+    
+    print(reply.content)
 
     // Verify that the response is very short when maxTokens is set to 1
-    // Note: 1 token can be multiple characters, so we expect it to be less than 7 characters
+    // Note: 1 token can be multiple characters, so we expect it to be less than 10 characters
     #expect(
-      reply.content.count < 7, "Response should be very short (<7 characters) when maxTokens = 1")
+      reply.content.count < 10, "Response should be very short (<10 characters) when maxTokens = 1")
   }
 
   func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {

@@ -40,7 +40,7 @@ struct MlxLLMTests: LLMBaseTestCases {
     try await testReplyToPrompt_ReturnsCorrectHistory_Impl()
   }
 
-  @Test(.disabled("Generation options not supported"))
+  @Test(.enabled(if: testModelDirectoryIsSet()))
   func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws {
     await waitUntilAvailable(llm, timeout: .seconds(20))
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()

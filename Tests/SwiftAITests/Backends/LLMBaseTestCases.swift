@@ -79,8 +79,6 @@ extension LLMBaseTestCases {
       to: "Write a long story about space exploration",
       options: LLMReplyOptions(maximumTokens: 1)
     )
-    
-    print(reply.content)
 
     // Verify that the response is very short when maxTokens is set to 1
     // Note: 1 token can be multiple characters, so we expect it to be less than 10 characters

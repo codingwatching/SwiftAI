@@ -8,8 +8,15 @@ public final actor MlxSession: LLMSession {
   private let modelManager: MlxModelManager
   private let tools: [any Tool]
 
-  // Conversation state
-  private var messages: [Message]
+  /// Full conversation history.
+  private var transcript: [Message]
+
+  /// Messages that haven't been processed yet by the model.
+  /// When a message is processed, it's removed from the list,
+  /// and the KVCache is updated.
+  private var unprocessedMessages: [Message]
+
+  /// Key-value cache for the LLM.
   private var kvCache: [KVCache]?
 
   init(
@@ -20,8 +27,9 @@ public final actor MlxSession: LLMSession {
   ) {
     self.configuration = configuration
     self.tools = tools
-    self.messages = messages
     self.modelManager = modelManager
+    self.transcript = messages
+    self.unprocessedMessages = messages
   }
 
   public nonisolated func prewarm(promptPrefix: Prompt?) {
@@ -34,70 +42,77 @@ public final actor MlxSession: LLMSession {
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard type == String.self else {
-      throw LLMError.generalError("MLX does not support non-string return types")
+      throw LLMError.generalError("MLX does not support structured output yet")
     }
 
-    // TODO: Implement KVCache handling.
-
-    messages.append(.user(.init(text: prompt.text)))
+    let userMsg = Message.user(.init(text: prompt.text))
+    transcript.append(userMsg)
+    unprocessedMessages.append(userMsg)
 
     let modelContainer = try await modelManager.getOrLoadModel(forConfiguration: configuration)
-
     let toolSpecs = makeMLXToolSpecs(from: self.tools)
-    toolLoop: while true {
-      let chat = self.messages.map { $0.asMlxChatMessage }
 
+    if self.kvCache == nil {
+      // Create the KVCache if it doesn't exist.
+      self.kvCache = await modelContainer.perform { context in
+        context.model.newCache(parameters: GenerateParameters())
+      }
+    }
+
+    // We capture the KVCache before entering the `perform` block to avoid the following error:
+    // "Actor-isolated property 'kvCache' cannot be accessed from outside of the actor"
+    // It is safe to pass the kvCache because concurrent generations are not supported
+    // from within the same session.
+    let kvCache = self.kvCache
+
+    // Tool loop.
+    while true {
+      let mlxChatMsgs = self.unprocessedMessages.map { $0.asMlxChatMessage }
       let stream = try await modelContainer.perform { context in
-        let lmInput = try await context.processor.prepare(
-          input: UserInput(chat: chat, tools: toolSpecs)
+        let languageModelInput = try await context.processor.prepare(
+          input: UserInput(chat: mlxChatMsgs, tools: toolSpecs)
         )
-        let parameters: GenerateParameters = makeGenerationParams(from: options)
+        let parameters = GenerateParameters(from: options)
         return try MLXLMCommon.generate(
-          input: lmInput, parameters: parameters, context: context)
+          input: languageModelInput,
+          cache: kvCache,
+          parameters: parameters,
+          context: context
+        )
       }
 
       var text = ""
-      var toolCallsToExecute = [MLXLMCommon.ToolCall]()
+      var toolCallsToExecute = [Message.ToolCall]()
 
       for await event in stream {
         switch event {
         case .chunk(let chunk):
           text += chunk
         case .toolCall(let toolCall):
+          let toolCall = Message.ToolCall(from: toolCall)
           toolCallsToExecute.append(toolCall)
         case .info(_):
           break
         }
       }
 
+      // The kvcache now contains the new context.
+      self.unprocessedMessages.removeAll()
+
       if toolCallsToExecute.isEmpty {
         // Terminal state.
-        messages.append(.ai(.init(text: text)))
-        return LLMReply(content: unsafeBitCast(text, to: T.self), history: messages)
-      }
-
-      // Record the partial AI message with any accumulated text and the tool calls
-      let swiftAIToolCalls = toolCallsToExecute.map { mlxCall in
-        Message.ToolCall(
-          id: UUID().uuidString,
-          toolName: mlxCall.function.name,
-          arguments: StructuredContent(
-            kind: .object(
-              mlxCall.function.arguments.mapValues { jsonValue in
-                jsonValue.asStructuredContent
-              }
-            )
-          )
-        )
+        transcript.append(.ai(.init(text: text)))
+        return LLMReply(content: text as! T, history: transcript)
       }
 
       let chunks: [ContentChunk] = text.isEmpty ? [] : [.text(text)]
-      messages.append(.ai(.init(chunks: chunks, toolCalls: swiftAIToolCalls)))
+      transcript.append(.ai(.init(chunks: chunks, toolCalls: toolCallsToExecute)))
 
       // Execute tools
-      for call in swiftAIToolCalls {
-        let output = try await execute(toolCall: call)
-        messages.append(.toolOutput(output))
+      for toolCall in toolCallsToExecute {
+        let output = try await execute(toolCall: toolCall)
+        transcript.append(.toolOutput(output))
+        unprocessedMessages.append(.toolOutput(output))
       }
     }
   }
@@ -119,22 +134,36 @@ public final actor MlxSession: LLMSession {
   }
 }
 
-private nonisolated func makeGenerationParams(from options: LLMReplyOptions) -> GenerateParameters {
-  var params = GenerateParameters()
-  if let max = options.maximumTokens { params.maxTokens = max }
+extension GenerateParameters {
+  fileprivate init(from options: LLMReplyOptions) {
+    self.init()
+    if let max = options.maximumTokens { self.maxTokens = max }
 
-  switch options.samplingMode {
-  case .some(.greedy):
-    params.temperature = 0
-  case .some(.topP(let p)):
-    params.topP = Float(p)
-  case .none:
-    break
+    switch options.samplingMode {
+    case .some(.greedy):
+      self.temperature = 0
+    case .some(.topP(let p)):
+      self.topP = Float(p)
+    case .none:
+      break
+    }
+
+    if let t = options.temperature, options.samplingMode != .some(.greedy) {
+      self.temperature = Float(t)
+    }
   }
+}
 
-  if let t = options.temperature, options.samplingMode != .some(.greedy) {
-    params.temperature = Float(t)
+extension Message.ToolCall {
+  fileprivate init(from mlxToolCall: MLXLMCommon.ToolCall) {
+    self.init(
+      id: UUID().uuidString,
+      toolName: mlxToolCall.function.name,
+      arguments: StructuredContent(
+        kind: .object(
+          mlxToolCall.function.arguments.mapValues { jsonValue in jsonValue.asStructuredContent }
+        )
+      )
+    )
   }
-
-  return params
 }

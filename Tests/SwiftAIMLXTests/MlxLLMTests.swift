@@ -1,9 +1,10 @@
 import Foundation
 import MLXLLM
 import MLXLMCommon
+import SwiftAI
+import SwiftAILLMTesting
+import SwiftAIMLX
 import Testing
-
-@testable import SwiftAI  // FIXME: remove @testable
 
 @Suite
 struct MlxLLMTests: LLMBaseTestCases {

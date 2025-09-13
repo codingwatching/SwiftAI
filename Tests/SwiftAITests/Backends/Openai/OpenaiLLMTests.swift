@@ -1,4 +1,5 @@
 import Foundation
+import SwiftAILLMTesting
 import Testing
 
 @testable import SwiftAI

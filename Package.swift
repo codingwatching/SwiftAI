@@ -13,7 +13,9 @@ let package = Package(
     .macCatalyst(.v17),
   ],
   products: [
-    .library(name: "SwiftAI", targets: ["SwiftAI"])
+    .library(name: "SwiftAI", targets: ["SwiftAI"]),
+    .library(name: "SwiftAILLMTesting", targets: ["SwiftAILLMTesting"]),
+    .library(name: "SwiftAIMLX", targets: ["SwiftAIMLX"]),
   ],
   dependencies: [
     .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.0"),
@@ -28,6 +30,19 @@ let package = Package(
       dependencies: [
         "SwiftAIMacros",
         .product(name: "OpenAI", package: "OpenAI"),
+      ]
+    ),
+    .target(
+      name: "SwiftAILLMTesting",
+      dependencies: [
+        "SwiftAI",
+        "SwiftAIMacros",
+      ]
+    ),
+    .target(
+      name: "SwiftAIMLX",
+      dependencies: [
+        "SwiftAI",
         .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
         .product(name: "MLXLLM", package: "mlx-swift-examples"),
       ]
@@ -44,8 +59,15 @@ let package = Package(
       name: "SwiftAITests",
       dependencies: [
         "SwiftAI",
-        .product(name: "MLXLLM", package: "mlx-swift-examples"),
-        .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
+        "SwiftAILLMTesting",
+      ]
+    ),
+    .testTarget(
+      name: "SwiftAIMLXTests",
+      dependencies: [
+        "SwiftAIMLX",
+        "SwiftAILLMTesting",
+        "SwiftAI",
       ]
     ),
     .testTarget(

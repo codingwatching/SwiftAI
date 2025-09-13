@@ -1,7 +1,8 @@
 import Foundation
+import SwiftAI
 import Testing
 
-@testable import SwiftAI
+@testable import SwiftAIMLX
 
 @Suite("Schema → JSON Conversion")
 struct SchemaToJsonConvert_Primitives_Tests {

@@ -2,7 +2,7 @@ import Foundation
 import SwiftAI
 import Testing
 
-protocol LLMBaseTestCases {
+public protocol LLMBaseTestCases {
   associatedtype LLMType: LLM
 
   var llm: LLMType { get }
@@ -42,7 +42,7 @@ protocol LLMBaseTestCases {
 }
 
 extension LLMBaseTestCases {
-  func testReplyToPrompt_Impl() async throws {
+  public func testReplyToPrompt_Impl() async throws {
     let haiku = try await llm.reply {
       "Write a haiku about Paris"
     }.content
@@ -55,7 +55,7 @@ extension LLMBaseTestCases {
     #expect(verdict.isHaiku == true)
   }
 
-  func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {
+  public func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {
     let reply = try await llm.reply {
       "Tell me a short story about a cat."
     }
@@ -74,7 +74,7 @@ extension LLMBaseTestCases {
     #expect(aiMessage.chunks == [.text(reply.content)])
   }
 
-  func testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl() async throws {
+  public func testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl() async throws {
     let reply = try await llm.reply(
       to: "Write a long story about space exploration",
       options: LLMReplyOptions(maximumTokens: 1)
@@ -86,7 +86,7 @@ extension LLMBaseTestCases {
       reply.content.count < 10, "Response should be very short (<10 characters) when maxTokens = 1")
   }
 
-  func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {
+  public func testReply_ReturningPrimitives_ReturnsCorrectContent_Impl() async throws {
     let reply = try await llm.reply(
       returning: SimpleResponse.self,
       to: {
@@ -97,7 +97,7 @@ extension LLMBaseTestCases {
     #expect(reply.content == expected)
   }
 
-  func testReply_ReturningPrimitives_ReturnsCorrectHistory_Impl() async throws {
+  public func testReply_ReturningPrimitives_ReturnsCorrectHistory_Impl() async throws {
     let reply = try await llm.reply(
       to: "Create a simple response",
       returning: SimpleResponse.self
@@ -119,7 +119,7 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_ReturningArrays_ReturnsCorrectContent_Impl() async throws {
+  public func testReply_ReturningArrays_ReturnsCorrectContent_Impl() async throws {
     let reply: LLMReply<ArrayResponse> = try await llm.reply(
       to: "Create a response with items ['apple', 'banana'] and numbers [1, 2, 3]",
       returning: ArrayResponse.self
@@ -129,7 +129,7 @@ extension LLMBaseTestCases {
     #expect(reply.content == expected)
   }
 
-  func testReply_ReturningArrays_ReturnsCorrectHistory_Impl() async throws {
+  public func testReply_ReturningArrays_ReturnsCorrectHistory_Impl() async throws {
     let reply: LLMReply<ArrayResponse> = try await llm.reply(
       to: "Create a response with arrays",
       returning: ArrayResponse.self
@@ -147,7 +147,7 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_ReturningNestedObjects_ReturnsCorrectContent_Impl() async throws {
+  public func testReply_ReturningNestedObjects_ReturnsCorrectContent_Impl() async throws {
     let reply: LLMReply<Person> = try await llm.reply(
       to: "Create a person named John, age 30, living at 123 Main St, New York, 10001",
       returning: Person.self
@@ -161,7 +161,7 @@ extension LLMBaseTestCases {
     #expect(reply.content == expected)
   }
 
-  func testReply_InSession_MaintainsContext_Impl() async throws {
+  public func testReply_InSession_MaintainsContext_Impl() async throws {
     // Create a new session for conversation
     let session = llm.makeSession(instructions: {
       "You are a helpful assistant."
@@ -201,7 +201,7 @@ extension LLMBaseTestCases {
     #expect(reply3.content.isValid == true)
   }
 
-  func testPrewarm_DoesNotBreakNormalOperation_Impl() async throws {
+  public func testPrewarm_DoesNotBreakNormalOperation_Impl() async throws {
     let session = llm.makeSession()
 
     // Call prewarm multiple times
@@ -225,7 +225,7 @@ extension LLMBaseTestCases {
 
   // MARK: - Tool Calling Tests
 
-  func testReply_WithTools_CallsCorrectTool_Impl() async throws {
+  public func testReply_WithTools_CallsCorrectTool_Impl() async throws {
     let calculatorTool = MockCalculatorTool()
 
     let _ = try await llm.reply(
@@ -241,7 +241,7 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_WithMultipleTools_SelectsCorrectTool_Impl() async throws {
+  public func testReply_WithMultipleTools_SelectsCorrectTool_Impl() async throws {
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
@@ -259,7 +259,7 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_WithTools_ReturningStructured_ReturnsCorrectContent_Impl() async throws {
+  public func testReply_WithTools_ReturningStructured_ReturnsCorrectContent_Impl() async throws {
     let calculatorTool = MockCalculatorTool()
 
     let reply: LLMReply<CalculationResult> = try await llm.reply(
@@ -280,7 +280,7 @@ extension LLMBaseTestCases {
     #expect(reply.content.result == 50.0)
   }
 
-  func testReply_WithTools_InSession_MaintainsContext_Impl() async throws {
+  public func testReply_WithTools_InSession_MaintainsContext_Impl() async throws {
     let calculatorTool = MockCalculatorTool()
     let weatherTool = MockWeatherTool()
 
@@ -318,7 +318,7 @@ extension LLMBaseTestCases {
     }
   }
 
-  func testReply_MultiTurnToolLoop_Impl(using llm: any LLM) async throws {
+  public func testReply_MultiTurnToolLoop_Impl(using llm: any LLM) async throws {
     let weatherTool = MockWeatherTool()
     let locationTool = GetCurrentLocationTool()
 
@@ -338,7 +338,7 @@ extension LLMBaseTestCases {
     #expect(reply.content.contains("22°C"))
   }
 
-  func testReply_WithFailingTool_Fails_Impl() async throws {
+  public func testReply_WithFailingTool_Fails_Impl() async throws {
     let failingTool = FailingTool()
 
     // Test that tool errors are properly handled
@@ -362,7 +362,9 @@ extension LLMBaseTestCases {
 
   // MARK: - Phase 6 Tests: Complex Conversation Scenarios
 
-  func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent_Impl() async throws {
+  public func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent_Impl()
+    async throws
+  {
     let messages: [Message] = [
       .system(
         .init(
@@ -447,7 +449,7 @@ extension LLMBaseTestCases {
       "Should contain full history plus new response")
   }
 
-  func testReply_ToChatContinuation_Impl() async throws {
+  public func testReply_ToChatContinuation_Impl() async throws {
     let weatherTool = MockWeatherTool()
 
     // First inference: Start a conversation about weather
@@ -481,7 +483,7 @@ extension LLMBaseTestCases {
       "Should preserve full conversation flow")
   }
 
-  func testReply_InSession_ReturningStructured_MaintainsContext_Impl() async throws {
+  public func testReply_InSession_ReturningStructured_MaintainsContext_Impl() async throws {
     // Create session with initial context
     let session = llm.makeSession(
       messages: [.system(.init(text: "You are a helpful assistant that creates user profiles."))]
@@ -506,7 +508,7 @@ extension LLMBaseTestCases {
     #expect(secondResponse.content.contains("25"))
   }
 
-  func testReply_ReturningConstrainedTypes_ReturnsCorrectContent_Impl() async throws {
+  public func testReply_ReturningConstrainedTypes_ReturnsCorrectContent_Impl() async throws {
     let response = try await llm.reply(
       to: """
         Create comprehensive data: email john@test.com, age 30, priority high, price 25.99, 
@@ -550,7 +552,7 @@ extension LLMBaseTestCases {
     // #expect(response.content.description == nil)
   }
 
-  func testReply_WithSystemPrompt_Impl() async throws {
+  public func testReply_WithSystemPrompt_Impl() async throws {
     let messages: [Message] = [
       .system(.init(text: "You are a helpful math tutor. Always show your work.")),
       .user(.init(text: "What is 15 × 7?")),
@@ -675,9 +677,11 @@ struct ComprehensiveProfile: Equatable {
 
 // MARK: - Mock Tools
 
-final class MockWeatherTool: @unchecked Sendable, Tool {
+public final class MockWeatherTool: @unchecked Sendable, Tool {
+  public init() {}
+
   @Generable
-  struct Arguments {
+  public struct Arguments {
     @Guide(description: "City to get the weather for. Must be a valid city name")
     let city: String
 
@@ -687,18 +691,18 @@ final class MockWeatherTool: @unchecked Sendable, Tool {
     let unit: String?
   }
 
-  let name = "get_weather"
-  let description = "Gets the current weather for a city"
+  public let name = "get_weather"
+  public let description = "Gets the current weather for a city"
 
   private(set) var callHistory: [Arguments] = []
   var wasCalledWith: Arguments?
 
-  func resetCallHistory() {
+  public func resetCallHistory() {
     callHistory.removeAll()
     wasCalledWith = nil
   }
 
-  func call(arguments: Arguments) async throws -> String {
+  public func call(arguments: Arguments) async throws -> String {
     callHistory.append(arguments)
     wasCalledWith = arguments
 
@@ -712,9 +716,11 @@ final class MockWeatherTool: @unchecked Sendable, Tool {
 }
 
 /// Mock tool for testing tool calling functionality
-final class MockCalculatorTool: @unchecked Sendable, Tool {
+public final class MockCalculatorTool: @unchecked Sendable, Tool {
+  public init() {}
+
   @Generable
-  struct Arguments {
+  public struct Arguments {
     @Guide(
       description: "The operation to perform", .anyOf(["add", "subtract", "multiply", "divide"]))
     let operation: String
@@ -722,18 +728,18 @@ final class MockCalculatorTool: @unchecked Sendable, Tool {
     let b: Double
   }
 
-  let name = "calculator"
-  let description = "Performs basic arithmetic operations"
+  public let name = "calculator"
+  public let description = "Performs basic arithmetic operations"
 
   private(set) var callHistory: [Arguments] = []
   var wasCalledWith: Arguments?
 
-  func resetCallHistory() {
+  public func resetCallHistory() {
     callHistory.removeAll()
     wasCalledWith = nil
   }
 
-  func call(arguments: Arguments) async throws -> String {
+  public func call(arguments: Arguments) async throws -> String {
     callHistory.append(arguments)
     wasCalledWith = arguments
 
@@ -755,46 +761,50 @@ final class MockCalculatorTool: @unchecked Sendable, Tool {
   }
 }
 
-final class GetCurrentLocationTool: @unchecked Sendable, Tool {
-  @Generable
-  struct Arguments {}
+public final class GetCurrentLocationTool: @unchecked Sendable, Tool {
+  public init() {}
 
-  let name = "get_current_location"
-  let description = "Gets the current location of the user."
+  @Generable
+  public struct Arguments {}
+
+  public let name = "get_current_location"
+  public let description = "Gets the current location of the user."
 
   private(set) var callHistory: [Arguments] = []
   var wasCalledWith: Arguments?
 
-  func resetCallHistory() {
+  public func resetCallHistory() {
     callHistory.removeAll()
     wasCalledWith = nil
   }
 
-  func call(arguments: Arguments) async throws -> String {
+  public func call(arguments: Arguments) async throws -> String {
     callHistory.append(arguments)
     wasCalledWith = arguments
     return "Berlin"
   }
 }
 
-final class FailingTool: @unchecked Sendable, Tool {
+public final class FailingTool: @unchecked Sendable, Tool {
+  public init() {}
+
   @Generable
-  struct Arguments {
+  public struct Arguments {
     let input: String
   }
 
-  let name = "failing_tool"
-  let description = "A tool that always fails"
+  public let name = "failing_tool"
+  public let description = "A tool that always fails"
 
   private(set) var callHistory: [Arguments] = []
   var wasCalledWith: Arguments?
 
-  func resetCallHistory() {
+  public func resetCallHistory() {
     callHistory.removeAll()
     wasCalledWith = nil
   }
 
-  func call(arguments: Arguments) async throws -> String {
+  public func call(arguments: Arguments) async throws -> String {
     callHistory.append(arguments)
     wasCalledWith = arguments
 

@@ -1,5 +1,6 @@
 import Foundation
 import MLXLMCommon
+import SwiftAI
 
 /// MLX language model integration.
 ///
@@ -113,8 +114,8 @@ public struct MlxLLM: LLM {
   // MARK: - Session Management
 
   public func makeSession(
-    tools: [any Tool],
-    messages: [Message]
+    tools: [any SwiftAI.Tool],
+    messages: [SwiftAI.Message]
   ) -> MlxSession {
     return MlxSession(
       configuration: configuration,
@@ -127,9 +128,9 @@ public struct MlxLLM: LLM {
   // MARK: - Response Generation
 
   public func reply<T: Generable>(
-    to messages: [Message],
+    to messages: [SwiftAI.Message],
     returning type: T.Type,
-    tools: [any Tool],
+    tools: [any SwiftAI.Tool],
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
     guard let lastMessage = messages.last, lastMessage.role == .user else {

@@ -1,28 +1,29 @@
 import Foundation
 import MLXLMCommon
+import SwiftAI
 import Tokenizers
 
 /// A session that maintains stateful interactions with MLX language models.
 public final actor MlxSession: LLMSession {
   private let configuration: ModelConfiguration
   private let modelManager: MlxModelManager
-  private let tools: [any Tool]
+  private let tools: [any SwiftAI.Tool]
 
   /// Full conversation history.
-  private var transcript: [Message]
+  private var transcript: [SwiftAI.Message]
 
   /// Messages that haven't been processed yet by the model.
   /// When a message is processed, it's removed from the list,
   /// and the KVCache is updated.
-  private var unprocessedMessages: [Message]
+  private var unprocessedMessages: [SwiftAI.Message]
 
   /// Key-value cache for the LLM.
   private var kvCache: [KVCache]?
 
   init(
     configuration: ModelConfiguration,
-    tools: [any Tool],
-    messages: [Message],
+    tools: [any SwiftAI.Tool],
+    messages: [SwiftAI.Message],
     modelManager: MlxModelManager
   ) {
     self.configuration = configuration
@@ -49,7 +50,7 @@ public final actor MlxSession: LLMSession {
       throw LLMError.generalError("MLX does not support structured output yet")
     }
 
-    let userMsg = Message.user(.init(text: prompt.text))
+    let userMsg = SwiftAI.Message.user(.init(text: prompt.text))
     transcript.append(userMsg)
     unprocessedMessages.append(userMsg)
 
@@ -86,14 +87,14 @@ public final actor MlxSession: LLMSession {
       }
 
       var text = ""
-      var toolCallsToExecute = [Message.ToolCall]()
+      var toolCallsToExecute = [SwiftAI.Message.ToolCall]()
 
       for await event in stream {
         switch event {
         case .chunk(let chunk):
           text += chunk
         case .toolCall(let toolCall):
-          let toolCall = Message.ToolCall(from: toolCall)
+          let toolCall = SwiftAI.Message.ToolCall(from: toolCall)
           toolCallsToExecute.append(toolCall)
         case .info(_):
           break
@@ -123,7 +124,9 @@ public final actor MlxSession: LLMSession {
 
   // MARK: - Helpers
 
-  private func execute(toolCall: Message.ToolCall) async throws -> Message.ToolOutput {
+  private func execute(toolCall: SwiftAI.Message.ToolCall) async throws
+    -> SwiftAI.Message.ToolOutput
+  {
     guard let tool = tools.first(where: { $0.name == toolCall.toolName }) else {
       throw LLMError.generalError("Tool '\(toolCall.toolName)' not found")
     }
@@ -158,7 +161,7 @@ extension GenerateParameters {
   }
 }
 
-extension Message.ToolCall {
+extension SwiftAI.Message.ToolCall {
   fileprivate init(from mlxToolCall: MLXLMCommon.ToolCall) {
     self.init(
       id: UUID().uuidString,

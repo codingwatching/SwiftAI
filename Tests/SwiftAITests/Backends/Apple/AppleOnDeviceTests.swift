@@ -1,6 +1,7 @@
 #if canImport(FoundationModels)
 import Foundation
 import SwiftAI
+import SwiftAILLMTesting
 import Testing
 
 @Suite("Apple On-Device LLM Tests")

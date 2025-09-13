@@ -1,14 +1,15 @@
 import Foundation
 import MLXLMCommon
+import SwiftAI
 import Tokenizers
 
 // MARK: - Message → MLX Chat
 
-func makeMLXChatMessages(from messages: [Message]) -> [MLXLMCommon.Chat.Message] {
+func makeMLXChatMessages(from messages: [SwiftAI.Message]) -> [MLXLMCommon.Chat.Message] {
   return messages.map { $0.asMlxChatMessage }
 }
 
-extension Message {
+extension SwiftAI.Message {
   var asMlxChatMessage: MLXLMCommon.Chat.Message {
     switch self {
     case .system(let sysMsg):
@@ -52,12 +53,12 @@ extension MLXLMCommon.JSONValue {
 
 // MARK: - Tools → Tokenizers.ToolSpec
 
-func makeMLXToolSpecs(from tools: [any Tool]) -> [Tokenizers.ToolSpec]? {
+func makeMLXToolSpecs(from tools: [any SwiftAI.Tool]) -> [Tokenizers.ToolSpec]? {
   if tools.isEmpty { return nil }
   return tools.map { $0.asToolSpec }
 }
 
-extension Tool {
+extension SwiftAI.Tool {
   fileprivate var asToolSpec: Tokenizers.ToolSpec {
     let parameters = type(of: self).parameters.asJSONObject
     return [

@@ -1,7 +1,7 @@
 import Foundation
 
 extension String {
-  
+
   /// Splits text into overlapping chunks for AI processing
   ///
   /// - Parameters:
@@ -14,26 +14,30 @@ extension String {
     guard count > chunkSize else {
       return [self]
     }
-    
+
     var chunks: [String] = []
     var startIndex = self.startIndex
-    
+
     while startIndex < self.endIndex {
       // Calculate end index for this chunk
-      let chunkEndIndex = self.index(startIndex, offsetBy: chunkSize, limitedBy: self.endIndex) ?? self.endIndex
-      
+      let chunkEndIndex =
+        self.index(startIndex, offsetBy: chunkSize, limitedBy: self.endIndex) ?? self.endIndex
+
       // Extract chunk
       let chunk = String(self[startIndex..<chunkEndIndex])
       chunks.append(chunk)
-      
+
       // Move start index forward, leaving overlap
       let nextStartOffset = chunkSize - overlapSize
-      guard let nextStartIndex = self.index(startIndex, offsetBy: nextStartOffset, limitedBy: self.endIndex) else {
+      guard
+        let nextStartIndex = self.index(
+          startIndex, offsetBy: nextStartOffset, limitedBy: self.endIndex)
+      else {
         break
       }
       startIndex = nextStartIndex
     }
-    
+
     return chunks
   }
 }

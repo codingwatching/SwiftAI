@@ -112,13 +112,15 @@ import Testing
   let expectedMessages: [Message] = [
     .user(.init(text: "What's the weather?")),
     .ai(
-      .init(chunks: [], toolCalls: [
-        Message.ToolCall(
-          id: "tool_call_0",
-          toolName: "fake_tool",
-          arguments: try! StructuredContent(json: #"{"input":"weather query"}"#)
-        )
-      ])),
+      .init(
+        chunks: [],
+        toolCalls: [
+          Message.ToolCall(
+            id: "tool_call_0",
+            toolName: "fake_tool",
+            arguments: try! StructuredContent(json: #"{"input":"weather query"}"#)
+          )
+        ])),
     .toolOutput(
       .init(
         id: "tool_call_0",

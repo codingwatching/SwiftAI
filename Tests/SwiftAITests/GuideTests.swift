@@ -167,7 +167,9 @@ struct Constraints {
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]),
+          constraints: [
+            .range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
+          ]),
         description: nil,
         isOptional: true),
       "double": Schema.Property(
@@ -238,7 +240,9 @@ struct DescriptionsWithConstraints {
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.range(lowerBound: 18, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]
+          constraints: [
+            .range(lowerBound: 18, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
+          ]
         ),
         description: "int field with constraints",
         isOptional: false),
@@ -357,7 +361,9 @@ struct ExplicitConstraintTypes {
         isOptional: false),
       "int": Schema.Property(
         schema: .integer(
-          constraints: [.range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100)]),
+          constraints: [
+            .range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
+          ]),
         description: nil,
         isOptional: true),
       "double": Schema.Property(

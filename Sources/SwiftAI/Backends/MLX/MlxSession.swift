@@ -32,8 +32,12 @@ public final actor MlxSession: LLMSession {
     self.unprocessedMessages = messages
   }
 
+  /// Loads the model in memory if it's not already loaded.
   public nonisolated func prewarm(promptPrefix: Prompt?) {
-    // TODO: Implement proper prewarming.
+    // TODO: In addition to loading the model we should consider preprocessing the prompt.
+    Task {
+      try await modelManager.getOrLoadModel(forConfiguration: configuration)
+    }
   }
 
   func generateResponse<T: Generable>(

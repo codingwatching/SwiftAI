@@ -287,6 +287,9 @@ public enum LLMUnavailabilityReason: Equatable, Sendable {
   /// No internet connection.
   case deviceIsOffline
 
+  /// The model weights are not available locally.
+  case modelNotDownloaded
+
   /// Other unavailability reason.
   case other(String)
 }

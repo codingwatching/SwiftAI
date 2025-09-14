@@ -25,6 +25,11 @@ public final class MlxModelManager: @unchecked Sendable {
     initialState: [String: Task<ModelContainer, Error>]()
   )
 
+  /// Map from model key to current download progress (0.0 to 1.0).
+  private let downloadProgress = OSAllocatedUnfairLock(
+    initialState: [String: Double]()
+  )
+
   /// Hub API instance for downloading models.
   private let hubAPI: HubApi
 
@@ -68,15 +73,26 @@ public final class MlxModelManager: @unchecked Sendable {
       // No existing task - create one NOW while still holding the lock
       let newTask = Task<ModelContainer, Error> {
         defer {
-          // Clean up the task from dictionary whether we succeed or throw
+          // Clean up the task and progress from dictionaries whether we succeed or throw
           loadingTasks.withLock { tasks in
             tasks[key] = nil
           }
+          downloadProgress.withLock { progress in
+            progress[key] = nil
+          }
         }
+
+        // TODO: The progress handler only tracks download progress, not loading
+        //   in memory phase. Consider tracking the loading phase separately.
 
         let modelContainer = try await MLXLMCommon.loadModelContainer(
           hub: self.hubAPI,
-          configuration: configuration
+          configuration: configuration,
+          progressHandler: { progress in
+            self.downloadProgress.withLock { progressDict in
+              progressDict[key] = progress.fractionCompleted
+            }
+          }
         )
         modelCache.setObject(modelContainer, forKey: key as NSString)
 
@@ -95,6 +111,14 @@ public final class MlxModelManager: @unchecked Sendable {
   nonisolated func isModelLoadedInMemory(_ configuration: ModelConfiguration) -> Bool {
     let key = cacheKey(fromConfiguration: configuration)
     return modelCache.object(forKey: key as NSString) != nil
+  }
+
+  /// Get the download progress for a model (0.0 to 1.0), or nil if not downloading.
+  nonisolated func getDownloadProgress(_ configuration: ModelConfiguration) -> Double? {
+    let key = cacheKey(fromConfiguration: configuration)
+    return downloadProgress.withLock { progressDict in
+      progressDict[key]
+    }
   }
 }
 

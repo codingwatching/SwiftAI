@@ -87,6 +87,17 @@ public struct MlxLLM: LLM {
     return modelManager.isModelLoadedInMemory(configuration)
   }
 
+  public var availability: LLMAvailability {
+    if isAvailable {
+      return .available
+    } else if let progress = modelManager.getDownloadProgress(configuration) {
+      return .downloading(progress: progress)
+    } else {
+      // TODO: Consider attaching any errors if the download previously failed.
+      return .unavailable(reason: .modelNotDownloaded)
+    }
+  }
+
   // MARK: - Initialization
 
   /// Creates a new MLX LLM instance from a model configuration and a model manager.

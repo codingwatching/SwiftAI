@@ -8,6 +8,9 @@ public protocol LLM: Model {
   /// Whether the LLM can be used.
   var isAvailable: Bool { get }
 
+  /// The detailed availability status of the LLM.
+  var availability: LLMAvailability { get }
+
   /// Queries the LLM to generate a structured response.
   ///
   /// This method sends a conversation history to the language model along with available tools
@@ -251,6 +254,41 @@ extension LLM {
   ) async throws -> LLMReply<T> {
     return try await reply(to: content(), returning: type, in: session, options: options)
   }
+}
+
+// MARK: - Availability
+
+/// The availability status of a language model.
+public enum LLMAvailability: Equatable, Sendable {
+  /// The model is available for use.
+  case available
+
+  /// The model is not available for use.
+  case unavailable(reason: LLMUnavailabilityReason)
+
+  /// The model is being downloaded.
+  case downloading(progress: Double)
+}
+
+/// Reasons why a model might be unavailable.
+public enum LLMUnavailabilityReason: Equatable, Sendable {
+  /// Apple Intelligence is not enabled on the system.
+  case appleIntelligenceNotEnabled
+
+  /// The model cannot currently be used.
+  case modelNotReady
+
+  /// The device does not support running the model.
+  case deviceNotSupported
+
+  /// The API key is missing.
+  case apiKeyMissing
+
+  /// No internet connection.
+  case deviceIsOffline
+
+  /// Other unavailability reason.
+  case other(String)
 }
 
 // MARK: - LLMSession

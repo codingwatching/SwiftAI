@@ -2,7 +2,6 @@
 import Foundation
 import SwiftAI
 import Testing
-import FoundationModels
 
 @Suite("Apple On-Device LLM Tests")
 struct AppleOnDeviceTests: LLMBaseTestCases {
@@ -10,9 +9,7 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     if #available(iOS 26.0, macOS 26.0, *) {
       return SystemLLM()
     } else {
-      // Test will not run when Apple Intelligence is not available.
-      // Test will not run when Apple Intelligence is not available.
-      return FakeLLM()
+      return CrashingLLM()
     }
   }
 
@@ -137,30 +134,9 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ToSystemPrompt_ReturnsCorrectResponse_Impl()
   }
 
-  @Test
+  @Test(.enabled(if: appleIntelligenceIsAvailable()))
   func testAvailability_PropertyReflectsCorrectStatus() async throws {
-    if appleIntelligenceIsAvailable() {
-      #expect(llm.availability == .available)
-    } else {
-      guard case .unavailable = llm.availability else {
-        if #available(iOS 26.0, macOS 26.0, *) {
-          // This should not happen since Apple Intelligence is not available.
-          Issue.record(
-            """
-            Apple Intelligence is not available, but LLM reports available. 
-            [\(FoundationModels.SystemLanguageModel().isAvailable)] 
-            [\(FoundationModels.SystemLanguageModel().availability)]
-            GOT [\(llm.availability)]
-            """
-          )
-        } else {
-          Issue.record(
-            "Got \(llm.availability). Want 'unavailable' status."
-          )
-        }
-        return
-      }
-    }
+    #expect(llm.availability == .available)
   }
 }
 

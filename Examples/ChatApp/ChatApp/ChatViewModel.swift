@@ -35,10 +35,10 @@ class ChatViewModel {
   private func startAvailabilityTimer() {
     Timer.publish(every: 0.5, on: .main, in: .common)
       .autoconnect()
-      .map { _ in self.llm.isAvailable }
+      .map { _ in self.llm.availability }
       .removeDuplicates()
-      .sink { [weak self] newValue in
-        self?.isModelAvailable = newValue
+      .sink { [weak self] availability in
+        self?.modelAvailability = availability
       }
       .store(in: &cancellables)
   }
@@ -51,8 +51,12 @@ class ChatViewModel {
     .system(.init(text: "You are a helpful assistant!"))
   ]
 
-  /// Stored availability state that gets updated periodically
-  var isModelAvailable: Bool = false
+  /// Detailed availability status for the current model
+  var modelAvailability: LLMAvailability = .unavailable(reason: .modelNotDownloaded)
+
+  var isModelAvailable: Bool {
+    llm.isAvailable
+  }
 
   /// Indicates if text generation is in progress
   var isGenerating = false
@@ -73,7 +77,7 @@ class ChatViewModel {
     selectedModel = model
     llm = llmProvider.getLLM(for: model)
     // Reset availability since we have a new LLM
-    isModelAvailable = llm.isAvailable
+    modelAvailability = llm.availability
     // Reset chat history
     clear()
   }

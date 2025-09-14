@@ -18,7 +18,7 @@ struct ChatView: View {
         // Display conversation history
         ConversationView(
           messages: vm.messages,
-          isModelLoading: !vm.isModelAvailable,
+          modelAvailability: vm.modelAvailability,
           isGenerating: vm.isGenerating
         )
 

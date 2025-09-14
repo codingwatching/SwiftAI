@@ -5,13 +5,23 @@ import SwiftUI
 struct ConversationView: View {
   /// Array of messages to display in the conversation
   let messages: [SwiftAI.Message]
-  let isModelLoading: Bool
+  let modelAvailability: LLMAvailability
   let isGenerating: Bool
 
-  init(messages: [SwiftAI.Message], isModelLoading: Bool = false, isGenerating: Bool = false) {
+  init(messages: [SwiftAI.Message], modelAvailability: LLMAvailability, isGenerating: Bool = false) {
     self.messages = messages
-    self.isModelLoading = isModelLoading
+    self.modelAvailability = modelAvailability
     self.isGenerating = isGenerating
+  }
+
+  /// Computed property for backward compatibility
+  private var isModelLoading: Bool {
+    switch modelAvailability {
+    case .available:
+      return false
+    default:
+      return true
+    }
   }
 
   var body: some View {
@@ -24,12 +34,24 @@ struct ConversationView: View {
 
         // Show loading indicator in conversation if model is loading
         if isModelLoading && messages.count <= 1 {  // Only show if just system message
-          HStack {
-            ProgressView()
-              .controlSize(.regular)
-            Text("Loading model, please wait...")
-              .foregroundColor(.secondary)
-            Spacer()
+          VStack(spacing: 8) {
+            HStack {
+              if case .downloading(let progress) = modelAvailability {
+                VStack(alignment: .leading, spacing: 4) {
+                  ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                  Text("Downloading: \(Int(progress * 100))%")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+                }
+              } else {
+                ProgressView()
+                  .controlSize(.regular)
+                Text("Loading model, please wait...")
+                  .foregroundColor(.secondary)
+              }
+              Spacer()
+            }
           }
           .padding(.horizontal, 12)
           .padding(.vertical, 8)
@@ -64,6 +86,7 @@ struct ConversationView: View {
       .ai(.init(text: "Hi there! How can I help you today?")),
       .user(.init(text: "What's the weather like?")),
     ],
+    modelAvailability: .downloading(progress: 0.65),
     isGenerating: true
   )
 }

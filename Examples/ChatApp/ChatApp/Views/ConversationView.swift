@@ -36,55 +36,75 @@ struct ConversationView: View {
   // MARK: - Body
 
   var body: some View {
-    ScrollView {
-      LazyVStack(spacing: 12) {
-        ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
-          MessageView(message)
-            .padding(.horizontal, 12)
-        }
+    ScrollViewReader { proxy in
+      ScrollView {
+        VStack(spacing: 0) {
+          // Content area with fixed height
+          VStack(spacing: 12) {
+            ForEach(messages, id: \.id) { message in
+              MessageView(message)
+                .padding(.horizontal, 12)
+            }
 
-        // Show loading indicator in conversation if model is loading
-        if isModelLoading && hasOnlySystemMessage {
-          VStack(spacing: 8) {
-            HStack {
-              if case .downloading(let progress) = modelAvailability {
-                VStack(alignment: .leading, spacing: 4) {
-                  ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                  Text("Downloading: \(Int(progress * 100))%")
-                    .foregroundColor(.secondary)
-                    .font(.caption)
+            // Show loading indicator in conversation if model is loading
+            if isModelLoading && hasOnlySystemMessage {
+              VStack(spacing: 8) {
+                HStack {
+                  if case .downloading(let progress) = modelAvailability {
+                    VStack(alignment: .leading, spacing: 4) {
+                      ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                      Text("Downloading: \(Int(progress * 100))%")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                    }
+                  } else {
+                    ProgressView()
+                      .controlSize(.regular)
+                    Text("Loading model, please wait...")
+                      .foregroundColor(.secondary)
+                  }
+                  Spacer()
                 }
-              } else {
-                ProgressView()
-                  .controlSize(.regular)
-                Text("Loading model, please wait...")
-                  .foregroundColor(.secondary)
               }
-              Spacer()
+              .padding(.horizontal, 12)
+              .padding(.vertical, 8)
+            }
+
+            // Show generation indicator when AI is responding
+            if isGenerating {
+              HStack {
+                ProgressView()
+                  .controlSize(.mini)
+                Text("Thinking...")
+                  .foregroundColor(.secondary)
+                  .font(.caption)
+                Spacer()
+              }
+              .padding(.horizontal, 12)
+              .padding(.vertical, 8)
             }
           }
-          .padding(.horizontal, 12)
           .padding(.vertical, 8)
-        }
 
-        // Show generation indicator when AI is responding
-        if isGenerating {
-          HStack {
-            ProgressView()
-              .controlSize(.mini)
-            Text("Thinking...")
-              .foregroundColor(.secondary)
-              .font(.caption)
-            Spacer()
+          // Flexible spacer that fills exactly the remaining space
+          // This ensures the last message can be positioned at the top of visible area
+          Spacer()
+            .frame(minHeight: 0)
+        }
+        .onChange(of: messages.count) { oldCount, newCount in
+          // Only scroll when a new message is added (count increases)
+          // This prevents scrolling when the array is replaced
+          if newCount > oldCount, let lastMessage = messages.last, lastMessage.role == .user {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+              withAnimation(.easeOut(duration: 0.1)) {
+                proxy.scrollTo(lastMessage.id, anchor: .top)
+              }
+            }
           }
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
         }
       }
     }
-    .padding(.vertical, 8)
-    .defaultScrollAnchor(.bottom, for: .sizeChanges)
   }
 }
 

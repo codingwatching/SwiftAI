@@ -15,6 +15,7 @@ import Foundation
 /// ]
 /// ```
 public enum Message: PromptRepresentable, Equatable, Sendable, Identifiable {
+public enum Message: PromptRepresentable, Equatable, Sendable, Identifiable {
   case system(SystemMessage)
   case user(UserMessage)
   case ai(AIMessage)
@@ -26,6 +27,15 @@ public enum Message: PromptRepresentable, Equatable, Sendable, Identifiable {
     case .user: .user
     case .ai: .ai
     case .toolOutput: .toolOutput
+    }
+  }
+
+  public var id: String {
+    switch self {
+    case .system(let message): message.id
+    case .user(let message): message.id
+    case .ai(let message): message.id
+    case .toolOutput(let message): message.id
     }
   }
 
@@ -50,6 +60,8 @@ public enum Message: PromptRepresentable, Equatable, Sendable, Identifiable {
   /// Specifies instructions for the AI's behavior and constraints.
   /// LLMs follow these instructions more carefully than other messages.
   public struct SystemMessage: PromptRepresentable, Equatable, Sendable {
+    public let id = UUID().uuidString
+
     public let id = UUID().uuidString
 
     public let chunks: [ContentChunk]

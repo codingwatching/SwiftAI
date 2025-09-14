@@ -152,10 +152,12 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     // Test with explicit API key
     let llmWithKey = OpenaiLLM(apiToken: "test-key", model: "gpt-4.1-nano")
     #expect(llmWithKey.isAvailable == true)
+    #expect(llmWithKey.availability == .available)
 
     // Test with empty API key
     let llmWithoutKey = OpenaiLLM(apiToken: "", model: "gpt-4.1-nano")
     #expect(llmWithoutKey.isAvailable == false)
+    #expect(llmWithoutKey.availability == .unavailable(reason: .apiKeyMissing))
   }
 
   @Test("Environment variable API key loading")
@@ -165,7 +167,10 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let hasEnvKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil
+    let expectedAvailability: LLMAvailability = hasEnvKey ? .available : .unavailable(reason: .apiKeyMissing)
+
     #expect(llm.isAvailable == hasEnvKey)
+    #expect(llm.availability == expectedAvailability)
   }
 }
 

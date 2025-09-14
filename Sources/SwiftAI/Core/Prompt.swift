@@ -39,7 +39,7 @@ extension PromptRepresentable {
 /// let prompt = Prompt("Tell me about Swift programming")
 /// let reply = try await llm.reply(to: [UserMessage(prompt: prompt)])
 /// ```
-public struct Prompt: PromptRepresentable {
+public struct Prompt: PromptRepresentable, Sendable {
   /// The content chunks that make up this prompt.
   public let chunks: [ContentChunk]
 

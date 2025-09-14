@@ -7,70 +7,88 @@ import SwiftAI
 @Observable
 @MainActor
 class ChatViewModel {
+  private static let availabilityCheckInterval: TimeInterval = 0.5
+  private static let defaultSystemMessage = "You are a helpful assistant!"
+
   /// Provider for creating LLM instances
   private let llmProvider: LLMProvider
-
-  /// Currently selected model
-  var selectedModel: ModelID
 
   /// Current LLM instance
   private var llm: any LLM
 
-  private var cancellables = Set<AnyCancellable>()
+  /// Combine subscriptions for reactive updates
+  private var availabilitySubscriptions = Set<AnyCancellable>()
+
+  // MARK: - Model State
+
+  /// Currently selected model
+  var selectedModel: ModelID
+
+  /// Detailed availability status for the current model
+  var modelAvailability: LLMAvailability = .unavailable(reason: .modelNotDownloaded)
+
+  /// All available models
+  var availableModels: [ModelID] {
+    llmProvider.availableModels
+  }
+
+  /// Whether the current model is ready for use
+  var isModelAvailable: Bool {
+    llm.isAvailable
+  }
+
+  // MARK: - Chat State
+
+  /// Current user input text
+  var prompt: String
+
+  /// Chat history containing system, user, and assistant messages
+  var messages: [SwiftAI.Message]
+
+  /// Indicates if text generation is in progress
+  var isGenerating: Bool
+
+  /// Current generation task, used for cancellation
+  private var generationTask: Task<Void, any Error>?
+
+  /// Most recent error message, if any
+  var errorMessage: String?
+
+  // MARK: - Initialization
 
   init(llmProvider: LLMProvider) {
     self.llmProvider = llmProvider
     self.selectedModel = .afm
     self.llm = llmProvider.getLLM(for: .afm)
 
-    startAvailabilityTimer()
+    self.prompt = ""
+    self.messages = [.system(.init(text: Self.defaultSystemMessage))]
+    self.isGenerating = false
+    self.errorMessage = nil
+
+    startAvailabilityMonitoring()
   }
 
   @MainActor
   deinit {
-    cancellables.removeAll()
+    availabilitySubscriptions.removeAll()
   }
 
-  /// Starts a timer to periodically check model availability
-  private func startAvailabilityTimer() {
-    Timer.publish(every: 0.5, on: .main, in: .common)
+  // MARK: - Private Methods
+
+  /// Starts monitoring model availability with periodic updates
+  private func startAvailabilityMonitoring() {
+    Timer.publish(every: Self.availabilityCheckInterval, on: .main, in: .common)
       .autoconnect()
       .map { _ in self.llm.availability }
       .removeDuplicates()
       .sink { [weak self] availability in
         self?.modelAvailability = availability
       }
-      .store(in: &cancellables)
+      .store(in: &availabilitySubscriptions)
   }
 
-  /// Current user input text
-  var prompt: String = ""
-
-  /// Chat history containing system, user, and assistant messages
-  var messages: [SwiftAI.Message] = [
-    .system(.init(text: "You are a helpful assistant!"))
-  ]
-
-  /// Detailed availability status for the current model
-  var modelAvailability: LLMAvailability = .unavailable(reason: .modelNotDownloaded)
-
-  var isModelAvailable: Bool {
-    llm.isAvailable
-  }
-
-  /// Indicates if text generation is in progress
-  var isGenerating = false
-
-  /// Current generation task, used for cancellation
-  private var generateTask: Task<Void, any Error>?
-
-  /// Most recent error message, if any
-  var errorMessage: String?
-
-  /// All available models
-  var availableModels: [ModelID] {
-    llmProvider.availableModels
-  }
+  // MARK: - Public Methods
 
   /// Updates the selected model and creates a new LLM instance
   func selectModel(_ model: ModelID) {
@@ -91,9 +109,9 @@ class ChatViewModel {
     }
 
     // Cancel any existing generation task
-    if let existingTask = generateTask {
+    if let existingTask = generationTask {
       existingTask.cancel()
-      generateTask = nil
+      generationTask = nil
     }
 
     isGenerating = true
@@ -106,23 +124,24 @@ class ChatViewModel {
     let currentPrompt = prompt
     prompt = ""
 
-    generateTask = Task {
+    generationTask = Task {
       do {
         let reply = try await llm.reply(to: messages, options: .default)
         try Task.checkCancellation()
         messages = reply.history
       } catch is CancellationError {
-        // Task was cancelled nothing to do here.
+        // Task was cancelled by user - no action needed
+        // The prompt will be restored in the onCancel handler
       }
     }
 
     do {
       // Handle task completion and cancellation
       try await withTaskCancellationHandler {
-        try await generateTask?.value
+        try await generationTask?.value
       } onCancel: {
         Task { @MainActor in
-          generateTask?.cancel()
+          generationTask?.cancel()
           // Restore prompt if cancelled
           if prompt.isEmpty {
             prompt = currentPrompt
@@ -133,14 +152,14 @@ class ChatViewModel {
       errorMessage = error.localizedDescription
     }
 
-    generateTask = nil
+    generationTask = nil
   }
 
   /// Clears all chat state
   func clear() {
     prompt = ""
-    generateTask?.cancel()
-    messages = [.system(.init(text: "You are a helpful assistant!"))]
+    generationTask?.cancel()
+    messages = [.system(.init(text: Self.defaultSystemMessage))]
     errorMessage = nil
   }
 }

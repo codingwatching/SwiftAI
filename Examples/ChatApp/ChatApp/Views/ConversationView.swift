@@ -5,35 +5,46 @@ import SwiftUI
 struct ConversationView: View {
   /// Array of messages to display in the conversation
   let messages: [SwiftAI.Message]
+
+  /// Current model availability status
   let modelAvailability: LLMAvailability
+
+  /// Whether LLM is generating a response
   let isGenerating: Bool
 
-  init(messages: [SwiftAI.Message], modelAvailability: LLMAvailability, isGenerating: Bool = false) {
+  // MARK: - Initialization
+
+  init(messages: [SwiftAI.Message], modelAvailability: LLMAvailability, isGenerating: Bool = false)
+  {
     self.messages = messages
     self.modelAvailability = modelAvailability
     self.isGenerating = isGenerating
   }
 
-  /// Computed property for backward compatibility
+  // MARK: - Computed Properties
+
+  /// Whether the model is currently loading (not available)
   private var isModelLoading: Bool {
-    switch modelAvailability {
-    case .available:
-      return false
-    default:
-      return true
-    }
+    modelAvailability != .available
   }
+
+  /// Whether only the system message is present
+  private var hasOnlySystemMessage: Bool {
+    messages.count <= 1
+  }
+
+  // MARK: - Body
 
   var body: some View {
     ScrollView {
       LazyVStack(spacing: 12) {
-        ForEach(messages, id: \.text) { message in  // FIXME: Make message Identifiable
+        ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
           MessageView(message)
             .padding(.horizontal, 12)
         }
 
         // Show loading indicator in conversation if model is loading
-        if isModelLoading && messages.count <= 1 {  // Only show if just system message
+        if isModelLoading && hasOnlySystemMessage {
           VStack(spacing: 8) {
             HStack {
               if case .downloading(let progress) = modelAvailability {
@@ -76,6 +87,8 @@ struct ConversationView: View {
     .defaultScrollAnchor(.bottom, for: .sizeChanges)
   }
 }
+
+// MARK: - Preview
 
 #Preview {
   // Display sample conversation in preview

@@ -1,11 +1,10 @@
 import SwiftUI
 
 @main
-struct MLXChatExampleApp: App {
+struct ChatApp: App {
   var body: some Scene {
     WindowGroup {
       ChatView(viewModel: ChatViewModel(llmProvider: LLMProvider.create()))
     }
   }
 }
-

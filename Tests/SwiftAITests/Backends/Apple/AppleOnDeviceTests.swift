@@ -10,6 +10,7 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
       return SystemLLM()
     } else {
       // Test will not run when Apple Intelligence is not available.
+      // Test will not run when Apple Intelligence is not available.
       return FakeLLM()
     }
   }

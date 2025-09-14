@@ -10,8 +10,8 @@
 
 ## Requirements
 
-- iOS 17.0+ / macOS 14.0+
-- Xcode 15.0+
+- iOS 26.0+ / macOS 26.0+
+- Xcode 26.0+
 - Swift 5.10+
 
 ## Dependencies

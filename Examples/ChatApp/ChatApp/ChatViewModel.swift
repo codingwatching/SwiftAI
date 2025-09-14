@@ -20,8 +20,8 @@ class ChatViewModel {
 
   init(llmProvider: LLMProvider) {
     self.llmProvider = llmProvider
-    self.selectedModel = .llama32_1b
-    self.llm = llmProvider.getLLM(for: .llama32_1b)
+    self.selectedModel = .afm
+    self.llm = llmProvider.getLLM(for: .afm)
 
     startAvailabilityTimer()
   }

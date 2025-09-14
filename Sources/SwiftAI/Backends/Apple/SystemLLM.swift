@@ -114,6 +114,20 @@ public struct SystemLLM: LLM {
     model.isAvailable
   }
 
+  /// The detailed availability status of the Apple on-device language model.
+  ///
+  /// This provides more specific information about why the model might be
+  /// unavailable, allowing applications to provide better user feedback and
+  /// handle different scenarios appropriately.
+  public var availability: LLMAvailability {
+    switch model.availability {
+    case .available:
+      return .available
+    case .unavailable(let reason):
+      return .unavailable(reason: reason.swiftAIReason)
+    }
+  }
+
   // TODO: Add throwing documentation, and if any requirements on the messages.
 
   public func makeSession(
@@ -174,6 +188,24 @@ public struct SystemLLM: LLM {
       throw mapAppleError(error)
     } catch {
       throw LLMError.generalError("Generation failed: \(error)")
+    }
+  }
+
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+extension SystemLanguageModel.Availability.UnavailableReason {
+  /// Maps Apple's FoundationModel unavailability reasons to SwiftAI's enum.
+  var swiftAIReason: LLMUnavailabilityReason {
+    switch self {
+    case .deviceNotEligible:
+      return .deviceNotSupported
+    case .appleIntelligenceNotEnabled:
+      return .appleIntelligenceNotEnabled
+    case .modelNotReady:
+      return .modelNotReady
+    @unknown default:
+      return .other("\(self)")
     }
   }
 }

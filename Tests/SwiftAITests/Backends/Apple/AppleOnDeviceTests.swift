@@ -9,6 +9,7 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     if #available(iOS 26.0, macOS 26.0, *) {
       return SystemLLM()
     } else {
+      // Test will not run when Apple Intelligence is not available.
       return FakeLLM()
     }
   }
@@ -130,6 +131,23 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   @Test("System prompt conversation", .enabled(if: appleIntelligenceIAvailable()))
   func testReply_ToSystemPrompt_ReturnsCorrectResponse() async throws {
     try await testReply_ToSystemPrompt_ReturnsCorrectResponse_Impl()
+  }
+
+  @Test
+  func testAvailability_PropertyReflectsCorrectStatus() async throws {
+    if appleIntelligenceIAvailable() {
+      #expect(llm.availability == .available)
+    } else {
+      #expect(
+        {
+          if case .unavailable = llm.availability {
+            return true
+          } else {
+            return false
+          }
+        }()
+      )
+    }
   }
 }
 

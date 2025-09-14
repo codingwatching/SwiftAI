@@ -143,9 +143,6 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
       #expect(llm.availability == .available)
     } else {
       guard case .unavailable = llm.availability else {
-        Issue.record(
-          "Got \(llm.availability). Want 'unavailable' status."
-        )
         if #available(iOS 26.0, macOS 26.0, *) {
           // This should not happen since Apple Intelligence is not available.
           Issue.record(
@@ -153,7 +150,12 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
             Apple Intelligence is not available, but LLM reports available. 
             [\(FoundationModels.SystemLanguageModel().isAvailable)] 
             [\(FoundationModels.SystemLanguageModel().availability)]
+            GOT [\(llm.availability)]
             """
+          )
+        } else {
+          Issue.record(
+            "Got \(llm.availability). Want 'unavailable' status."
           )
         }
         return

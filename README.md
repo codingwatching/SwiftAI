@@ -7,16 +7,16 @@ A modern, type-safe Swift library for building AI-powered apps. SwiftAI provides
 [![macOS 14.0+](https://img.shields.io/badge/macOS-14.0+-blue.svg)](https://developer.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## ✨ Features
+## Features
 
-- 🤖 **Model Agnostic**: Unified API across Apple's on-device models, OpenAI, Anthropic, and custom backends
+- 🤖 **Model Agnostic**: Unified API across Apple's on-device models, OpenAI, MLX, and custom backends
 - 🎯 **Structured Output**: Strongly-typed structured outputs with compile-time validation
 - 🔧 **Agent Tool Loop**: First-class support for tool use
 - 💬 **Conversations**: Stateful chat sessions with automatic context management
 - 🏗️ **Extensible**: Plugin architecture for custom models and tools
 - ⚡ **Swift-Native**: Built with async/await and modern Swift concurrency
 
-## 🚀 Quick Start
+## Quick Start
 
 ```swift
 import SwiftAI
@@ -26,7 +26,7 @@ let response = try await llm.reply(to: "What is the capital of France?")
 print(response.content) // "Paris"
 ```
 
-## 📦 Installation
+## Installation
 
 ### Swift Package Manager
 
@@ -36,7 +36,7 @@ print(response.content) // "Paris"
 2. Enter: `https://github.com/mi12labs/SwiftAI`
 3. Click **Add Package**
 
-**Package.swift:**
+**Package.swift (Non Xcode):**
 
 ```swift
 dependencies: [
@@ -44,9 +44,9 @@ dependencies: [
 ]
 ```
 
-## 📚 Getting Started
+## Getting Started
 
-### 🚀 Step 1: Your First AI Query
+### Step 1: Your First AI Query
 
 Start with the simplest possible example - just ask a question and get an answer:
 
@@ -68,7 +68,7 @@ print(response.content) // "Paris"
 - `try await` handles the asynchronous AI processing
 - The response is wrapped in a `response` object - use `.content` to get the actual text
 
-### 📊 Step 2: Structured Responses
+### Step 2: Structured Responses
 
 Instead of getting plain text, let's get structured data that your app can use directly:
 
@@ -103,7 +103,7 @@ print(cityInfo.population) // 13960000
 
 SwiftAI ensures the AI returns data in exactly the format your code expects. If the AI can't generate valid data, you'll get an error instead of broken data.
 
-### 🛠️ Step 3: Tool Use
+### Step 3: Tool Use
 
 Let your AI call functions in your app to get real-time information:
 
@@ -143,7 +143,7 @@ print(response.content) // "Based on current data, it's 72°F and sunny in San F
 
 The AI reads your tool's description and automatically decides whether to call it. You don't manually trigger tools - the AI does it when needed.
 
-### 🔄 Step 4: Model Switching
+### Step 4: Model Switching
 
 Different AI models have different strengths. SwiftAI makes switching seamless:
 
@@ -170,7 +170,7 @@ print(response.content)
 
 Your code doesn't change when you switch models. This lets you optimize for different scenarios (privacy, capabilities, cost) without rewriting your app.
 
-### 💬 Step 5: Conversations
+### Step 5: Conversations
 
 For multi-turn conversations, use `Chat` to maintain context across messages:
 
@@ -196,7 +196,7 @@ let advice = try await chat.send("What should I pack for Seattle?")
 - `reply()` is stateless - each call is independent
 - `Chat` is stateful - builds on previous conversation
 
-### 🎯 Step 6: Advanced Constraints
+### Step 6: Advanced Constraints
 
 Add validation rules and descriptions to guide AI generation:
 
@@ -225,6 +225,53 @@ struct UserProfile {
 
 Constraints ensure the AI follows your business rules.
 
+### Locall AI using MLX (Experimental)
+
+The MLX backend provides access to local language models through [Apple's MLX](https://opensource.apple.com/projects/mlx/) framework.
+
+**Setup:**
+
+```swift
+// Add SwiftAIMLX to your target in Package.swift
+targets: [
+    .target(
+        name: "YourTarget",
+        dependencies: [
+            .product(name: "SwiftAI", package: "SwiftAI"),
+            .product(name: "SwiftAIMLX", package: "SwiftAI")  // 👈 Add this
+        ]
+    )
+]
+```
+
+**Usage:**
+
+```swift
+import SwiftAI
+import SwiftAIMLX
+import MLXLLM
+
+// The model manager handles MLX models within an app instance.
+// Responsibilities:
+// - Downloading models from Hugging Face (if not already on disk)
+// - Caching model weights in memory
+// - Sharing model weights across the app instance
+let modelManager = MlxModelManager(storageDirectory: .documentsDirectory)
+
+// Create an LLM with a specific configuration.
+// Available configurations are listed in `LLMRegistry` (from MLXLLM).
+//
+// If the model is not yet available locally, it will be automatically
+// downloaded from Hugging Face on first use.
+let llm = modelManager.llm(with: LLMRegistry.gemma3n_E2B_it_lm_4bit)
+
+// Use the same API as with other LLM backends.
+let response = try await llm.reply(to: "Hello!")
+print(response.content)
+```
+
+**Note:** Structured output generation is not yet supported with MLX models.
+
 ## 🎯 Quick Reference
 
 | What You Want        | What To Use            | Example                                      |
@@ -241,11 +288,13 @@ Constraints ensure the AI follows your business rules.
 | ------------- | ----------- | ----------- | ------------ | ----------- |
 | **SystemLLM** | On-device   | 🔒 Private  | Good         | 🆓 Free     |
 | **OpenaiLLM** | Cloud API   | ⚠️ Shared   | Excellent    | 💰 Paid     |
+| **MlxLLM**    | On-device   | 🔒 Private  | Excellent    | 🆓 Free     |
 | **CustomLLM** | Your choice | Your choice | Your choice  | Your choice |
 
 ## 📖 Examples
 
-Check the `Examples/` directory for sample apps that uses SwiftAI.
+- **[ChatApp](Examples/ChatApp/README.md)**: Interactive chat app with 10+ models
+- **[ReadMitAI](Examples/ReadMitAI/README.md)**: Essay reading app with AI-powered features
 
 ## ⚡ Feature Parity Status vs FoundationModels SDK
 

@@ -1,6 +1,7 @@
 import Foundation
 import Hub  // TODO: Maybe add @preconcurrency
 import MLXLMCommon
+import SwiftAI
 import os
 
 // TODO: Add tests.
@@ -107,18 +108,31 @@ public final class MlxModelManager: @unchecked Sendable {
     return try await loadingTask.value
   }
 
-  /// Check if a model is currently loaded in memory.
-  nonisolated func isModelLoadedInMemory(_ configuration: ModelConfiguration) -> Bool {
-    let key = cacheKey(fromConfiguration: configuration)
-    return modelCache.object(forKey: key as NSString) != nil
-  }
-
   /// Get the download progress for a model (0.0 to 1.0), or nil if not downloading.
   nonisolated func getDownloadProgress(_ configuration: ModelConfiguration) -> Double? {
     let key = cacheKey(fromConfiguration: configuration)
     return downloadProgress.withLock { progressDict in
       progressDict[key]
     }
+  }
+
+  /// Get the current availability status for a model configuration.
+  nonisolated func getAvailability(_ configuration: ModelConfiguration) -> LLMAvailability {
+    let key = cacheKey(fromConfiguration: configuration)
+
+    // Check if model is in memory (ready to use)
+    if modelCache.object(forKey: key as NSString) != nil {
+      return .available
+    }
+
+    // Check if model is downloading
+    if let progress = downloadProgress.withLock({ progressDict in progressDict[key] }) {
+      return .downloading(progress: progress)
+    }
+
+    // TODO: Consider adding a loading in memory state.
+
+    return .unavailable(reason: .modelNotDownloaded)
   }
 }
 

@@ -82,20 +82,19 @@ public struct MlxLLM: LLM {
 
   // MARK: - Computed Properties
 
-  /// Indicates whether the MLX model is currently loaded in memory.
+  /// Indicates whether the MLX model is currently loaded and ready to use.
   public var isAvailable: Bool {
-    return modelManager.isModelLoadedInMemory(configuration)
+    switch availability {
+    case .available:
+      return true
+    default:
+      return false
+    }
   }
 
+  /// The detailed availability status of the MLX model.
   public var availability: LLMAvailability {
-    if isAvailable {
-      return .available
-    } else if let progress = modelManager.getDownloadProgress(configuration) {
-      return .downloading(progress: progress)
-    } else {
-      // TODO: Consider attaching any errors if the download previously failed.
-      return .unavailable(reason: .modelNotDownloaded)
-    }
+    modelManager.getAvailability(configuration)
   }
 
   // MARK: - Initialization

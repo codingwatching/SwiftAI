@@ -20,6 +20,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
   }
 
   let isAvailable: Bool = true
+  let availability: LLMAvailability = .available
   private var replyQueue: [ProgrammedReply] = []
 
   init() {}

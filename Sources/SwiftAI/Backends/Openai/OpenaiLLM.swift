@@ -42,6 +42,18 @@ public struct OpenaiLLM: LLM {
     hasApiToken
   }
 
+  /// The detailed availability status of the OpenAI language model.
+  ///
+  /// This checks for API key presence and returns appropriate availability status.
+  /// Network connectivity checks are not performed for performance reasons.
+  public var availability: LLMAvailability {
+    if hasApiToken {
+      return .available
+    } else {
+      return .unavailable(reason: .apiKeyMissing)
+    }
+  }
+
   public func makeSession(tools: [any Tool], messages: [Message]) -> OpenaiSession {
     return OpenaiSession(messages: messages, tools: tools, client: client, model: model)
   }

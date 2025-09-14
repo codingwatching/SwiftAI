@@ -40,7 +40,7 @@ print(response.content) // "Paris"
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mi12labs/SwiftAI", from: "main")
+  .package(url: "https://github.com/mi12labs/SwiftAI", from: "main")
 ]
 ```
 
@@ -234,13 +234,13 @@ The MLX backend provides access to local language models through [Apple's MLX](h
 ```swift
 // Add SwiftAIMLX to your target in Package.swift
 targets: [
-    .target(
-        name: "YourTarget",
-        dependencies: [
-            .product(name: "SwiftAI", package: "SwiftAI"),
-            .product(name: "SwiftAIMLX", package: "SwiftAI")  // 👈 Add this
-        ]
-    )
+  .target(
+    name: "YourTarget",
+    dependencies: [
+      .product(name: "SwiftAI", package: "SwiftAI"),
+      .product(name: "SwiftAIMLX", package: "SwiftAI")  // 👈 Add this
+    ]
+  )
 ]
 ```
 
@@ -263,7 +263,7 @@ let modelManager = MlxModelManager(storageDirectory: .documentsDirectory)
 //
 // If the model is not yet available locally, it will be automatically
 // downloaded from Hugging Face on first use.
-let llm = modelManager.llm(with: LLMRegistry.gemma3n_E2B_it_lm_4bit)
+let llm = modelManager.llm(withConfiguration: LLMRegistry.gemma3n_E2B_it_lm_4bit)
 
 // Use the same API as with other LLM backends.
 let response = try await llm.reply(to: "Hello!")

@@ -13,7 +13,7 @@ struct MlxLLMTests: LLMBaseTestCases {
     let modelDirURL = URL(filePath: modelDir ?? "")
 
     return MlxModelManager.shared.llm(
-      with: .init(directory: modelDirURL)
+      withConfiguration: .init(directory: modelDirURL)
     )
   }
 
@@ -140,13 +140,13 @@ struct MlxLLMTests: LLMBaseTestCases {
 
   @Test
   func testIsAvailable_ModelNotAvailable_ReturnsFalse() async throws {
-    let llm = MlxModelManager.shared.llm(with: .init(id: "non-existent/model"))
+    let llm = MlxModelManager.shared.llm(withConfiguration: .init(id: "non-existent/model"))
     #expect(llm.isAvailable == false)
   }
 
   @Test
   func testReplyTo_ModelNotAvailable_ThrowsError() async throws {
-    let llm = MlxModelManager.shared.llm(with: .init(id: "non-existent/model"))
+    let llm = MlxModelManager.shared.llm(withConfiguration: .init(id: "non-existent/model"))
 
     do {
       let _ = try await llm.reply(to: "Hello, how are you?")

@@ -46,7 +46,7 @@ public final class MlxModelManager: @unchecked Sendable {
   // MARK: - Public Interface
 
   /// Creates an LLM instance using this manager.
-  public func llm(with configuration: ModelConfiguration) -> MlxLLM {
+  public func llm(withConfiguration configuration: ModelConfiguration) -> MlxLLM {
     return MlxLLM(configuration: configuration, modelManager: self)
   }
 

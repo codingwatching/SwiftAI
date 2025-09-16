@@ -1,6 +1,7 @@
 #if canImport(FoundationModels)
 import Foundation
 import SwiftAI
+import SwiftAILLMTesting
 import Testing
 
 @Suite("Apple On-Device LLM Tests")
@@ -16,14 +17,14 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   // MARK: - Basic Tests
 
   @Test("Basic text generation", .enabled(if: appleIntelligenceIsAvailable()))
-  func testReply_ToPrompt() async throws {
-    try await testReply_ToPrompt_Impl()
+  func testReplyToPrompt() async throws {
+    try await testReplyToPrompt_Impl()
   }
 
   @Test(
     "Basic text generation - history verification", .enabled(if: appleIntelligenceIsAvailable()))
-  func testReply_ToPrompt_ReturnsCorrectHistory() async throws {
-    try await testReply_ToPrompt_ReturnsCorrectHistory_Impl()
+  func testReplyToPrompt_ReturnsCorrectHistory() async throws {
+    try await testReplyToPrompt_ReturnsCorrectHistory_Impl()
   }
 
   @Test("Max tokens constraint - very short response", .enabled(if: appleIntelligenceIsAvailable()))
@@ -100,8 +101,8 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   }
 
   @Test("Tool calling - error handling", .enabled(if: appleIntelligenceIsAvailable()))
-  func testReply_WithFailingTool_HandlesErrors() async throws {
-    try await testReply_WithFailingTool_HandlesErrors_Impl()
+  func testReply_WithFailingTool_Fails() async throws {
+    try await testReply_WithFailingTool_Fails_Impl()
   }
 
   // MARK: - Complex Conversation Tests
@@ -114,8 +115,8 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   }
 
   @Test("History seeding for conversation continuity", .enabled(if: appleIntelligenceIsAvailable()))
-  func testReply_ToSeededHistory_MaintainsContext() async throws {
-    try await testReply_ToSeededHistory_MaintainsContext_Impl()
+  func testReply_ToChatContinuation() async throws {
+    try await testReply_ToChatContinuation_Impl()
   }
 
   @Test(
@@ -130,8 +131,8 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   }
 
   @Test("System prompt conversation", .enabled(if: appleIntelligenceIsAvailable()))
-  func testReply_ToSystemPrompt_ReturnsCorrectResponse() async throws {
-    try await testReply_ToSystemPrompt_ReturnsCorrectResponse_Impl()
+  func testReply_WithSystemPrompt() async throws {
+    try await testReply_WithSystemPrompt_Impl()
   }
 
   @Test(.enabled(if: appleIntelligenceIsAvailable()))

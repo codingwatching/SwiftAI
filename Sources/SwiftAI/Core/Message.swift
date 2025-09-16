@@ -49,7 +49,7 @@ public enum Message: PromptRepresentable, Equatable, Sendable, Identifiable {
 
   /// Specifies instructions for the AI's behavior and constraints.
   /// LLMs follow these instructions more carefully than other messages.
-  public struct SystemMessage: PromptRepresentable, Equatable, Sendable {
+  public struct SystemMessage: PromptRepresentable, Equatable, Sendable, Identifiable {
     public let id = UUID().uuidString
 
     public let chunks: [ContentChunk]

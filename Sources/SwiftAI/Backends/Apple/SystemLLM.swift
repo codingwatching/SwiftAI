@@ -99,7 +99,7 @@ public struct SystemLLM: LLM {
   private let model: SystemLanguageModel
 
   public init() {
-    self.model = SystemLanguageModel.default
+    self.model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
   }
 
   /// Indicates whether Apple's on-device language model is currently available for use.

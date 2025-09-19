@@ -178,4 +178,26 @@ public struct MlxLLM: LLM {
       options: options
     )
   }
+
+  public func replyStream<T: Generable>(
+    to messages: [SwiftAI.Message],
+    returning type: T.Type,
+    tools: [any SwiftAI.Tool],
+    options: LLMReplyOptions
+  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return AsyncThrowingStream { continuation in
+      continuation.finish(throwing: LLMError.generalError("Streaming not yet implemented for MlxLLM"))
+    }
+  }
+
+  public func replyStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    in session: MlxSession,
+    options: LLMReplyOptions
+  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return AsyncThrowingStream { continuation in
+      continuation.finish(throwing: LLMError.generalError("Streaming not yet implemented for MlxLLM"))
+    }
+  }
 }

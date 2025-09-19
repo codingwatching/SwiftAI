@@ -102,6 +102,28 @@ final class FakeLLM: LLM, @unchecked Sendable {
 
     return LLMReply(content: content, history: fullHistory)
   }
+
+  func replyStream<T: Generable>(
+    to messages: [Message],
+    returning type: T.Type,
+    tools: [any Tool],
+    options: LLMReplyOptions
+  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return AsyncThrowingStream { continuation in
+      continuation.finish(throwing: LLMError.generalError("Streaming not implemented for FakeLLM"))
+    }
+  }
+
+  func replyStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    in session: NullLLMSession,
+    options: LLMReplyOptions
+  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return AsyncThrowingStream { continuation in
+      continuation.finish(throwing: LLMError.generalError("Streaming not implemented for FakeLLM"))
+    }
+  }
 }
 
 // MARK: - Test Error Types

@@ -29,6 +29,12 @@ import Foundation
 /// )
 /// ```
 public protocol Generable: Codable, Sendable {
+  /// The partial type used for streaming responses.
+  ///
+  /// This type contains optional versions of all properties to support
+  /// incremental updates during streaming generation.
+  associatedtype Partial: Codable, Sendable = Self
+
   /// The schema that describes the structure and constraints of this type.
   static var schema: Schema { get }
 
@@ -147,6 +153,8 @@ extension Bool: Generable {
 
 /// Array conforms to Generable when its elements conform to Generable.
 extension Array: Generable where Element: Generable {
+  public typealias Partial = [Element.Partial]
+
   public static var schema: Schema {
     .array(items: Element.schema, constraints: [])
   }

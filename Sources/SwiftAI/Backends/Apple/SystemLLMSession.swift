@@ -64,6 +64,46 @@ public final actor SystemLLMSession: LLMSession {
     return LLMReply(content: content, history: messages)
   }
 
+  func generateResponseStream<T: Generable>(
+    prompt: Prompt,
+    type: T.Type,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    // Only support String streaming for now
+    guard T.self == String.self else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(
+          throwing: LLMError.generalError(
+            "Streaming currently only supports String types in SystemLLMSession"))
+      }
+    }
+
+    let responseStream = session.streamResponse(
+      to: prompt.promptRepresentation,
+      options: toFoundationGenerationOptions(options)
+    )
+
+    return AsyncThrowingStream { continuation in
+      Task {
+        do {
+          for try await chunk in responseStream {
+            guard let partial = chunk.content as? T.Partial else {
+              // Must never happen
+              continuation.finish(
+                throwing: LLMError.generalError(
+                  "Streaming failed: \(chunk.content) is not a \(T.Partial.self)"))
+              return
+            }
+            continuation.yield(partial)
+          }
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: LLMError.generalError("Streaming failed: \(error)"))
+        }
+      }
+    }
+  }
+
   private func toFoundationGenerationOptions(_ options: LLMReplyOptions)
     -> FoundationModels.GenerationOptions
   {

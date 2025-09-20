@@ -33,7 +33,7 @@ public protocol Generable: Codable, Sendable {
   ///
   /// This type contains optional versions of all properties to support
   /// incremental updates during streaming generation.
-  associatedtype Partial: Codable, Sendable = Self
+  associatedtype Partial: Codable, Sendable
 
   /// The schema that describes the structure and constraints of this type.
   static var schema: Schema { get }
@@ -60,8 +60,8 @@ public protocol Generable: Codable, Sendable {
 /// }
 /// ```
 @attached(
-  extension, 
-  conformances: Generable, 
+  extension,
+  conformances: Generable,
   names: named(schema), named(generableContent), named(Partial)
 )
 public macro Generable(description: String? = nil) =
@@ -113,6 +113,8 @@ public macro Guide<T>(description: String? = nil, _ constraints: Constraint<T>..
 
 /// String conforms to Generable for simple text generation use cases.
 extension String: Generable {
+  public typealias Partial = Self
+
   public static var schema: Schema {
     .string(constraints: [])
   }
@@ -124,6 +126,8 @@ extension String: Generable {
 
 /// Int conforms to Generable for integer generation use cases.
 extension Int: Generable {
+  public typealias Partial = Self
+
   public static var schema: Schema {
     .integer(constraints: [])
   }
@@ -135,6 +139,8 @@ extension Int: Generable {
 
 /// Double conforms to Generable for floating-point number generation use cases.
 extension Double: Generable {
+  public typealias Partial = Self
+
   public static var schema: Schema {
     .number(constraints: [])
   }
@@ -146,6 +152,8 @@ extension Double: Generable {
 
 /// Bool conforms to Generable for boolean generation use cases.
 extension Bool: Generable {
+  public typealias Partial = Self
+
   public static var schema: Schema {
     .boolean(constraints: [])
   }

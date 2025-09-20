@@ -31,6 +31,9 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
 
+  @Test("Streaming text generation", .disabled("Streaming not yet implemented for OpenAI"))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {}
+
   @Test("Structured output - primitives content", .enabled(if: apiKeyIsPresent()))
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws {
     try await testReply_ReturningPrimitives_ReturnsCorrectContent_Impl()

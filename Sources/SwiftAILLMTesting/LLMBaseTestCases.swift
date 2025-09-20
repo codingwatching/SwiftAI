@@ -12,6 +12,9 @@ public protocol LLMBaseTestCases {
   func testReplyToPrompt_ReturnsCorrectHistory() async throws
   func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws
 
+  // MARK: - Streaming Tests
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws
+
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
   func testReply_ReturningPrimitives_ReturnsCorrectHistory() async throws
@@ -53,6 +56,36 @@ extension LLMBaseTestCases {
     ).content
 
     #expect(verdict.isHaiku == true)
+  }
+
+  public func testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl() async throws {
+    let stream = llm.replyStream {
+      "Write a haiku about Paris"
+    }
+
+    var partials: [String] = []
+    var finalOutput = ""
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalOutput = partial  // Keep track of the final output
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert partials grow incrementally (each partial should be longer than or equal to the previous)
+    for i in 1..<partials.count {
+      #expect(
+        partials[i].hasPrefix(partials[i - 1]) && partials[i].count > partials[i - 1].count,
+        "Each partial should contain the content of previous partials plus new content"
+      )
+    }
+
+    let trimmedFinalOutput = finalOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+    #expect(
+      trimmedFinalOutput.split(separator: "\n").count == 3,
+      "Final output should have 3 lines")
   }
 
   public func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {

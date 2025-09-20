@@ -47,6 +47,11 @@ struct MlxLLMTests: LLMBaseTestCases {
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
 
+  // MARK: - Streaming Tests
+
+  @Test(.disabled("Streaming not yet implemented for MLX"))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {}
+
   // MARK: - Structured Output Tests (Disabled for MLX)
 
   @Test(.disabled("Structured output not supported yet on MLX"))

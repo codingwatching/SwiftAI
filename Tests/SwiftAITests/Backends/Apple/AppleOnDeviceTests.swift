@@ -32,6 +32,11 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
 
+  // MARK: - Streaming Tests
+
+  @Test("Streaming text generation", .disabled("Streaming not yet implemented for OpenAI"))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {}
+
   // MARK: - Structured Output Tests
 
   @Test("Structured output - primitives content", .enabled(if: appleIntelligenceIsAvailable()))

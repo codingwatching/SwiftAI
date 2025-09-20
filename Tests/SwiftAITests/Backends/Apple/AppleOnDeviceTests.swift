@@ -66,6 +66,11 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_InSession_MaintainsContext_Impl()
   }
 
+  @Test("Session returns correct history", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReply_InSession_ReturnsCorrectHistory() async throws {
+    try await testReply_InSession_ReturnsCorrectHistory_Impl()
+  }
+
   // MARK: - Prewarming Tests
 
   @Test("Prewarming does not break normal operation", .enabled(if: appleIntelligenceIsAvailable()))

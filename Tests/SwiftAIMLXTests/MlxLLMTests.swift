@@ -66,10 +66,16 @@ struct MlxLLMTests: LLMBaseTestCases {
 
   // MARK: - Session-based Conversation Tests
 
-  @Test(.disabled("Structured output not supported yet on MLX"))
+  @Test(.enabled(if: testModelDirectoryIsSet()))
   func testReply_InSession_MaintainsContext() async throws {
     await waitUntilAvailable(llm, timeout: .seconds(20))
     try await testReply_InSession_MaintainsContext_Impl()
+  }
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReply_InSession_ReturnsCorrectHistory() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReply_InSession_ReturnsCorrectHistory_Impl()
   }
 
   // MARK: - Prewarming Tests

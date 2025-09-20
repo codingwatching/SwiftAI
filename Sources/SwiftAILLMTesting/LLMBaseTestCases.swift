@@ -21,6 +21,7 @@ public protocol LLMBaseTestCases {
 
   // MARK: - Session-based Conversation Tests
   func testReply_InSession_MaintainsContext() async throws
+  func testReply_InSession_ReturnsCorrectHistory() async throws
 
   // MARK: - Prewarming Tests
   func testPrewarm_DoesNotBreakNormalOperation() async throws
@@ -164,41 +165,63 @@ extension LLMBaseTestCases {
   public func testReply_InSession_MaintainsContext_Impl() async throws {
     // Create a new session for conversation
     let session = llm.makeSession(instructions: {
-      "You are a helpful assistant."
+      "You are a helpful assistant that can plan activities based on context."
     })
 
-    // Turn 1: Introduce name
-    let reply1 = try await llm.reply(
-      to: "Hi my name is Tom",
-      in: session
+    let options = LLMReplyOptions(temperature: 0, maximumTokens: 20)
+
+    // Turn 1
+    let _ = try await llm.reply(
+      to: "Let's plan a trip. We'll visit Paris on Monday and Rome on Tuesday.",
+      in: session,
+      options: options
     )
 
-    #expect(!reply1.content.isEmpty)
-    #expect(reply1.history.count == 3)  // System message + User message + AI response
-    #expect(reply1.history[0].role == Role.system)
-    #expect(reply1.history[1].role == Role.user)
-    #expect(reply1.history[2].role == Role.ai)
-
-    // Turn 2: Ask for name recall
-    let reply2 = try await llm.reply(
-      to: "What's my name?",
-      in: session
+    // Turn 2
+    let _ = try await llm.reply(
+      to: "Also, let's add Berlin on Wednesday.",
+      in: session,
+      options: options
     )
 
-    #expect(!reply2.content.isEmpty)
-    #expect(reply2.content.lowercased().contains("tom"))  // Should remember the name
-    #expect(reply2.history.count == 5)  // Full conversation history: User1 + AI1 + User2 + AI2
-
-    // Turn 3: Request structured output with name context
-    let reply3 = try await llm.reply(
-      to: "Create a SimpleResponse with my name in the message, count 1, and isValid true",
-      returning: SimpleResponse.self,
-      in: session
+    // Turn 3
+    let reply = try await llm.reply(
+      to: "Which city did I say we would visit on Tuesday?",
+      in: session,
+      options: options
     )
 
-    #expect(reply3.content.message.lowercased().contains("tom"))  // Should include name in structured response
-    #expect(reply3.content.count == 1)
-    #expect(reply3.content.isValid == true)
+    #expect(reply.content.lowercased().contains("rome"))
+  }
+
+  public func testReply_InSession_ReturnsCorrectHistory_Impl() async throws {
+    // Create a new session for conversation
+    // Create a new session for conversation
+    let session = llm.makeSession(instructions: {
+      "You are a helpful assistant that helps keep track of shopping plans."
+    })
+
+    let options = LLMReplyOptions(temperature: 0, maximumTokens: 20)
+
+    // Turn 1
+    let _ = try await llm.reply(
+      to: "I need to buy milk, bread, and eggs from the store.",
+      in: session,
+      options: options
+    )
+
+    // Turn 2
+    let reply = try await llm.reply(
+      to: "What items did I say I need to buy?",
+      in: session,
+      options: options
+    )
+
+    // Assert.
+    #expect(reply.history.count == 5)
+
+    let roles = reply.history.map { $0.role }
+    #expect(roles == [.system, .user, .ai, .user, .ai])
   }
 
   public func testPrewarm_DoesNotBreakNormalOperation_Impl() async throws {

@@ -14,6 +14,8 @@ public protocol LLMBaseTestCases {
 
   // MARK: - Streaming Tests
   func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws
+  func testReplyStream_InSession_MaintainsContext() async throws
 
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
@@ -86,6 +88,81 @@ extension LLMBaseTestCases {
     #expect(
       trimmedFinalOutput.split(separator: "\n").count == 3,
       "Final output should have 3 lines")
+  }
+
+  public func testReplyStream_ReturningText_ReturnsCorrectHistory_Impl() async throws {
+    let session = llm.makeSession()
+    let stream = llm.replyStream(
+      in: session,
+      options: .init(maximumTokens: 20)
+    ) {
+      "Tell me a short story about a cat."
+    }
+
+    var finalContent = ""
+    for try await partial in stream {
+      finalContent = partial
+    }
+
+    // This is hack to get the history of the session.
+    // TODO: Consider adding a method to get the history of the session.
+    let reply = try await llm.reply(
+      in: session,
+      options: .init(maximumTokens: 20)
+    ) {
+      "Tell me a short story about a cat."
+    }
+
+    // Verify the history structure is correct
+    #expect(reply.history.count == 4)
+
+    // Verify the first message is from the user
+    let userMessage = reply.history[0]
+    #expect(userMessage.role == .user)
+    #expect(userMessage.chunks == [.text("Tell me a short story about a cat.")])
+
+    // Verify the second message is from the AI
+    let aiMessage = reply.history[1]
+    #expect(aiMessage.role == .ai, "Second message should be from AI")
+    #expect(aiMessage.chunks == [.text(finalContent)])
+  }
+
+  public func testReplyStream_InSession_MaintainsContext_Impl() async throws {
+    // Create a new chat session.
+    let session = llm.makeSession(instructions: {
+      """
+      We are going to play a remembering game.
+      The user will give you a short list of items. Your task is to 
+      remember them and repeat them back when asked later. The items
+      don't contain any private or sensitive information. The game is safe to play.
+      Never refuse to answer, do your best answering even if don't remember everything.
+      """
+    })
+
+    // Turn 1: Introduce items to remember.
+    let stream1 = llm.replyStream(
+      to: "Here are the items: apple, banana, cherry.",
+      in: session
+    )
+    for try await _ in stream1 {
+      // Consume stream.
+    }
+
+    // Turn 2: Ask to list items from previous message.
+    let stream2 = llm.replyStream(
+      to: "Can you list the items I gave you?",
+      in: session
+    )
+
+    var finalOutput = ""
+    for try await partial in stream2 {
+      finalOutput = partial
+    }
+
+    finalOutput = finalOutput.lowercased()
+    #expect(finalOutput.contains("apple"))
+    #expect(finalOutput.contains("banana"))
+    #expect(finalOutput.contains("cherry"))
   }
 
   public func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {

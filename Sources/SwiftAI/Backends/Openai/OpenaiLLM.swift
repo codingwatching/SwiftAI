@@ -118,9 +118,24 @@ public struct OpenaiLLM: LLM {
     tools: [any Tool],
     options: LLMReplyOptions
   ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
-    return AsyncThrowingStream { continuation in
-      continuation.finish(throwing: LLMError.generalError("Streaming not yet implemented for OpenaiLLM"))
+    guard let lastMessage = messages.last, lastMessage.role == .user else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(
+          throwing: LLMError.generalError("Conversation must end with a user message"))
+      }
     }
+
+    // Create a session with the conversation history excluding the last user message
+    let contextMessages = Array(messages.dropLast())
+    let session = makeSession(tools: tools, messages: contextMessages)
+
+    let prompt = Prompt(chunks: lastMessage.chunks)
+    return replyStream(
+      to: prompt,
+      returning: type,
+      in: session,
+      options: options
+    )
   }
 
   public func replyStream<T: Generable>(
@@ -129,8 +144,29 @@ public struct OpenaiLLM: LLM {
     in session: OpenaiSession,
     options: LLMReplyOptions
   ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    guard isAvailable else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(throwing: LLMError.generalError("OpenAI API key missing"))
+      }
+    }
+
     return AsyncThrowingStream { continuation in
-      continuation.finish(throwing: LLMError.generalError("Streaming not yet implemented for OpenaiLLM"))
+      Task {
+        let stream = await session.generateResponseStream(
+          to: prompt,
+          returning: type,
+          options: options
+        )
+
+        do {
+          for try await partial in stream {
+            continuation.yield(partial)
+          }
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
     }
   }
 }

@@ -125,6 +125,102 @@ public final actor OpenaiSession: LLMSession {
     )
   }
 
+  func generateResponseStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    // Only support String streaming for now
+    guard T.self == String.self else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(
+          throwing: LLMError.generalError(
+            "Streaming currently only supports String types in OpenaiSession"))
+      }
+    }
+
+    return AsyncThrowingStream { continuation in
+      Task {
+        defer {
+          continuation.finish()
+        }
+
+        let userMessage = Message.user(.init(chunks: prompt.chunks))
+        self.messages.append(userMessage)
+
+        let input: CreateModelResponseQuery.Input = try {
+          if self.previousResponseID != nil {
+            // Continue from previous response.
+            return try CreateModelResponseQuery.Input.from([userMessage])
+          } else {
+            // Start a new conversation with the user message.
+            return try CreateModelResponseQuery.Input.from(messages + [userMessage])
+          }
+        }()
+
+        // Configure output format.
+        let textConfig = try {
+          if type == String.self {
+            return CreateModelResponseQuery.TextResponseConfigurationOptions.text
+          }
+          return try .jsonSchema(makeStructuredOutputConfig(for: type))
+        }()
+
+        // Prepare OpenAI streaming query
+        let query = CreateModelResponseQuery(
+          input: input,
+          model: model,
+          maxOutputTokens: options.maximumTokens,
+          previousResponseId: self.previousResponseID,
+          stream: true,
+          temperature: options.temperature.map { $0 * 2.0 },  // OpenAI uses a range between 0.0 and 2.0
+          text: textConfig,
+          tools: try openaiTools.map { .functionTool($0) },
+          topP: extractTopPThreshold(from: options.samplingMode)
+        )
+
+        do {
+          var accumulatedText = ""
+          for try await event in self.client.responses.createResponseStreaming(query: query) {
+            switch event {
+            case .outputText(.delta(let deltaEvent)):
+              accumulatedText += deltaEvent.delta
+              let partial = unsafeBitCast(accumulatedText, to: T.Partial.self)
+              continuation.yield(partial)
+
+            case .outputText(.done(let textDoneEvent)):
+              // Message completed. Sanity check.
+              assert(accumulatedText == textDoneEvent.text)
+
+            case .completed(let responseEvent):
+              let response = responseEvent.response
+
+              // Update the conversation state.
+              let aiMsg = try response.asSwiftAIMessage
+              self.messages.append(.ai(aiMsg))
+              self.previousResponseID = response.id
+
+            case .error(let errorEvent):
+              continuation.finish(
+                throwing: LLMError.generalError("OpenAI streaming error: \(errorEvent.message)"))
+
+            case .refusal(.done(let refusalEvent)):
+              continuation.finish(
+                throwing: LLMError.generalError("OpenAI refusal error: \(refusalEvent.refusal)"))
+
+            default:
+              // TODO: Support agent loop for function calling
+              break
+            }
+          }
+
+        } catch {
+          continuation.finish(throwing: LLMError.generalError("OpenAI streaming failed: \(error)"))
+        }
+      }
+    }
+  }
+
   func execute(toolCall: Message.ToolCall) async throws -> Message.ToolOutput {
     guard let tool = tools.first(where: { $0.name == toolCall.toolName }) else {
       throw LLMError.generalError("Tool '\(toolCall.toolName)' not found")

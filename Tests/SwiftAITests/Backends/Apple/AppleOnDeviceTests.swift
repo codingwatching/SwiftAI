@@ -39,6 +39,16 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl()
   }
 
+  @Test("Streaming text generation - history verification", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {
+    try await testReplyStream_ReturningText_ReturnsCorrectHistory_Impl()
+  }
+
+  @Test("Streaming maintains session context", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_InSession_MaintainsContext() async throws {
+    try await testReplyStream_InSession_MaintainsContext_Impl()
+  }
+
   // MARK: - Structured Output Tests
 
   @Test("Structured output - primitives content", .enabled(if: appleIntelligenceIsAvailable()))

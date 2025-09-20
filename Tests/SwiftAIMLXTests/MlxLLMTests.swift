@@ -52,6 +52,12 @@ struct MlxLLMTests: LLMBaseTestCases {
   @Test(.disabled("Streaming not yet implemented for MLX"))
   func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {}
 
+  @Test(.disabled("Streaming not yet implemented for MLX"))
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {}
+
+  @Test(.disabled("Streaming not yet implemented for MLX"))
+  func testReplyStream_InSession_MaintainsContext() async throws {}
+
   // MARK: - Structured Output Tests (Disabled for MLX)
 
   @Test(.disabled("Structured output not supported yet on MLX"))

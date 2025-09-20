@@ -59,7 +59,11 @@ public protocol Generable: Codable, Sendable {
 ///   let cookingTime: Int
 /// }
 /// ```
-@attached(extension, conformances: Generable, names: named(schema), named(generableContent))
+@attached(
+  extension, 
+  conformances: Generable, 
+  names: named(schema), named(generableContent), named(Partial)
+)
 public macro Generable(description: String? = nil) =
   #externalMacro(module: "SwiftAIMacros", type: "GenerableMacro")
 

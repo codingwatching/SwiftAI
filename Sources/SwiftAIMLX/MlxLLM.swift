@@ -185,9 +185,25 @@ public struct MlxLLM: LLM {
     tools: [any SwiftAI.Tool],
     options: LLMReplyOptions
   ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
-    return AsyncThrowingStream { continuation in
-      continuation.finish(throwing: LLMError.generalError("Streaming not yet implemented for MlxLLM"))
+    guard let lastMessage = messages.last, lastMessage.role == .user else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(throwing: LLMError.generalError("Conversation must end with a user message"))
+      }
     }
+
+    // Split conversation: context (prefix) and the user prompt (last message)
+    let contextMessages = Array(messages.dropLast())
+    let prompt = Prompt(chunks: lastMessage.chunks)
+
+    // Create session with context
+    let session = makeSession(tools: tools, messages: contextMessages)
+
+    return replyStream(
+      to: prompt,
+      returning: type,
+      in: session,
+      options: options
+    )
   }
 
   public func replyStream<T: Generable>(
@@ -196,8 +212,29 @@ public struct MlxLLM: LLM {
     in session: MlxSession,
     options: LLMReplyOptions
   ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    guard isAvailable else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(throwing: LLMError.generalError("Model unavailable"))
+      }
+    }
+
     return AsyncThrowingStream { continuation in
-      continuation.finish(throwing: LLMError.generalError("Streaming not yet implemented for MlxLLM"))
+      Task {
+        let stream = await session.generateResponseStream(
+          prompt: prompt,
+          type: type,
+          options: options
+        )
+
+        do {
+          for try await partial in stream {
+            continuation.yield(partial)
+          }
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
     }
   }
 }

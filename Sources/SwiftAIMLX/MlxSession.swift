@@ -122,6 +122,84 @@ public final actor MlxSession: LLMSession {
     }
   }
 
+  func generateResponseStream<T: Generable>(
+    prompt: Prompt,
+    type: T.Type,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    // Only support String streaming for now
+    guard type == String.self else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(throwing: LLMError.generalError("MLX streaming currently only supports String types"))
+      }
+    }
+
+    return AsyncThrowingStream { continuation in
+      Task {
+        defer { continuation.finish() }
+
+        do {
+          let userMsg = SwiftAI.Message.user(.init(chunks: prompt.chunks))
+          transcript.append(userMsg)
+          unprocessedMessages.append(userMsg)
+
+          let modelContainer = try await modelManager.getOrLoadModel(forConfiguration: configuration)
+          let toolSpecs = makeMLXToolSpecs(from: self.tools)
+
+          if self.kvCache == nil {
+            // Create the KVCache if it doesn't exist.
+            self.kvCache = await modelContainer.perform { context in
+              context.model.newCache(parameters: GenerateParameters())
+            }
+          }
+
+          // We capture the KVCache before entering the `perform` block to avoid actor isolation issues
+          let kvCache = self.kvCache
+
+          // TODO: Add tool loop support for streaming
+          // For now, only support simple text generation without tools
+          let mlxChatMsgs = self.unprocessedMessages.map { $0.asMlxChatMessage }
+          let stream = try await modelContainer.perform { context in
+            let languageModelInput = try await context.processor.prepare(
+              input: UserInput(chat: mlxChatMsgs, tools: toolSpecs)
+            )
+            let parameters = GenerateParameters(from: options)
+            return try MLXLMCommon.generate(
+              input: languageModelInput,
+              cache: kvCache,
+              parameters: parameters,
+              context: context
+            )
+          }
+
+          var text = ""
+          for await event in stream {
+            switch event {
+            case .chunk(let chunk):
+              text += chunk
+              let partial = unsafeBitCast(text, to: T.Partial.self)
+              continuation.yield(partial)
+            case .toolCall(_):
+              // TODO: Support tool calls in streaming mode
+              assertionFailure("Tool use is currently not supported")
+              break
+            case .info(_):
+              break
+            }
+          }
+
+          // The kvcache now contains the new context
+          self.unprocessedMessages.removeAll()
+
+          // Add final AI message to transcript
+          transcript.append(.ai(.init(text: text)))
+        } catch {
+          continuation.finish(throwing: LLMError.generalError("MLX streaming failed: \(error)"))
+        }
+      }
+    }
+  }
+
   // MARK: - Helpers
 
   private func execute(toolCall: SwiftAI.Message.ToolCall) async throws

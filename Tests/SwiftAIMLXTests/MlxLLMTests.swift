@@ -49,14 +49,23 @@ struct MlxLLMTests: LLMBaseTestCases {
 
   // MARK: - Streaming Tests
 
-  @Test(.disabled("Streaming not yet implemented for MLX"))
-  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {}
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl()
+  }
 
-  @Test(.disabled("Streaming not yet implemented for MLX"))
-  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {}
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_ReturningText_ReturnsCorrectHistory_Impl()
+  }
 
-  @Test(.disabled("Streaming not yet implemented for MLX"))
-  func testReplyStream_InSession_MaintainsContext() async throws {}
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_InSession_MaintainsContext() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_InSession_MaintainsContext_Impl()
+  }
 
   // MARK: - Structured Output Tests (Disabled for MLX)
 

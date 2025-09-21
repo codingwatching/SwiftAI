@@ -127,14 +127,21 @@ struct OpenaiLLMTests: LLMBaseTestCases {
 
   // MARK: - Streaming Tool Calling Tests
 
-  @Test(.disabled("Streaming tool calling not yet implemented"))
-  func testReplyStream_WithTools_CallsCorrectTool() async throws {}
+  @Test("Streaming tool calling - basic calculation", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {
+    try await testReplyStream_WithTools_CallsCorrectTool_Impl()
+  }
 
-  @Test(.disabled("Streaming tool calling not yet implemented"))
-  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {}
+  @Test("Streaming tool calling - multiple tools", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {
+    try await testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl()
+  }
 
-  @Test(.disabled("Streaming tool calling not yet implemented"))
-  func testReplyStream_MultiTurnToolLoop() async throws {}
+  @Test("Streaming multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_MultiTurnToolLoop() async throws {
+    // Using smarter model because the nano model is not good enough for tool loops
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: OpenaiLLM(model: "gpt-4o-mini"))
+  }
 
   @Test("Complex conversation history with structured analysis", .enabled(if: apiKeyIsPresent()))
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws {
@@ -198,7 +205,8 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let hasEnvKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil
-    let expectedAvailability: LLMAvailability = hasEnvKey ? .available : .unavailable(reason: .apiKeyMissing)
+    let expectedAvailability: LLMAvailability =
+      hasEnvKey ? .available : .unavailable(reason: .apiKeyMissing)
 
     #expect(llm.isAvailable == hasEnvKey)
     #expect(llm.availability == expectedAvailability)

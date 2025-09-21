@@ -95,7 +95,6 @@ public final actor OpenaiSession: LLMSession {
         // Execute tool calls and update the conversation state.
         var outputToolMessages = [Message]()
         for toolCall in aiMsg.toolCalls {
-          // TODO: Consider sending the error to the LLM.
           let toolOutput = try await execute(toolCall: toolCall)
           outputToolMessages.append(.toolOutput(toolOutput))
         }
@@ -148,7 +147,15 @@ public final actor OpenaiSession: LLMSession {
         let userMessage = Message.user(.init(chunks: prompt.chunks))
         self.messages.append(userMessage)
 
-        let input: CreateModelResponseQuery.Input = try {
+        // Configure output format.
+        let textConfig = try {
+          if type == String.self {
+            return CreateModelResponseQuery.TextResponseConfigurationOptions.text
+          }
+          return try .jsonSchema(makeStructuredOutputConfig(for: type))
+        }()
+
+        var input: CreateModelResponseQuery.Input = try {
           if self.previousResponseID != nil {
             // Continue from previous response.
             return try CreateModelResponseQuery.Input.from([userMessage])
@@ -158,60 +165,67 @@ public final actor OpenaiSession: LLMSession {
           }
         }()
 
-        // Configure output format.
-        let textConfig = try {
-          if type == String.self {
-            return CreateModelResponseQuery.TextResponseConfigurationOptions.text
-          }
-          return try .jsonSchema(makeStructuredOutputConfig(for: type))
-        }()
-
-        // Prepare OpenAI streaming query
-        let query = CreateModelResponseQuery(
-          input: input,
-          model: model,
-          maxOutputTokens: options.maximumTokens,
-          previousResponseId: self.previousResponseID,
-          stream: true,
-          temperature: options.temperature.map { $0 * 2.0 },  // OpenAI uses a range between 0.0 and 2.0
-          text: textConfig,
-          tools: try openaiTools.map { .functionTool($0) },
-          topP: extractTopPThreshold(from: options.samplingMode)
-        )
-
         do {
-          var accumulatedText = ""
-          for try await event in self.client.responses.createResponseStreaming(query: query) {
-            switch event {
-            case .outputText(.delta(let deltaEvent)):
-              accumulatedText += deltaEvent.delta
-              let partial = unsafeBitCast(accumulatedText, to: T.Partial.self)
-              continuation.yield(partial)
+          while true {
+            // Prepare OpenAI streaming query
+            let query = CreateModelResponseQuery(
+              input: input,
+              model: model,
+              maxOutputTokens: options.maximumTokens,
+              previousResponseId: self.previousResponseID,
+              stream: true,
+              temperature: options.temperature.map { $0 * 2.0 },  // OpenAI uses a range between 0.0 and 2.0
+              text: textConfig,
+              tools: try openaiTools.map { .functionTool($0) },
+              topP: extractTopPThreshold(from: options.samplingMode)
+            )
 
-            case .outputText(.done(let textDoneEvent)):
-              // Message completed. Sanity check.
-              assert(accumulatedText == textDoneEvent.text)
+            var accumulatedText: String = ""
+            for try await event in self.client.responses.createResponseStreaming(query: query) {
+              switch event {
+              case .outputText(.delta(let deltaEvent)):
+                accumulatedText += deltaEvent.delta
+                let partial = unsafeBitCast(accumulatedText, to: T.Partial.self)
+                continuation.yield(partial)
 
-            case .completed(let responseEvent),
-              .incomplete(let responseEvent):
-              let response = responseEvent.response
+              case .completed(let responseEvent),
+                .incomplete(let responseEvent):
+                let response = responseEvent.response
 
-              // Update the conversation state.
-              let aiMsg = try response.asSwiftAIMessage
-              self.messages.append(.ai(aiMsg))
-              self.previousResponseID = response.id
+                // Update the conversation state.
+                let aiMsg = try response.asSwiftAIMessage
+                self.messages.append(.ai(aiMsg))
+                self.previousResponseID = response.id
 
-            case .error(let errorEvent):
-              continuation.finish(
-                throwing: LLMError.generalError("OpenAI streaming error: \(errorEvent.message)"))
+                if aiMsg.toolCalls.isEmpty {
+                  // No more tool calls, we're done.
+                  return
+                }
 
-            case .refusal(.done(let refusalEvent)):
-              continuation.finish(
-                throwing: LLMError.generalError("OpenAI refusal error: \(refusalEvent.refusal)"))
+                // Execute tool calls and update the conversation state.
+                var outputToolMessages = [Message]()
+                for toolCall in aiMsg.toolCalls {
+                  let toolOutput = try await execute(toolCall: toolCall)
+                  outputToolMessages.append(.toolOutput(toolOutput))
+                }
 
-            default:
-              // TODO: Support agent loop for function calling
-              break
+                self.messages.append(contentsOf: outputToolMessages)
+
+                // Prepare the next input.
+                input = try CreateModelResponseQuery.Input.from(outputToolMessages)
+
+              case .error(let errorEvent):
+                continuation.finish(
+                  throwing: LLMError.generalError("OpenAI streaming error: \(errorEvent.message)"))
+
+              case .refusal(.done(let refusalEvent)):
+                continuation.finish(
+                  throwing: LLMError.generalError("OpenAI refusal error: \(refusalEvent.refusal)"))
+
+              default:
+                // Ignore other events.
+                break
+              }
             }
           }
         } catch {

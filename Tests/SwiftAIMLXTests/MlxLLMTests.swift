@@ -67,6 +67,17 @@ struct MlxLLMTests: LLMBaseTestCases {
     try await testReplyStream_InSession_MaintainsContext_Impl()
   }
 
+  // MARK: - Streaming Tool Calling Tests (Disabled for MLX)
+
+  @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {}
+
+  @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {}
+
+  @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
+  func testReplyStream_MultiTurnToolLoop() async throws {}
+
   // MARK: - Structured Output Tests (Disabled for MLX)
 
   @Test(.disabled("Structured output not supported yet on MLX"))

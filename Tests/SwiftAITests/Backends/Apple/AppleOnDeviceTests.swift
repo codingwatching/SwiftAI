@@ -127,6 +127,23 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithFailingTool_Fails_Impl()
   }
 
+  // MARK: - Streaming Tool Calling Tests
+
+  @Test("Streaming tool calling - basic calculation", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {
+    try await testReplyStream_WithTools_CallsCorrectTool_Impl()
+  }
+
+  @Test("Streaming tool calling - multiple tools", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {
+    try await testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl()
+  }
+
+  @Test("Streaming multi-turn tool loop", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_MultiTurnToolLoop() async throws {
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: llm)
+  }
+
   // MARK: - Complex Conversation Tests
 
   @Test(

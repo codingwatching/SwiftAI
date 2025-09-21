@@ -125,6 +125,17 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_WithFailingTool_Fails_Impl()
   }
 
+  // MARK: - Streaming Tool Calling Tests
+
+  @Test(.disabled("Streaming tool calling not yet implemented"))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {}
+
+  @Test(.disabled("Streaming tool calling not yet implemented"))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {}
+
+  @Test(.disabled("Streaming tool calling not yet implemented"))
+  func testReplyStream_MultiTurnToolLoop() async throws {}
+
   @Test("Complex conversation history with structured analysis", .enabled(if: apiKeyIsPresent()))
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws {
     try await testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent_Impl()

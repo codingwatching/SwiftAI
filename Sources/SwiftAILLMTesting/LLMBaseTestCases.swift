@@ -39,6 +39,11 @@ public protocol LLMBaseTestCases {
   func testReply_MultiTurnToolLoop() async throws
   func testReply_WithFailingTool_Fails() async throws
 
+  // MARK: - Streaming Tool Calling Tests
+  func testReplyStream_WithTools_CallsCorrectTool() async throws
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws
+  func testReplyStream_MultiTurnToolLoop() async throws
+
   // MARK: - Complex Conversation Tests
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws
   func testReply_ToChatContinuation() async throws
@@ -491,6 +496,85 @@ extension LLMBaseTestCases {
       // Tool errors should be wrapped in LLMError
       #expect(error is LLMError)
     }
+  }
+
+  // MARK: - Streaming Tool Calling Tests
+
+  public func testReplyStream_WithTools_CallsCorrectTool_Impl() async throws {
+    let calculatorTool = MockCalculatorTool()
+
+    let stream = llm.replyStream(
+      to: "Calculate 15 + 27 using the calculator tool",
+      tools: [calculatorTool]
+    )
+
+    var content = ""
+    for try await partial in stream {
+      content = partial
+    }
+
+    // Verify the calculator tool was called with correct arguments
+    #expect(calculatorTool.wasCalledWith != nil)
+    if let args = calculatorTool.wasCalledWith {
+      #expect(args.operation == "add")
+      #expect([args.a, args.b].sorted() == [15.0, 27.0])
+    }
+
+    // Verify response contains expected result
+    #expect(content.contains("42"))
+  }
+
+  public func testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl() async throws {
+    let calculatorTool = MockCalculatorTool()
+    let weatherTool = MockWeatherTool()
+
+    let stream = llm.replyStream(
+      to: "What's the weather in New York?",
+      tools: [calculatorTool, weatherTool]
+    )
+
+    var content = ""
+    for try await partial in stream {
+      content = partial
+    }
+
+    // Verify the weather tool was called and calculator tool was not
+    #expect(weatherTool.wasCalledWith != nil)
+    #expect(calculatorTool.wasCalledWith == nil)
+
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "New York")
+    } else {
+      Issue.record("Weather tool was not called")
+    }
+
+    #expect(!content.isEmpty, "Response should not be empty")
+  }
+
+  public func testReplyStream_MultiTurnToolLoop_Impl(using llm: any LLM) async throws {
+    let weatherTool = MockWeatherTool()
+    let locationTool = GetCurrentLocationTool()
+
+    let stream = llm.replyStream(
+      tools: [weatherTool, locationTool],
+      options: .init(temperature: 0.0)
+    ) {
+      "what is the weather like in my current location?"
+    }
+
+    var content = ""
+    for try await partial in stream {
+      content = partial
+    }
+
+
+    #expect(locationTool.wasCalledWith != nil)
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "Berlin")
+    } else {
+      Issue.record("Weather tool was not called")
+    }
+    #expect(content.contains("22°C"))
   }
 
   // MARK: - Phase 6 Tests: Complex Conversation Scenarios

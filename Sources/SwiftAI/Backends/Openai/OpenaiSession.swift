@@ -192,7 +192,8 @@ public final actor OpenaiSession: LLMSession {
               // Message completed. Sanity check.
               assert(accumulatedText == textDoneEvent.text)
 
-            case .completed(let responseEvent):
+            case .completed(let responseEvent),
+              .incomplete(let responseEvent):
               let response = responseEvent.response
 
               // Update the conversation state.
@@ -213,7 +214,6 @@ public final actor OpenaiSession: LLMSession {
               break
             }
           }
-
         } catch {
           continuation.finish(throwing: LLMError.generalError("OpenAI streaming failed: \(error)"))
         }

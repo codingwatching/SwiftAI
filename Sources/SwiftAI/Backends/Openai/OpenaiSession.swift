@@ -45,76 +45,24 @@ public final actor OpenaiSession: LLMSession {
     returning type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    let userMessage = Message.user(.init(chunks: prompt.chunks))
+    let stream = generateResponseStream(to: prompt, returning: type, options: options)
 
-    var input: CreateModelResponseQuery.Input
-    if self.previousResponseID != nil {
-      // Continue from previous response.
-      input = try CreateModelResponseQuery.Input.from([userMessage])
-    } else {
-      // Start a new conversation with the user message.
-      input = try CreateModelResponseQuery.Input.from(messages + [userMessage])
+    var finalPartial: T.Partial?
+    for try await partial in stream {
+      finalPartial = partial
     }
 
-    // Configure output format.
-    let textConfig = try {
-      if type == String.self {
-        return CreateModelResponseQuery.TextResponseConfigurationOptions.text
-      }
-      return try .jsonSchema(makeStructuredOutputConfig(for: type))
-    }()
+    guard let final = finalPartial else {
+      throw LLMError.generalError("No response received from streaming API")
+    }
 
-    self.messages.append(userMessage)
-
-    let finalMessage: Message.AIMessage = try await {
-      // Tool loop.
-      while true {
-        let response: ResponseObject = try await client.responses.createResponse(
-          query: CreateModelResponseQuery(
-            input: input,
-            model: model,
-            maxOutputTokens: options.maximumTokens,
-            previousResponseId: self.previousResponseID,
-            temperature: options.temperature.map { $0 * 2.0 },  // OpenAI uses a range between 0.0 and 2.0
-            text: textConfig,
-            tools: try openaiTools.map { .functionTool($0) },
-            topP: extractTopPThreshold(from: options.samplingMode)
-          )
-        )
-
-        // Update the conversation state.
-        let aiMsg = try response.asSwiftAIMessage
-        self.messages.append(.ai(aiMsg))
-        self.previousResponseID = response.id
-
-        if aiMsg.toolCalls.isEmpty {
-          // No more tool calls, we're done.
-          return aiMsg
-        }
-
-        // Execute tool calls and update the conversation state.
-        var outputToolMessages = [Message]()
-        for toolCall in aiMsg.toolCalls {
-          let toolOutput = try await execute(toolCall: toolCall)
-          outputToolMessages.append(.toolOutput(toolOutput))
-        }
-
-        self.messages.append(contentsOf: outputToolMessages)
-
-        // Prepare the next input.
-        input = try CreateModelResponseQuery.Input.from(outputToolMessages)
-      }
-    }()
-
-    // Extract final content from the last AI message
+    // Convert final partial to complete type
     let content: T = try {
       if T.self == String.self {
-        return unsafeBitCast(finalMessage.text, to: T.self)
+        return unsafeBitCast(final, to: T.self)
       } else {
-        // For structured types, parse JSON from text content
-        let jsonData = finalMessage.text.data(using: .utf8) ?? Data()
-        let decoder = JSONDecoder()
-        return try decoder.decode(T.self, from: jsonData)
+        let data = try JSONEncoder().encode(final)
+        return try JSONDecoder().decode(T.self, from: data)
       }
     }()
 

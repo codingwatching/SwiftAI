@@ -35,28 +35,24 @@ public final actor SystemLLMSession: LLMSession {
     type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    let foundationPrompt = prompt.promptRepresentation
-    let generationOptions = toFoundationGenerationOptions(options)
+    let stream = generateResponseStream(prompt: prompt, type: type, options: options)
 
-    let content: T = try await {
+    var finalPartial: T.Partial?
+    for try await partial in stream {
+      finalPartial = partial
+    }
+
+    guard let final = finalPartial else {
+      throw LLMError.generalError("No response received from streaming API")
+    }
+
+    // Convert final partial to complete type
+    let content: T = try {
       if T.self == String.self {
-        let response: LanguageModelSession.Response<String> = try await session.respond(
-          to: foundationPrompt,
-          options: generationOptions
-        )
-        return unsafeBitCast(response.content, to: T.self)
+        return unsafeBitCast(final, to: T.self)
       } else {
-        let response = try await session.respond(
-          to: foundationPrompt,
-          schema: try T.schema.toGenerationSchema(),
-          options: generationOptions
-        )
-        // TODO: Add a protocol extension on `Generable` to conform `GeneratedContentConvertible`
-        // and use it here.
-        guard let jsonData = response.content.jsonString.data(using: .utf8) else {
-          throw LLMError.generalError("Failed to convert JSON string to Data")
-        }
-        return try JSONDecoder().decode(T.self, from: jsonData)
+        let data = try JSONEncoder().encode(final)
+        return try JSONDecoder().decode(T.self, from: data)
       }
     }()
 
@@ -95,6 +91,7 @@ public final actor SystemLLMSession: LLMSession {
             )
 
             for try await snapshot in responseStream {
+              // TODO: Add a protocol extension on `Generable` to conform to `GeneratedContentConvertible` and use it here.
               guard let data = snapshot.content.jsonString.data(using: .utf8) else {
                 throw LLMError.generalError("Invalid UTF-8 in partial JSON")
               }

@@ -17,6 +17,12 @@ public protocol LLMBaseTestCases {
   func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws
   func testReplyStream_InSession_MaintainsContext() async throws
 
+  // MARK: - Streaming Structured Output Tests
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws
+
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
   func testReply_ReturningPrimitives_ReturnsCorrectHistory() async throws
@@ -169,6 +175,134 @@ extension LLMBaseTestCases {
     #expect(finalOutput.contains("apple"))
     #expect(finalOutput.contains("banana"))
     #expect(finalOutput.contains("cherry"))
+  }
+
+  // MARK: - Streaming Structured Output Tests Implementation
+
+  public func testReplyStream_ReturningPrimitives_EmitsProgressivePartials_Impl() async throws {
+    let stream = llm.replyStream(
+      to: "Create a simple response with message 'Hello World', count 42, and isValid true",
+      returning: SimpleResponse.self
+    )
+
+    var partials: [SimpleResponse.Partial] = []
+    var finalPartial: SimpleResponse.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.message == "Hello World", "Final partial should have correct message")
+    #expect(final.count == 42, "Final partial should have correct count")
+    #expect(final.isValid == true, "Final partial should have correct isValid")
+  }
+
+  public func testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl() async throws {
+    let stream = llm.replyStream(
+      to: "Create a response with items ['apple', 'banana', 'cherry'] and numbers [10, 20, 30]",
+      returning: ArrayResponse.self
+    )
+
+    var partials: [ArrayResponse.Partial] = []
+    var finalPartial: ArrayResponse.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.items == ["apple", "banana", "cherry"])
+    #expect(final.numbers == [10, 20, 30])
+  }
+
+  public func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl() async throws {
+    let stream = llm.replyStream(
+      to: "Create a person named Alice, age 25, living at 456 Oak St, Boston, 02101",
+      returning: Person.self
+    )
+
+    var partials: [Person.Partial] = []
+    var finalPartial: Person.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.name == "Alice")
+    #expect(final.age == 25)
+    #expect(final.address?.street == "456 Oak St")
+    #expect(final.address?.city == "Boston")
+    #expect(final.address?.zipCode == 2101)
+  }
+
+  public func testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl() async throws {
+    // Create a new session for structured conversation
+    let session = llm.makeSession(instructions: {
+      "You are a helpful assistant that creates structured responses based on conversation context."
+    })
+
+    // Turn 1: Establish context
+    let stream1 = llm.replyStream(
+      to: "Remember this person: John, age 30",
+      in: session
+    )
+    for try await _ in stream1 {
+      // Consume stream
+    }
+
+    // Turn 2: Ask for structured response using previous context
+    let stream2 = llm.replyStream(
+      to:
+        "Create a Person object for the person I mentioned, with address 123 Main St, New York, 10001",
+      returning: Person.self,
+      in: session
+    )
+
+    var finalPartial: Person.Partial?
+    for try await partial in stream2 {
+      finalPartial = partial
+    }
+
+    // Assert final partial contains expected content from context
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.name == "John")
+    #expect(final.age == 30)
+    #expect(final.address?.street == "123 Main St")
+    #expect(final.address?.city == "New York")
+    #expect(final.address?.zipCode == 10001)
   }
 
   public func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {
@@ -566,7 +700,6 @@ extension LLMBaseTestCases {
     for try await partial in stream {
       content = partial
     }
-
 
     #expect(locationTool.wasCalledWith != nil)
     if let args = weatherTool.wasCalledWith {

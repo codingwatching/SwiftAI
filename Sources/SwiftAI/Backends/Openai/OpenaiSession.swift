@@ -129,17 +129,8 @@ public final actor OpenaiSession: LLMSession {
     returning type: T.Type,
     options: LLMReplyOptions
   ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
-    // Only support String streaming for now
-    guard T.self == String.self else {
-      return AsyncThrowingStream { continuation in
-        continuation.finish(
-          throwing: LLMError.generalError(
-            "Streaming currently only supports String types in OpenaiSession"))
-      }
-    }
-
     return AsyncThrowingStream { continuation in
-      Task {
+      Task(name: "OpenaiSession.generateResponseStream") {
         defer {
           continuation.finish()
         }
@@ -185,7 +176,17 @@ public final actor OpenaiSession: LLMSession {
               switch event {
               case .outputText(.delta(let deltaEvent)):
                 accumulatedText += deltaEvent.delta
-                let partial = unsafeBitCast(accumulatedText, to: T.Partial.self)
+                let partial = try {
+                  if T.self == String.self {
+                    // String.Partial = String
+                    return accumulatedText as! T.Partial
+                  } else {
+                    // TODO: Do not yield when the the new partial is the same as the previous one.
+                    let partialJson = repair(json: accumulatedText)
+                    return try JSONDecoder().decode(
+                      T.Partial.self, from: partialJson.data(using: .utf8) ?? Data())
+                  }
+                }()
                 continuation.yield(partial)
 
               case .completed(let responseEvent),

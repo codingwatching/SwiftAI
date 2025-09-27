@@ -174,6 +174,20 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithSystemPrompt_Impl()
   }
 
+  // MARK: - Streaming Structured Output Tests (Disabled for SystemLLM)
+
+  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {}
+
   @Test(.enabled(if: appleIntelligenceIsAvailable()))
   func testAvailability_PropertyReflectsCorrectStatus() async throws {
     #expect(llm.availability == .available)

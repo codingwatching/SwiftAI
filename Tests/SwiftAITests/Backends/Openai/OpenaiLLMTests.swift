@@ -143,6 +143,28 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReplyStream_MultiTurnToolLoop_Impl(using: OpenaiLLM(model: "gpt-4o-mini"))
   }
 
+  // MARK: - Streaming Structured Output Tests
+
+  @Test("Streaming structured output - primitives", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningPrimitives_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - arrays", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - nested objects", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - session context", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {
+    try await testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl()
+  }
+
   @Test("Complex conversation history with structured analysis", .enabled(if: apiKeyIsPresent()))
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws {
     try await testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent_Impl()

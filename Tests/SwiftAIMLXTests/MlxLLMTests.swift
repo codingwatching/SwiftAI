@@ -78,6 +78,20 @@ struct MlxLLMTests: LLMBaseTestCases {
   @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
   func testReplyStream_MultiTurnToolLoop() async throws {}
 
+  // MARK: - Streaming Structured Output Tests (Disabled for MLX)
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {}
+
   // MARK: - Structured Output Tests (Disabled for MLX)
 
   @Test(.disabled("Structured output not supported yet on MLX"))

@@ -236,7 +236,7 @@ extension LLMBaseTestCases {
 
   public func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl() async throws {
     let stream = llm.replyStream(
-      to: "Create a person named Alice, age 25, living at 456 Oak St, Boston, 02101",
+      to: "Create a person named Alice, age 25, living at 456 Oak St, Boston, 2101",
       returning: Person.self
     )
 

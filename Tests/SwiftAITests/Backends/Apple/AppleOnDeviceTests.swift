@@ -174,19 +174,27 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithSystemPrompt_Impl()
   }
 
-  // MARK: - Streaming Structured Output Tests (Disabled for SystemLLM)
+  // MARK: - Streaming Structured Output Tests
 
-  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
-  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {}
+  @Test("Streaming structured output - primitives", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningPrimitives_EmitsProgressivePartials_Impl()
+  }
 
-  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
-  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {}
+  @Test("Streaming structured output - arrays", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl()
+  }
 
-  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
-  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {}
+  @Test("Streaming structured output - nested objects", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl()
+  }
 
-  @Test(.disabled("Streaming structured output not yet implemented for SystemLLM"))
-  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {}
+  @Test("Streaming structured output - session context", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {
+    try await testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl()
+  }
 
   @Test(.enabled(if: appleIntelligenceIsAvailable()))
   func testAvailability_PropertyReflectsCorrectStatus() async throws {

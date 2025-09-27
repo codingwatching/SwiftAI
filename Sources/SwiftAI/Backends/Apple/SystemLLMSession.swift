@@ -69,34 +69,40 @@ public final actor SystemLLMSession: LLMSession {
     type: T.Type,
     options: LLMReplyOptions
   ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
-    // Only support String streaming for now
-    guard T.self == String.self else {
-      return AsyncThrowingStream { continuation in
-        continuation.finish(
-          throwing: LLMError.generalError(
-            "Streaming currently only supports String types in SystemLLMSession"))
-      }
-    }
-
-    let responseStream = session.streamResponse(
-      to: prompt.promptRepresentation,
-      options: toFoundationGenerationOptions(options)
-    )
-
     return AsyncThrowingStream { continuation in
       Task {
+        defer { continuation.finish() }
+
         do {
-          for try await chunk in responseStream {
-            guard let partial = chunk.content as? T.Partial else {
-              // Must never happen
-              continuation.finish(
-                throwing: LLMError.generalError(
-                  "Streaming failed: \(chunk.content) is not a \(T.Partial.self)"))
-              return
+          if T.self == String.self {
+            let responseStream = session.streamResponse(
+              to: prompt.promptRepresentation,
+              options: toFoundationGenerationOptions(options)
+            )
+
+            for try await snapshot in responseStream {
+              guard let partial = snapshot.content as? T.Partial else {
+                assertionFailure("Expected String.Partial to be String")
+                return
+              }
+              continuation.yield(partial)
             }
-            continuation.yield(partial)
+          } else {
+            let responseStream = session.streamResponse(
+              to: prompt.promptRepresentation,
+              schema: try T.schema.toGenerationSchema(),
+              options: toFoundationGenerationOptions(options)
+            )
+
+            for try await snapshot in responseStream {
+              guard let data = snapshot.content.jsonString.data(using: .utf8) else {
+                throw LLMError.generalError("Invalid UTF-8 in partial JSON")
+              }
+
+              let partial = try JSONDecoder().decode(T.Partial.self, from: data)
+              continuation.yield(partial)
+            }
           }
-          continuation.finish()
         } catch {
           continuation.finish(throwing: LLMError.generalError("Streaming failed: \(error)"))
         }

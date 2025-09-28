@@ -104,8 +104,7 @@ public protocol LLM: Model {
   ///   )
   /// ```
   ///
-  /// - Note: The session is mutable. It is updated after each reply to maintain
-  ///   conversation continuity.
+  /// - Note: The session is mutable. It is updated after each emitted message.
   ///
   /// - Note: A session represents a single conversation between the LLM and the user.
   ///   Use a new session for each new conversation.
@@ -116,6 +115,86 @@ public protocol LLM: Model {
     in session: Session,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T>
+
+  // MARK: - Streaming API
+
+  /// Streams a conversation reply from the model.
+  ///
+  /// The stream emits partial objects as fields are progressively filled:
+  /// - Text fields grow incrementally as tokens arrive.
+  /// - Other fields (numbers, booleans, enums, etc.) appear only once complete.
+  ///
+  /// - Parameters:
+  ///   - messages: The conversation history to send to the LLM. Must end with a user message.
+  ///   - tools: An array of tools available for the LLM to use during generation
+  ///   - type: The expected return type conforming to `Generable`
+  ///   - options: Configuration options for the LLM request
+  ///
+  /// - Returns: An `AsyncThrowingStream` of partial responses as the model generates content
+  ///
+  /// The stream may emit errors if the request fails, the response cannot be parsed,
+  /// or the conversation doesn't end with a user message.
+  ///
+  /// ## Usage Example
+  ///
+  /// ```swift
+  /// let stream = llm.replyStream(
+  ///   to: messages,
+  ///   returning: WeatherReport.self,
+  ///   tools: [weatherTool]
+  /// )
+  /// for try await partial in stream {
+  ///   if let temperature = partial.temperature {
+  ///     updateTemperature(temperature)
+  ///   }
+  /// }
+  /// ```
+  func replyStream<T: Generable>(
+    to messages: [Message],
+    returning type: T.Type,
+    tools: [any Tool],
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable
+
+  /// Streams a response to a prompt within a session.
+  ///
+  /// The stream emits partial objects as fields are progressively filled:
+  /// - Text fields grow incrementally as tokens arrive.
+  /// - Other fields (numbers, booleans, enums, etc.) appear only once complete.
+  ///
+  /// - Parameters:
+  ///   - prompt: user message to respond to.
+  ///   - type: The expected response type.
+  ///   - session: The session maintaining context.
+  ///     The session will be mutated during execution to capture updated conversation state.
+  ///   - options: Configuration for response generation.
+  ///
+  /// - Returns: An `AsyncThrowingStream` of partial responses as the model generates content.
+  ///
+  /// The session preserves context across multiple interactions:
+  ///
+  /// ```swift
+  ///   var session = llm.makeSession()
+  ///   let stream = llm.replyStream(
+  ///       to: "Hello my name is Manal",
+  ///       returning: Greeting.self,
+  ///       in: session
+  ///   )
+  ///   for try await partial in stream {
+  ///     // Process partial response
+  ///   }
+  /// ```
+  ///
+  /// - Note: The session is mutable. It is updated after each message is streamed in full.
+  ///
+  /// - Note: A session represents a single conversation between the LLM and the user.
+  ///   Use a new session for each new conversation.
+  func replyStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    in session: Session,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable
 }
 
 /// A session implementation that maintains no conversation state.
@@ -143,6 +222,20 @@ extension LLM where Session == NullLLMSession {
   ) async throws -> LLMReply<T> {
     throw LLMError.generalError(
       "Session management not supported for stateless LLM implementations")
+  }
+
+  /// Default implementation that throws an error for stateless LLMs.
+  public func replyStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    in session: NullLLMSession,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return AsyncThrowingStream { continuation in
+      continuation.finish(
+        throwing: LLMError.generalError(
+          "Session management not supported for stateless LLM implementations"))
+    }
   }
 }
 
@@ -253,6 +346,70 @@ extension LLM {
     @PromptBuilder to content: () -> Prompt
   ) async throws -> LLMReply<T> {
     return try await reply(to: content(), returning: type, in: session, options: options)
+  }
+
+  // MARK: - Streaming Convenience Methods
+
+  public func replyStream<T: Generable>(
+    to messages: [Message],
+    returning type: T.Type = String.self,
+    tools: [any Tool] = [],
+    options: LLMReplyOptions = .default
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return replyStream(to: messages, returning: type, tools: tools, options: options)
+  }
+
+  /// Convenience method for streaming with string prompt and default parameters.
+  public func replyStream<T: Generable>(
+    to prompt: String,
+    returning type: T.Type = String.self,
+    tools: [any Tool] = [],
+    options: LLMReplyOptions = .default
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    let userMessage = Message.user(.init(chunks: Prompt(prompt).chunks))
+    return replyStream(
+      to: [userMessage],
+      returning: type,
+      tools: tools,
+      options: options
+    )
+  }
+
+  /// Convenience method for streaming with PromptBuilder and default parameters.
+  public func replyStream<T: Generable>(
+    returning type: T.Type = String.self,
+    tools: [any Tool] = [],
+    options: LLMReplyOptions = .default,
+    @PromptBuilder to content: () -> Prompt
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    let prompt = content()
+    let userMessage = Message.user(.init(chunks: prompt.chunks))
+    return replyStream(
+      to: [userMessage],
+      returning: type,
+      tools: tools,
+      options: options
+    )
+  }
+
+  /// Convenience method for session-based streaming with string prompt and default parameters.
+  public func replyStream<T: Generable>(
+    to prompt: String,
+    returning type: T.Type = String.self,
+    in session: Session,
+    options: LLMReplyOptions = .default
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return replyStream(to: Prompt(prompt), returning: type, in: session, options: options)
+  }
+
+  /// Convenience method for session-based streaming with PromptBuilder.
+  public func replyStream<T: Generable>(
+    returning type: T.Type = String.self,
+    in session: Session,
+    options: LLMReplyOptions = .default,
+    @PromptBuilder to content: () -> Prompt
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return replyStream(to: content(), returning: type, in: session, options: options)
   }
 }
 

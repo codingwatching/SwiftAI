@@ -31,6 +31,21 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
 
+  @Test("Streaming text generation", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {
+    try await testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl()
+  }
+
+  @Test("Streaming text generation - history verification", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {
+    try await testReplyStream_ReturningText_ReturnsCorrectHistory_Impl()
+  }
+
+  @Test("Streaming maintains session context", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_InSession_MaintainsContext() async throws {
+    try await testReplyStream_InSession_MaintainsContext_Impl()
+  }
+
   @Test("Structured output - primitives content", .enabled(if: apiKeyIsPresent()))
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws {
     try await testReply_ReturningPrimitives_ReturnsCorrectContent_Impl()
@@ -110,6 +125,46 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_WithFailingTool_Fails_Impl()
   }
 
+  // MARK: - Streaming Tool Calling Tests
+
+  @Test("Streaming tool calling - basic calculation", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {
+    try await testReplyStream_WithTools_CallsCorrectTool_Impl()
+  }
+
+  @Test("Streaming tool calling - multiple tools", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {
+    try await testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl()
+  }
+
+  @Test("Streaming multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_MultiTurnToolLoop() async throws {
+    // Using smarter model because the nano model is not good enough for tool loops
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: OpenaiLLM(model: "gpt-4o-mini"))
+  }
+
+  // MARK: - Streaming Structured Output Tests
+
+  @Test("Streaming structured output - primitives", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningPrimitives_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - arrays", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - nested objects", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - session context", .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {
+    try await testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl()
+  }
+
   @Test("Complex conversation history with structured analysis", .enabled(if: apiKeyIsPresent()))
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws {
     try await testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent_Impl()
@@ -172,7 +227,8 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     let llm = OpenaiLLM(model: "gpt-4.1-nano")
 
     let hasEnvKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil
-    let expectedAvailability: LLMAvailability = hasEnvKey ? .available : .unavailable(reason: .apiKeyMissing)
+    let expectedAvailability: LLMAvailability =
+      hasEnvKey ? .available : .unavailable(reason: .apiKeyMissing)
 
     #expect(llm.isAvailable == hasEnvKey)
     #expect(llm.availability == expectedAvailability)

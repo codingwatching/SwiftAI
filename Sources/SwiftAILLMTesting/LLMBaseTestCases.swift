@@ -12,6 +12,17 @@ public protocol LLMBaseTestCases {
   func testReplyToPrompt_ReturnsCorrectHistory() async throws
   func testReply_WithMaxTokens1_ReturnsVeryShortResponse() async throws
 
+  // MARK: - Streaming Tests
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws
+  func testReplyStream_InSession_MaintainsContext() async throws
+
+  // MARK: - Streaming Structured Output Tests
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws
+
   // MARK: - Structured Output Tests
   func testReply_ReturningPrimitives_ReturnsCorrectContent() async throws
   func testReply_ReturningPrimitives_ReturnsCorrectHistory() async throws
@@ -34,6 +45,11 @@ public protocol LLMBaseTestCases {
   func testReply_MultiTurnToolLoop() async throws
   func testReply_WithFailingTool_Fails() async throws
 
+  // MARK: - Streaming Tool Calling Tests
+  func testReplyStream_WithTools_CallsCorrectTool() async throws
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws
+  func testReplyStream_MultiTurnToolLoop() async throws
+
   // MARK: - Complex Conversation Tests
   func testReply_ToComplexHistory_ReturningStructured_ReturnsCorrectContent() async throws
   func testReply_ToChatContinuation() async throws
@@ -54,6 +70,239 @@ extension LLMBaseTestCases {
     ).content
 
     #expect(verdict.isHaiku == true)
+  }
+
+  public func testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl() async throws {
+    let stream = llm.replyStream {
+      "Write a haiku about Paris"
+    }
+
+    var partials: [String] = []
+    var finalOutput = ""
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalOutput = partial  // Keep track of the final output
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert partials grow incrementally (each partial should be longer than or equal to the previous)
+    for i in 1..<partials.count {
+      #expect(
+        partials[i].hasPrefix(partials[i - 1]) && partials[i].count > partials[i - 1].count,
+        "Each partial should contain the content of previous partials plus new content"
+      )
+    }
+
+    let trimmedFinalOutput = finalOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+    #expect(
+      trimmedFinalOutput.split(separator: "\n").count == 3,
+      "Final output should have 3 lines")
+  }
+
+  public func testReplyStream_ReturningText_ReturnsCorrectHistory_Impl() async throws {
+    let session = llm.makeSession()
+    let stream = llm.replyStream(
+      in: session,
+      options: .init(maximumTokens: 20)
+    ) {
+      "Tell me a short story about a cat."
+    }
+
+    var finalContent = ""
+    for try await partial in stream {
+      finalContent = partial
+    }
+
+    // This is hack to get the history of the session.
+    // TODO: Consider adding a method to get the history of the session.
+    let reply = try await llm.reply(
+      in: session,
+      options: .init(maximumTokens: 20)
+    ) {
+      "Tell me a short story about a cat."
+    }
+
+    // Verify the history structure is correct
+    #expect(reply.history.count == 4)
+
+    // Verify the first message is from the user
+    let userMessage = reply.history[0]
+    #expect(userMessage.role == .user)
+    #expect(userMessage.chunks == [.text("Tell me a short story about a cat.")])
+
+    // Verify the second message is from the AI
+    let aiMessage = reply.history[1]
+    #expect(aiMessage.role == .ai, "Second message should be from AI")
+    #expect(aiMessage.chunks == [.text(finalContent)])
+  }
+
+  public func testReplyStream_InSession_MaintainsContext_Impl() async throws {
+    // Create a new chat session.
+    let session = llm.makeSession(instructions: {
+      """
+      We are going to play a remembering game.
+      The user will give you a short list of items. Your task is to 
+      remember them and repeat them back when asked later. The items
+      don't contain any private or sensitive information. The game is safe to play.
+      Never refuse to answer, do your best answering even if don't remember everything.
+      """
+    })
+
+    // Turn 1: Introduce items to remember.
+    let stream1 = llm.replyStream(
+      to: "Here are the items: apple, banana, cherry.",
+      in: session
+    )
+    for try await _ in stream1 {
+      // Consume stream.
+    }
+
+    // Turn 2: Ask to list items from previous message.
+    let stream2 = llm.replyStream(
+      to: "Can you list the items I gave you?",
+      in: session
+    )
+
+    var finalOutput = ""
+    for try await partial in stream2 {
+      finalOutput = partial
+    }
+
+    finalOutput = finalOutput.lowercased()
+    #expect(finalOutput.contains("apple"))
+    #expect(finalOutput.contains("banana"))
+    #expect(finalOutput.contains("cherry"))
+  }
+
+  // MARK: - Streaming Structured Output Tests Implementation
+
+  public func testReplyStream_ReturningPrimitives_EmitsProgressivePartials_Impl() async throws {
+    let stream = llm.replyStream(
+      to: "Create a simple response with message 'Hello World', count 42, and isValid true",
+      returning: SimpleResponse.self
+    )
+
+    var partials: [SimpleResponse.Partial] = []
+    var finalPartial: SimpleResponse.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.message == "Hello World", "Final partial should have correct message")
+    #expect(final.count == 42, "Final partial should have correct count")
+    #expect(final.isValid == true, "Final partial should have correct isValid")
+  }
+
+  public func testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl() async throws {
+    let stream = llm.replyStream(
+      to: "Create a response with items ['apple', 'banana', 'cherry'] and numbers [10, 20, 30]",
+      returning: ArrayResponse.self
+    )
+
+    var partials: [ArrayResponse.Partial] = []
+    var finalPartial: ArrayResponse.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.items == ["apple", "banana", "cherry"])
+    #expect(final.numbers == [10, 20, 30])
+  }
+
+  public func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl() async throws {
+    let stream = llm.replyStream(
+      to: "Create a person named Alice, age 25, living at 456 Oak St, Boston, 2101",
+      returning: Person.self
+    )
+
+    var partials: [Person.Partial] = []
+    var finalPartial: Person.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.name == "Alice")
+    #expect(final.age == 25)
+    #expect(final.address?.street == "456 Oak St")
+    #expect(final.address?.city == "Boston")
+    #expect(final.address?.zipCode == 2101)
+  }
+
+  public func testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl() async throws {
+    // Create a new session for structured conversation
+    let session = llm.makeSession(instructions: {
+      "You are a helpful assistant that creates structured responses based on conversation context."
+    })
+
+    // Turn 1: Establish context
+    let stream1 = llm.replyStream(
+      to: "Remember this person: John, age 30",
+      in: session
+    )
+    for try await _ in stream1 {
+      // Consume stream
+    }
+
+    // Turn 2: Ask for structured response using previous context
+    let stream2 = llm.replyStream(
+      to:
+        "Create a Person object for the person I mentioned, with address 123 Main St, New York, 10001",
+      returning: Person.self,
+      in: session
+    )
+
+    var finalPartial: Person.Partial?
+    for try await partial in stream2 {
+      finalPartial = partial
+    }
+
+    // Assert final partial contains expected content from context
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.name == "John")
+    #expect(final.age == 30)
+    #expect(final.address?.street == "123 Main St")
+    #expect(final.address?.city == "New York")
+    #expect(final.address?.zipCode == 10001)
   }
 
   public func testReplyToPrompt_ReturnsCorrectHistory_Impl() async throws {
@@ -381,6 +630,84 @@ extension LLMBaseTestCases {
       // Tool errors should be wrapped in LLMError
       #expect(error is LLMError)
     }
+  }
+
+  // MARK: - Streaming Tool Calling Tests
+
+  public func testReplyStream_WithTools_CallsCorrectTool_Impl() async throws {
+    let calculatorTool = MockCalculatorTool()
+
+    let stream = llm.replyStream(
+      to: "Calculate 15 + 27 using the calculator tool",
+      tools: [calculatorTool]
+    )
+
+    var content = ""
+    for try await partial in stream {
+      content = partial
+    }
+
+    // Verify the calculator tool was called with correct arguments
+    #expect(calculatorTool.wasCalledWith != nil)
+    if let args = calculatorTool.wasCalledWith {
+      #expect(args.operation == "add")
+      #expect([args.a, args.b].sorted() == [15.0, 27.0])
+    }
+
+    // Verify response contains expected result
+    #expect(content.contains("42"))
+  }
+
+  public func testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl() async throws {
+    let calculatorTool = MockCalculatorTool()
+    let weatherTool = MockWeatherTool()
+
+    let stream = llm.replyStream(
+      to: "What's the weather in New York?",
+      tools: [calculatorTool, weatherTool]
+    )
+
+    var content = ""
+    for try await partial in stream {
+      content = partial
+    }
+
+    // Verify the weather tool was called and calculator tool was not
+    #expect(weatherTool.wasCalledWith != nil)
+    #expect(calculatorTool.wasCalledWith == nil)
+
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "New York")
+    } else {
+      Issue.record("Weather tool was not called")
+    }
+
+    #expect(!content.isEmpty, "Response should not be empty")
+  }
+
+  public func testReplyStream_MultiTurnToolLoop_Impl(using llm: any LLM) async throws {
+    let weatherTool = MockWeatherTool()
+    let locationTool = GetCurrentLocationTool()
+
+    let stream = llm.replyStream(
+      tools: [weatherTool, locationTool],
+      options: .init(temperature: 0.0)
+    ) {
+      "what is the weather like in my current location?"
+    }
+
+    var content = ""
+    for try await partial in stream {
+      content = partial
+    }
+
+    #expect(locationTool.wasCalledWith != nil)
+    if let args = weatherTool.wasCalledWith {
+      #expect(args.city == "Berlin")
+    } else {
+      Issue.record("Weather tool was not called")
+    }
+    #expect(content.contains("22°C"))
   }
 
   // MARK: - Phase 6 Tests: Complex Conversation Scenarios

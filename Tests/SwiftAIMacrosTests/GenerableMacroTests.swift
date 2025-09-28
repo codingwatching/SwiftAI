@@ -8,7 +8,7 @@ struct GenerableMacroTests {
   func testAllBasicTypes() throws {
     assertMacro(indentationWidth: .spaces(2)) {
       """
-      @Generable(description: "A struct with all basic types")
+      @Generable(description: "A struct with a mix of types")
       struct AllTypes {
         let stringField: String
         let intField: Int
@@ -20,6 +20,8 @@ struct GenerableMacroTests {
         let arrayOfInts: [Int]
         let optionalArrayOfBools: [Bool]?
         let customType: CustomStruct
+        let arrayOfCustomTypes: [CustomStruct]
+        let optionalArrayOfCustomTypes: [CustomStruct]?
       }
       """
     } expansion: {
@@ -35,9 +37,26 @@ struct GenerableMacroTests {
         let arrayOfInts: [Int]
         let optionalArrayOfBools: [Bool]?
         let customType: CustomStruct
+        let arrayOfCustomTypes: [CustomStruct]
+        let optionalArrayOfCustomTypes: [CustomStruct]?
       }
 
       extension AllTypes: SwiftAI.Generable {
+        public struct Partial: Codable, Sendable {
+          public let stringField: String.Partial?
+          public let intField: Int.Partial?
+          public let doubleField: Double.Partial?
+          public let boolField: Bool.Partial?
+          public let optionalString: String.Partial?
+          public let optionalInt: Int.Partial?
+          public let arrayOfStrings: [String].Partial?
+          public let arrayOfInts: [Int].Partial?
+          public let optionalArrayOfBools: [Bool].Partial?
+          public let customType: CustomStruct.Partial?
+          public let arrayOfCustomTypes: [CustomStruct].Partial?
+          public let optionalArrayOfCustomTypes: [CustomStruct].Partial?
+        }
+
         public static var schema: Schema {
           .object(
             name: "AllTypes",
@@ -93,6 +112,16 @@ struct GenerableMacroTests {
                 description: nil,
                 isOptional: false
               ),
+              "arrayOfCustomTypes": Schema.Property(
+                schema: [CustomStruct].schema,
+                description: nil,
+                isOptional: false
+              ),
+              "optionalArrayOfCustomTypes": Schema.Property(
+                schema: [CustomStruct].schema,
+                description: nil,
+                isOptional: true
+              ),
             ]
           )
         }
@@ -113,6 +142,9 @@ struct GenerableMacroTests {
               "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
                 ?? StructuredContent(kind: .null),
               "customType": self.customType.generableContent,
+              "arrayOfCustomTypes": self.arrayOfCustomTypes.generableContent,
+              "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes?
+                .generableContent ?? StructuredContent(kind: .null),
             ])
           )
         }
@@ -139,6 +171,10 @@ struct GenerableMacroTests {
       }
 
       extension User: SwiftAI.Generable {
+        public struct Partial: Codable, Sendable {
+          public let name: String.Partial?
+        }
+
         public static var schema: Schema {
           .object(
             name: "User",
@@ -218,6 +254,13 @@ struct GenerableMacroTests {
       }
 
       extension ConstrainedFields: SwiftAI.Generable {
+        public struct Partial: Codable, Sendable {
+          public let name: String.Partial?
+          public let age: Int.Partial?
+          public let score: Double.Partial?
+          public let tags: [String].Partial?
+        }
+
         public static var schema: Schema {
           .object(
             name: "ConstrainedFields",
@@ -301,6 +344,13 @@ struct GenerableMacroTests {
       }
 
       extension ExplicitConstraintFields: SwiftAI.Generable {
+        public struct Partial: Codable, Sendable {
+          public let name: String.Partial?
+          public let age: Int.Partial?
+          public let score: Double.Partial?
+          public let tags: [String].Partial?
+        }
+
         public static var schema: Schema {
           .object(
             name: "ExplicitConstraintFields",

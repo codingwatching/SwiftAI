@@ -6,7 +6,7 @@ import SwiftAILLMTesting
 import SwiftAIMLX
 import Testing
 
-@Suite
+@Suite(.serialized)
 struct MlxLLMTests: LLMBaseTestCases {
   var llm: MlxLLM {
     let modelDir = ProcessInfo.processInfo.environment["MLX_TEST_MODEL_DIR"]
@@ -46,6 +46,60 @@ struct MlxLLMTests: LLMBaseTestCases {
     await waitUntilAvailable(llm, timeout: .seconds(20))
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
+
+  // MARK: - Streaming Tests
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl()
+  }
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_ReturningText_ReturnsCorrectHistory_Impl()
+  }
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_InSession_MaintainsContext() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_InSession_MaintainsContext_Impl()
+  }
+
+  // MARK: - Streaming Tool Calling Tests
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_WithTools_CallsCorrectTool_Impl()
+  }
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl()
+  }
+
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_MultiTurnToolLoop() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: llm)
+  }
+
+  // MARK: - Streaming Structured Output Tests (Disabled for MLX)
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {}
 
   // MARK: - Structured Output Tests (Disabled for MLX)
 

@@ -35,6 +35,9 @@ public struct GenerableMacro: ExtensionMacro {
     // TODO: Extract description from @Generable macro if provided
 
     let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): SwiftAI.Generable") {
+      try emitPartialStruct(typeName: typeName, properties: propertyDescriptors)
+        .with(\.trailingTrivia, .newlines(2))
+
       try emitSchemaVariable(typeName: typeName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
@@ -223,6 +226,58 @@ private func emitGenerableContentVariable(
     })))
     """
   }
+}
+
+/// Generates a nested Partial struct for streaming support.
+///
+/// ## Example
+///
+/// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
+/// Output: StructDeclSyntax for:
+///   public struct Partial: Codable, Sendable {
+///     public var name: String.Partial?
+///     public var age: Int.Partial?
+///
+///     public init(name: String.Partial? = nil, age: Int.Partial? = nil) {
+///       self.name = name
+///       self.age = age
+///     }
+///   }
+private func emitPartialStruct(
+  typeName: String,
+  properties: [PropertyDescriptor]
+) throws -> StructDeclSyntax {
+  let partialProperties = try properties.map { property in
+    let propertyName = property.name
+    let partialType = emitPartialType(for: property.type)
+    return try VariableDeclSyntax("public let \(raw: propertyName): \(partialType)")
+  }
+
+  return try StructDeclSyntax("public struct Partial: Codable, Sendable") {
+    for property in partialProperties {
+      MemberBlockItemSyntax(decl: property)
+    }
+  }
+}
+
+/// Generates the partial type for a given property type.
+///
+/// ## Examples
+///
+/// Input: "String" -> Output: "String.Partial?"
+/// Input: "String?" -> Output: "String.Partial?"
+/// Input: "[String]" -> Output: "[String].Partial?"
+/// Input: "CustomType" -> Output: "CustomType.Partial?"
+private func emitPartialType(for type: TypeSyntax) -> TypeSyntax {
+  // Handle optional types: T? -> T.Partial?
+  if let optionalType = type.as(OptionalTypeSyntax.self) {
+    let baseType = optionalType.wrappedType.trimmed.description
+    return TypeSyntax("\(raw: baseType).Partial?")
+  }
+
+  // Handle base types: T -> T.Partial?
+  let baseType = type.trimmed.description
+  return TypeSyntax("\(raw: baseType).Partial?")
 }
 
 /// Generates a schema expression for a given type with optional constraints.

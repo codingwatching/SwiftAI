@@ -178,4 +178,63 @@ public struct MlxLLM: LLM {
       options: options
     )
   }
+
+  public func replyStream<T: Generable>(
+    to messages: [SwiftAI.Message],
+    returning type: T.Type,
+    tools: [any SwiftAI.Tool],
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    guard let lastMessage = messages.last, lastMessage.role == .user else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(throwing: LLMError.generalError("Conversation must end with a user message"))
+      }
+    }
+
+    // Split conversation: context (prefix) and the user prompt (last message)
+    let contextMessages = Array(messages.dropLast())
+    let prompt = Prompt(chunks: lastMessage.chunks)
+
+    // Create session with context
+    let session = makeSession(tools: tools, messages: contextMessages)
+
+    return replyStream(
+      to: prompt,
+      returning: type,
+      in: session,
+      options: options
+    )
+  }
+
+  public func replyStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    in session: MlxSession,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    guard isAvailable else {
+      return AsyncThrowingStream { continuation in
+        continuation.finish(throwing: LLMError.generalError("Model unavailable"))
+      }
+    }
+
+    return AsyncThrowingStream { continuation in
+      Task {
+        let stream = await session.generateResponseStream(
+          prompt: prompt,
+          type: type,
+          options: options
+        )
+
+        do {
+          for try await partial in stream {
+            continuation.yield(partial)
+          }
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+    }
+  }
 }

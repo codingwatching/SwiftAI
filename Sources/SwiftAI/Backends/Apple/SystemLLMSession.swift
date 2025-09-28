@@ -35,33 +35,76 @@ public final actor SystemLLMSession: LLMSession {
     type: T.Type,
     options: LLMReplyOptions
   ) async throws -> LLMReply<T> {
-    let foundationPrompt = prompt.promptRepresentation
-    let generationOptions = toFoundationGenerationOptions(options)
+    let stream = generateResponseStream(prompt: prompt, type: type, options: options)
 
-    let content: T = try await {
+    var finalPartial: T.Partial?
+    for try await partial in stream {
+      finalPartial = partial
+    }
+
+    guard let final = finalPartial else {
+      throw LLMError.generalError("No response received from streaming API")
+    }
+
+    // Convert final partial to complete type
+    let content: T = try {
       if T.self == String.self {
-        let response: LanguageModelSession.Response<String> = try await session.respond(
-          to: foundationPrompt,
-          options: generationOptions
-        )
-        return unsafeBitCast(response.content, to: T.self)
+        return unsafeBitCast(final, to: T.self)
       } else {
-        let response = try await session.respond(
-          to: foundationPrompt,
-          schema: try T.schema.toGenerationSchema(),
-          options: generationOptions
-        )
-        // TODO: Add a protocol extension on `Generable` to conform `GeneratedContentConvertible`
-        // and use it here.
-        guard let jsonData = response.content.jsonString.data(using: .utf8) else {
-          throw LLMError.generalError("Failed to convert JSON string to Data")
-        }
-        return try JSONDecoder().decode(T.self, from: jsonData)
+        let data = try JSONEncoder().encode(final)
+        return try JSONDecoder().decode(T.self, from: data)
       }
     }()
 
     let messages = try session.transcript.messages
     return LLMReply(content: content, history: messages)
+  }
+
+  func generateResponseStream<T: Generable>(
+    prompt: Prompt,
+    type: T.Type,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    return AsyncThrowingStream { continuation in
+      Task {
+        defer { continuation.finish() }
+
+        do {
+          if T.self == String.self {
+            let responseStream = session.streamResponse(
+              to: prompt.promptRepresentation,
+              options: toFoundationGenerationOptions(options)
+            )
+
+            for try await snapshot in responseStream {
+              guard let partial = snapshot.content as? T.Partial else {
+                assertionFailure("Expected String.Partial to be String")
+                return
+              }
+              continuation.yield(partial)
+            }
+          } else {
+            let responseStream = session.streamResponse(
+              to: prompt.promptRepresentation,
+              schema: try T.schema.toGenerationSchema(),
+              options: toFoundationGenerationOptions(options)
+            )
+
+            for try await snapshot in responseStream {
+              // TODO: Add a protocol extension on `Generable` to conform to `GeneratedContentConvertible` and use it here.
+              guard let data = snapshot.content.jsonString.data(using: .utf8) else {
+                throw LLMError.generalError("Invalid UTF-8 in partial JSON")
+              }
+
+              let partial = try JSONDecoder().decode(T.Partial.self, from: data)
+              continuation.yield(partial)
+            }
+          }
+        } catch {
+          continuation.finish(throwing: LLMError.generalError("Streaming failed: \(error)"))
+        }
+      }
+    }
   }
 
   private func toFoundationGenerationOptions(_ options: LLMReplyOptions)

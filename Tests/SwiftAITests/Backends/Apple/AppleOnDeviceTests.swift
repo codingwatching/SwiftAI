@@ -32,6 +32,23 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithMaxTokens1_ReturnsVeryShortResponse_Impl()
   }
 
+  // MARK: - Streaming Tests
+
+  @Test("Streaming text generation", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningText_EmitsMultipleTextPartials() async throws {
+    try await testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl()
+  }
+
+  @Test("Streaming text generation - history verification", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {
+    try await testReplyStream_ReturningText_ReturnsCorrectHistory_Impl()
+  }
+
+  @Test("Streaming maintains session context", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_InSession_MaintainsContext() async throws {
+    try await testReplyStream_InSession_MaintainsContext_Impl()
+  }
+
   // MARK: - Structured Output Tests
 
   @Test("Structured output - primitives content", .enabled(if: appleIntelligenceIsAvailable()))
@@ -110,6 +127,23 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_WithFailingTool_Fails_Impl()
   }
 
+  // MARK: - Streaming Tool Calling Tests
+
+  @Test("Streaming tool calling - basic calculation", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {
+    try await testReplyStream_WithTools_CallsCorrectTool_Impl()
+  }
+
+  @Test("Streaming tool calling - multiple tools", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {
+    try await testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl()
+  }
+
+  @Test("Streaming multi-turn tool loop", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_MultiTurnToolLoop() async throws {
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: llm)
+  }
+
   // MARK: - Complex Conversation Tests
 
   @Test(
@@ -138,6 +172,28 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   @Test("System prompt conversation", .enabled(if: appleIntelligenceIsAvailable()))
   func testReply_WithSystemPrompt() async throws {
     try await testReply_WithSystemPrompt_Impl()
+  }
+
+  // MARK: - Streaming Structured Output Tests
+
+  @Test("Streaming structured output - primitives", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningPrimitives_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - arrays", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - nested objects", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl()
+  }
+
+  @Test("Streaming structured output - session context", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {
+    try await testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl()
   }
 
   @Test(.enabled(if: appleIntelligenceIsAvailable()))

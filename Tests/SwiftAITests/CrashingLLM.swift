@@ -26,4 +26,22 @@ final class CrashingLLM: LLM, @unchecked Sendable {
   ) async throws -> LLMReply<T> {
     fatalError("CrashingLLM.reply should not be called in tests")
   }
+
+  func replyStream<T: Generable>(
+    to messages: [Message],
+    returning type: T.Type,
+    tools: [any Tool],
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    fatalError("CrashingLLM.replyStream should not be called in tests")
+  }
+
+  func replyStream<T: Generable>(
+    to prompt: Prompt,
+    returning type: T.Type,
+    in session: NullLLMSession,
+    options: LLMReplyOptions
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+    fatalError("CrashingLLM.replyStream should not be called in tests")
+  }
 }

@@ -6,7 +6,7 @@ import SwiftAILLMTesting
 import SwiftAIMLX
 import Testing
 
-@Suite
+@Suite(.serialized)
 struct MlxLLMTests: LLMBaseTestCases {
   var llm: MlxLLM {
     let modelDir = ProcessInfo.processInfo.environment["MLX_TEST_MODEL_DIR"]
@@ -67,16 +67,25 @@ struct MlxLLMTests: LLMBaseTestCases {
     try await testReplyStream_InSession_MaintainsContext_Impl()
   }
 
-  // MARK: - Streaming Tool Calling Tests (Disabled for MLX)
+  // MARK: - Streaming Tool Calling Tests
 
-  @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
-  func testReplyStream_WithTools_CallsCorrectTool() async throws {}
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_WithTools_CallsCorrectTool() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_WithTools_CallsCorrectTool_Impl()
+  }
 
-  @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
-  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {}
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_WithMultipleTools_SelectsCorrectTool() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_WithMultipleTools_SelectsCorrectTool_Impl()
+  }
 
-  @Test(.disabled("Streaming tool calling not yet implemented for MLX"))
-  func testReplyStream_MultiTurnToolLoop() async throws {}
+  @Test(.enabled(if: testModelDirectoryIsSet()))
+  func testReplyStream_MultiTurnToolLoop() async throws {
+    await waitUntilAvailable(llm, timeout: .seconds(20))
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: llm)
+  }
 
   // MARK: - Streaming Structured Output Tests (Disabled for MLX)
 

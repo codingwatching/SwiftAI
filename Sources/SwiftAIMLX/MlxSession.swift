@@ -156,43 +156,59 @@ public final actor MlxSession: LLMSession {
           // We capture the KVCache before entering the `perform` block to avoid actor isolation issues
           let kvCache = self.kvCache
 
-          // TODO: Add tool loop support for streaming
-          // For now, only support simple text generation without tools
-          let mlxChatMsgs = self.unprocessedMessages.map { $0.asMlxChatMessage }
-          let stream = try await modelContainer.perform { context in
-            let languageModelInput = try await context.processor.prepare(
-              input: UserInput(chat: mlxChatMsgs, tools: toolSpecs)
-            )
-            let parameters = GenerateParameters(from: options)
-            return try MLXLMCommon.generate(
-              input: languageModelInput,
-              cache: kvCache,
-              parameters: parameters,
-              context: context
-            )
-          }
+          // Tool loop for streaming
+          while true {
+            let mlxChatMsgs = self.unprocessedMessages.map { $0.asMlxChatMessage }
+            let stream = try await modelContainer.perform { context in
+              let languageModelInput = try await context.processor.prepare(
+                input: UserInput(chat: mlxChatMsgs, tools: toolSpecs)
+              )
+              let parameters = GenerateParameters(from: options)
+              return try MLXLMCommon.generate(
+                input: languageModelInput,
+                cache: kvCache,
+                parameters: parameters,
+                context: context
+              )
+            }
 
-          var text = ""
-          for await event in stream {
-            switch event {
-            case .chunk(let chunk):
-              text += chunk
-              let partial = unsafeBitCast(text, to: T.Partial.self)
-              continuation.yield(partial)
-            case .toolCall(_):
-              // TODO: Support tool calls in streaming mode
-              assertionFailure("Tool use is currently not supported")
-              break
-            case .info(_):
+            var text = ""
+            var toolCallsToExecute = [SwiftAI.Message.ToolCall]()
+
+            for await event in stream {
+              switch event {
+              case .chunk(let chunk):
+                text += chunk
+                let partial = unsafeBitCast(text, to: T.Partial.self)
+                continuation.yield(partial)
+              case .toolCall(let toolCall):
+                let toolCall = SwiftAI.Message.ToolCall(from: toolCall)
+                toolCallsToExecute.append(toolCall)
+              case .info(_):
+                break
+              }
+            }
+
+            // The kvcache now contains the new context
+            self.unprocessedMessages.removeAll()
+
+            if toolCallsToExecute.isEmpty {
+              // Terminal state - add final AI message to transcript
+              transcript.append(.ai(.init(text: text)))
               break
             }
+
+            // If tool calls exist, add AI message to transcript with tool calls
+            let chunks: [ContentChunk] = text.isEmpty ? [] : [.text(text)]
+            transcript.append(.ai(.init(chunks: chunks, toolCalls: toolCallsToExecute)))
+
+            // Execute tools
+            for toolCall in toolCallsToExecute {
+              let output = try await execute(toolCall: toolCall)
+              transcript.append(.toolOutput(output))
+              unprocessedMessages.append(.toolOutput(output))
+            }
           }
-
-          // The kvcache now contains the new context
-          self.unprocessedMessages.removeAll()
-
-          // Add final AI message to transcript
-          transcript.append(.ai(.init(text: text)))
         } catch {
           continuation.finish(throwing: LLMError.generalError("MLX streaming failed: \(error)"))
         }

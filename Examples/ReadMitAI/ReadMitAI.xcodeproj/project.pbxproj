@@ -9,7 +9,8 @@
 /* Begin PBXBuildFile section */
 		F38300492E5B49B9006B4C8F /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = F38300482E5B49B9006B4C8F /* SwiftSoup */; };
 		F383004E2E5B5773006B4C8F /* SwiftAI in Frameworks */ = {isa = PBXBuildFile; productRef = F383004D2E5B5773006B4C8F /* SwiftAI */; };
-		F38300BE2E5B81D6006B4C8F /* SwiftAI in Frameworks */ = {isa = PBXBuildFile; productRef = F38300BD2E5B81D6006B4C8F /* SwiftAI */; };
+		F3A497462E89A6F5006BC61C /* SwiftAI in Frameworks */ = {isa = PBXBuildFile; productRef = F3A497452E89A6F5006BC61C /* SwiftAI */; };
+		F3D4679E2E89962E00A54D76 /* SwiftAI in Frameworks */ = {isa = PBXBuildFile; productRef = F3D4679D2E89962E00A54D76 /* SwiftAI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,8 +30,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F38300BE2E5B81D6006B4C8F /* SwiftAI in Frameworks */,
+				F3D4679E2E89962E00A54D76 /* SwiftAI in Frameworks */,
 				F383004E2E5B5773006B4C8F /* SwiftAI in Frameworks */,
+				F3A497462E89A6F5006BC61C /* SwiftAI in Frameworks */,
 				F38300492E5B49B9006B4C8F /* SwiftSoup in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -76,7 +78,8 @@
 			packageProductDependencies = (
 				F38300482E5B49B9006B4C8F /* SwiftSoup */,
 				F383004D2E5B5773006B4C8F /* SwiftAI */,
-				F38300BD2E5B81D6006B4C8F /* SwiftAI */,
+				F3D4679D2E89962E00A54D76 /* SwiftAI */,
+				F3A497452E89A6F5006BC61C /* SwiftAI */,
 			);
 			productName = ReadMitAI;
 			productReference = F383002C2E5B47BB006B4C8F /* ReadMitAI.app */;
@@ -108,7 +111,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F38300472E5B49B9006B4C8F /* XCRemoteSwiftPackageReference "SwiftSoup" */,
-				F38300BC2E5B81D6006B4C8F /* XCRemoteSwiftPackageReference "SwiftAI" */,
+				F3A497442E89A6F5006BC61C /* XCRemoteSwiftPackageReference "SwiftAI" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F383002D2E5B47BB006B4C8F /* Products */;
@@ -358,7 +361,7 @@
 				minimumVersion = 2.10.3;
 			};
 		};
-		F38300BC2E5B81D6006B4C8F /* XCRemoteSwiftPackageReference "SwiftAI" */ = {
+		F3A497442E89A6F5006BC61C /* XCRemoteSwiftPackageReference "SwiftAI" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mi12labs/SwiftAI";
 			requirement = {
@@ -378,9 +381,13 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = SwiftAI;
 		};
-		F38300BD2E5B81D6006B4C8F /* SwiftAI */ = {
+		F3A497452E89A6F5006BC61C /* SwiftAI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F38300BC2E5B81D6006B4C8F /* XCRemoteSwiftPackageReference "SwiftAI" */;
+			package = F3A497442E89A6F5006BC61C /* XCRemoteSwiftPackageReference "SwiftAI" */;
+			productName = SwiftAI;
+		};
+		F3D4679D2E89962E00A54D76 /* SwiftAI */ = {
+			isa = XCSwiftPackageProductDependency;
 			productName = SwiftAI;
 		};
 /* End XCSwiftPackageProductDependency section */

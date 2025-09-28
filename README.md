@@ -9,12 +9,13 @@ A modern, type-safe Swift library for building AI-powered apps. SwiftAI provides
 
 ## Features
 
-- 🤖 **Model Agnostic**: Unified API across Apple's on-device models, OpenAI, MLX, and custom backends
-- 🎯 **Structured Output**: Strongly-typed structured outputs with compile-time validation
-- 🔧 **Agent Tool Loop**: First-class support for tool use
-- 💬 **Conversations**: Stateful chat sessions with automatic context management
-- 🏗️ **Extensible**: Plugin architecture for custom models and tools
-- ⚡ **Swift-Native**: Built with async/await and modern Swift concurrency
+- **Model Agnostic**: Unified API across Apple's on-device models, OpenAI, MLX, and custom backends
+- **Structured Output**: Strongly-typed structured outputs with compile-time validation
+- **Streaming API**: Real-time response generation with progressive content updates
+- **Agent Tool Loop**: First-class support for tool use
+- **Conversations**: Stateful chat sessions with automatic context management
+- **Extensible**: Plugin architecture for custom models and tools
+- **Swift-Native**: Built with async/await and modern Swift concurrency
 
 ## Quick Start
 
@@ -143,7 +144,59 @@ print(response.content) // "Based on current data, it's 72°F and sunny in San F
 
 The AI reads your tool's description and automatically decides whether to call it. You don't manually trigger tools - the AI does it when needed.
 
-### Step 4: Model Switching
+### Step 4: Streaming Responses
+
+Get real-time responses as the AI generates content, perfect for chat interfaces:
+
+```swift
+// Stream text responses in real-time
+let stream = llm.replyStream(to: "Write a short story about a robot")
+for try await partialText in stream {
+  print(partialText) // Shows growing text as it's generated
+  updateUI(with: partialText) // Update your UI progressively
+}
+```
+
+**Streaming with structured data:**
+
+```swift
+@Generable
+struct Story {
+  let title: String
+  let characters: [String]
+  let plot: String
+}
+
+let stream = llm.replyStream(
+  to: "Write a story about space exploration",
+  returning: Story.self
+)
+
+for try await partialStory in stream {
+  // Fields populate as they become available
+  if let title = partialStory.title {
+    updateTitle(title)
+  }
+  if let characters = partialStory.characters {
+    updateCharacters(characters)
+  }
+  if let plot = partialStory.plot {
+    updatePlot(plot)
+  }
+}
+```
+
+**What's new here?**
+
+- `replyStream()` returns an `AsyncThrowingStream` instead of waiting for completion
+- Text fields stream progressively as tokens are generated
+- Structured fields are populated incrementally
+
+#### 💡 Key Concept: Progressive Generation
+
+Streaming provides immediate feedback to users, making AI interactions feel faster and more responsive. The [ChatApp example](Examples/ChatApp/) demonstrates this in action.
+
+### Step 5: Model Switching
 
 Different AI models have different strengths. SwiftAI makes switching seamless:
 
@@ -170,7 +223,7 @@ print(response.content)
 
 Your code doesn't change when you switch models. This lets you optimize for different scenarios (privacy, capabilities, cost) without rewriting your app.
 
-### Step 5: Conversations
+### Step 6: Conversations
 
 For multi-turn conversations, use `Chat` to maintain context across messages:
 
@@ -196,7 +249,7 @@ let advice = try await chat.send("What should I pack for Seattle?")
 - `reply()` is stateless - each call is independent
 - `Chat` is stateful - builds on previous conversation
 
-### Step 6: Advanced Constraints
+### Step 7: Advanced Constraints
 
 Add validation rules and descriptions to guide AI generation:
 
@@ -274,13 +327,15 @@ print(response.content)
 
 ## 🎯 Quick Reference
 
-| What You Want        | What To Use            | Example                                      |
-| -------------------- | ---------------------- | -------------------------------------------- |
-| Simple text response | `reply(to:)`           | `reply(to: "Hello")`                         |
-| Structured data      | `reply(to:returning:)` | `reply(to: "...", returning: MyStruct.self)` |
-| Function calling     | `reply(to:tools:)`     | `reply(to: "...", tools: [myTool])`          |
-| Conversation         | `Chat`                 | `chat.send("Hello")`                         |
-| Model switching      | `any LLM`              | `SystemLLM()` or `OpenaiLLM()`               |
+| What You Want          | What To Use              | Example                                      |
+| ---------------------- | ------------------------ | -------------------------------------------- |
+| Simple text response   | `reply(to:)`             | `reply(to: "Hello")`                         |
+| Structured data        | `reply(to:returning:)`   | `reply(to: "...", returning: MyStruct.self)` |
+| Real-time streaming    | `replyStream(to:)`       | `replyStream(to: "Hello")`                   |
+| Streaming structured   | `replyStream(returning:)`| `replyStream(to: "...", returning: MyStruct.self)` |
+| Function calling       | `reply(to:tools:)`       | `reply(to: "...", tools: [myTool])`          |
+| Conversation           | `Chat`                   | `chat.send("Hello")`                         |
+| Model switching        | `any LLM`                | `SystemLLM()` or `OpenaiLLM()`               |
 
 ## 🔧 Supported Models
 

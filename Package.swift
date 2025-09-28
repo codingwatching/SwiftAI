@@ -33,13 +33,6 @@ let package = Package(
       ]
     ),
     .target(
-      name: "SwiftAILLMTesting",
-      dependencies: [
-        "SwiftAI",
-        "SwiftAIMacros",
-      ]
-    ),
-    .target(
       name: "SwiftAIMLX",
       dependencies: [
         "SwiftAI",
@@ -53,6 +46,13 @@ let package = Package(
         .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
         .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
         .product(name: "SwiftFormat", package: "swift-format"),
+      ]
+    ),
+    .testTarget(
+      name: "SwiftAILLMTesting",
+      dependencies: [
+        "SwiftAI",
+        "SwiftAIMacros",
       ]
     ),
     .testTarget(

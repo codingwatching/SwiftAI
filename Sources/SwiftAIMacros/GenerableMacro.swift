@@ -34,7 +34,9 @@ public struct GenerableMacro: ExtensionMacro {
     let propertyDescriptors = try parseStoredProperties(from: structDecl)
     // TODO: Extract description from @Generable macro if provided
 
-    let extensionDecl = try ExtensionDeclSyntax("extension \(type.trimmed): SwiftAI.Generable") {
+    let extensionDecl = try ExtensionDeclSyntax(
+      "nonisolated extension \(type.trimmed): SwiftAI.Generable"
+    ) {
       try emitPartialStruct(typeName: typeName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
@@ -167,7 +169,7 @@ private func emitSchemaVariable(
     schemaPropExprs.append(schemaPropExpr)
   }
 
-  return try VariableDeclSyntax("public static var schema: Schema") {
+  return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .object(
       name: "\(raw: typeName)",
@@ -217,7 +219,7 @@ private func emitGenerableContentVariable(
     contentProps.append(contentProp)
   }
 
-  return try VariableDeclSyntax("public var generableContent: StructuredContent") {
+  return try VariableDeclSyntax("public nonisolated var generableContent: StructuredContent") {
     """
     StructuredContent(kind: .object(\(DictionaryExprSyntax {
       for contentProp in contentProps {
@@ -253,7 +255,7 @@ private func emitPartialStruct(
     return try VariableDeclSyntax("public let \(raw: propertyName): \(partialType)")
   }
 
-  return try StructDeclSyntax("public struct Partial: Codable, Sendable") {
+  return try StructDeclSyntax("public nonisolated struct Partial: Codable, Sendable") {
     for property in partialProperties {
       MemberBlockItemSyntax(decl: property)
     }

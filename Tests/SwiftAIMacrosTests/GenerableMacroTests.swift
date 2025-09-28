@@ -41,8 +41,8 @@ struct GenerableMacroTests {
         let optionalArrayOfCustomTypes: [CustomStruct]?
       }
 
-      extension AllTypes: SwiftAI.Generable {
-        public struct Partial: Codable, Sendable {
+      nonisolated extension AllTypes: SwiftAI.Generable {
+        public nonisolated struct Partial: Codable, Sendable {
           public let stringField: String.Partial?
           public let intField: Int.Partial?
           public let doubleField: Double.Partial?
@@ -57,7 +57,7 @@ struct GenerableMacroTests {
           public let optionalArrayOfCustomTypes: [CustomStruct].Partial?
         }
 
-        public static var schema: Schema {
+        public nonisolated static var schema: Schema {
           .object(
             name: "AllTypes",
             description: nil,
@@ -126,7 +126,7 @@ struct GenerableMacroTests {
           )
         }
 
-        public var generableContent: StructuredContent {
+        public nonisolated var generableContent: StructuredContent {
           StructuredContent(
             kind: .object([
               "stringField": self.stringField.generableContent,
@@ -170,12 +170,12 @@ struct GenerableMacroTests {
         let isActive: Bool = true
       }
 
-      extension User: SwiftAI.Generable {
-        public struct Partial: Codable, Sendable {
+      nonisolated extension User: SwiftAI.Generable {
+        public nonisolated struct Partial: Codable, Sendable {
           public let name: String.Partial?
         }
 
-        public static var schema: Schema {
+        public nonisolated static var schema: Schema {
           .object(
             name: "User",
             description: nil,
@@ -189,7 +189,7 @@ struct GenerableMacroTests {
           )
         }
 
-        public var generableContent: StructuredContent {
+        public nonisolated var generableContent: StructuredContent {
           StructuredContent(kind: .object(["name": self.name.generableContent]))
         }
       }
@@ -253,15 +253,15 @@ struct GenerableMacroTests {
         let tags: [String]
       }
 
-      extension ConstrainedFields: SwiftAI.Generable {
-        public struct Partial: Codable, Sendable {
+      nonisolated extension ConstrainedFields: SwiftAI.Generable {
+        public nonisolated struct Partial: Codable, Sendable {
           public let name: String.Partial?
           public let age: Int.Partial?
           public let score: Double.Partial?
           public let tags: [String].Partial?
         }
 
-        public static var schema: Schema {
+        public nonisolated static var schema: Schema {
           .object(
             name: "ConstrainedFields",
             description: nil,
@@ -294,7 +294,7 @@ struct GenerableMacroTests {
           )
         }
 
-        public var generableContent: StructuredContent {
+        public nonisolated var generableContent: StructuredContent {
           StructuredContent(
             kind: .object([
               "name": self.name.generableContent, "age": self.age.generableContent,
@@ -343,15 +343,15 @@ struct GenerableMacroTests {
         let tags: [String]
       }
 
-      extension ExplicitConstraintFields: SwiftAI.Generable {
-        public struct Partial: Codable, Sendable {
+      nonisolated extension ExplicitConstraintFields: SwiftAI.Generable {
+        public nonisolated struct Partial: Codable, Sendable {
           public let name: String.Partial?
           public let age: Int.Partial?
           public let score: Double.Partial?
           public let tags: [String].Partial?
         }
 
-        public static var schema: Schema {
+        public nonisolated static var schema: Schema {
           .object(
             name: "ExplicitConstraintFields",
             description: nil,
@@ -390,7 +390,7 @@ struct GenerableMacroTests {
           )
         }
 
-        public var generableContent: StructuredContent {
+        public nonisolated var generableContent: StructuredContent {
           StructuredContent(
             kind: .object([
               "name": self.name.generableContent, "age": self.age.generableContent,

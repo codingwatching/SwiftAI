@@ -77,7 +77,8 @@ public final actor SystemLLMSession: LLMSession {
             )
 
             for try await snapshot in responseStream {
-              guard let partial = snapshot.content as? T.Partial else {
+              try Task.checkCancellation()
+              guard let partial: T.Partial = snapshot.content as? T.Partial else {
                 assertionFailure("Expected String.Partial to be String")
                 return
               }
@@ -100,6 +101,8 @@ public final actor SystemLLMSession: LLMSession {
               continuation.yield(partial)
             }
           }
+        } catch is CancellationError {
+          // Task was cancelled by user - no action needed
         } catch {
           continuation.finish(throwing: LLMError.generalError("Streaming failed: \(error)"))
         }

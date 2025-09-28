@@ -187,7 +187,8 @@ public struct MlxLLM: LLM {
   ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     guard let lastMessage = messages.last, lastMessage.role == .user else {
       return AsyncThrowingStream { continuation in
-        continuation.finish(throwing: LLMError.generalError("Conversation must end with a user message"))
+        continuation.finish(
+          throwing: LLMError.generalError("Conversation must end with a user message"))
       }
     }
 
@@ -220,6 +221,8 @@ public struct MlxLLM: LLM {
 
     return AsyncThrowingStream { continuation in
       Task {
+        defer { continuation.finish() }
+
         let stream = await session.generateResponseStream(
           prompt: prompt,
           type: type,
@@ -228,9 +231,11 @@ public struct MlxLLM: LLM {
 
         do {
           for try await partial in stream {
+            try Task.checkCancellation()
             continuation.yield(partial)
           }
-          continuation.finish()
+        } catch is CancellationError {
+          // Task was cancelled by user - no action needed
         } catch {
           continuation.finish(throwing: error)
         }

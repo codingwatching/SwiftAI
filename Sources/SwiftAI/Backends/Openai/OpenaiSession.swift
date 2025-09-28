@@ -121,6 +121,7 @@ public final actor OpenaiSession: LLMSession {
 
             var accumulatedText: String = ""
             for try await event in self.client.responses.createResponseStreaming(query: query) {
+              try Task.checkCancellation()
               switch event {
               case .outputText(.delta(let deltaEvent)):
                 accumulatedText += deltaEvent.delta
@@ -177,6 +178,8 @@ public final actor OpenaiSession: LLMSession {
               }
             }
           }
+        } catch is CancellationError {
+          // Task was cancelled by user - no action needed
         } catch {
           continuation.finish(throwing: LLMError.generalError("OpenAI streaming failed: \(error)"))
         }

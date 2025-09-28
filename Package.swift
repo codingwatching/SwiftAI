@@ -14,7 +14,6 @@ let package = Package(
   ],
   products: [
     .library(name: "SwiftAI", targets: ["SwiftAI"]),
-    .library(name: "SwiftAILLMTesting", targets: ["SwiftAILLMTesting"]),
     .library(name: "SwiftAIMLX", targets: ["SwiftAIMLX"]),
   ],
   dependencies: [

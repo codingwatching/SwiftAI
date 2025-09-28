@@ -117,7 +117,7 @@ public struct OpenaiLLM: LLM {
     returning type: T.Type,
     tools: [any Tool],
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     guard let lastMessage = messages.last, lastMessage.role == .user else {
       return AsyncThrowingStream { continuation in
         continuation.finish(
@@ -143,7 +143,7 @@ public struct OpenaiLLM: LLM {
     returning type: T.Type,
     in session: OpenaiSession,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     guard isAvailable else {
       return AsyncThrowingStream { continuation in
         continuation.finish(throwing: LLMError.generalError("OpenAI API key missing"))

@@ -184,7 +184,7 @@ public struct MlxLLM: LLM {
     returning type: T.Type,
     tools: [any SwiftAI.Tool],
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     guard let lastMessage = messages.last, lastMessage.role == .user else {
       return AsyncThrowingStream { continuation in
         continuation.finish(throwing: LLMError.generalError("Conversation must end with a user message"))
@@ -211,7 +211,7 @@ public struct MlxLLM: LLM {
     returning type: T.Type,
     in session: MlxSession,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     guard isAvailable else {
       return AsyncThrowingStream { continuation in
         continuation.finish(throwing: LLMError.generalError("Model unavailable"))

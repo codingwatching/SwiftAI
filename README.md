@@ -300,7 +300,6 @@ print(response.content)
 
 | Feature                      | Status                                                    |
 | ---------------------------- | --------------------------------------------------------- |
-| Streaming responses          | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/2) |
 | Structured outputs for enums | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/4) |
 
 ## 🤝 Contributing

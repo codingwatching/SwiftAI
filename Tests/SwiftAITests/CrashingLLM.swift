@@ -32,7 +32,7 @@ final class CrashingLLM: LLM, @unchecked Sendable {
     returning type: T.Type,
     tools: [any Tool],
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     fatalError("CrashingLLM.replyStream should not be called in tests")
   }
 
@@ -41,7 +41,7 @@ final class CrashingLLM: LLM, @unchecked Sendable {
     returning type: T.Type,
     in session: NullLLMSession,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     fatalError("CrashingLLM.replyStream should not be called in tests")
   }
 }

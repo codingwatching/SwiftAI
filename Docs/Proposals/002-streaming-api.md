@@ -26,14 +26,14 @@ protocol LLM {
     returning type: T.Type,
     tools: [any Tool],
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable
 
   func replyStream<T: Generable>(
     to prompt: Prompt,
     returning type: T.Type,
     in session: Session,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable
 }
 ```
 

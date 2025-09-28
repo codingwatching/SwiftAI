@@ -129,7 +129,7 @@ public protocol LLM: Model {
   ///   - tools: An array of tools available for the LLM to use during generation
   ///   - type: The expected return type conforming to `Generable`
   ///   - options: Configuration options for the LLM request
-  /// 
+  ///
   /// - Returns: An `AsyncThrowingStream` of partial responses as the model generates content
   ///
   /// The stream may emit errors if the request fails, the response cannot be parsed,
@@ -154,7 +154,7 @@ public protocol LLM: Model {
     returning type: T.Type,
     tools: [any Tool],
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable
 
   /// Streams a response to a prompt within a session.
   ///
@@ -194,7 +194,7 @@ public protocol LLM: Model {
     returning type: T.Type,
     in session: Session,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable
 }
 
 /// A session implementation that maintains no conversation state.
@@ -230,10 +230,11 @@ extension LLM where Session == NullLLMSession {
     returning type: T.Type,
     in session: NullLLMSession,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     return AsyncThrowingStream { continuation in
-      continuation.finish(throwing: LLMError.generalError(
-        "Session management not supported for stateless LLM implementations"))
+      continuation.finish(
+        throwing: LLMError.generalError(
+          "Session management not supported for stateless LLM implementations"))
     }
   }
 }
@@ -354,7 +355,7 @@ extension LLM {
     returning type: T.Type = String.self,
     tools: [any Tool] = [],
     options: LLMReplyOptions = .default
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     return replyStream(to: messages, returning: type, tools: tools, options: options)
   }
 
@@ -364,7 +365,7 @@ extension LLM {
     returning type: T.Type = String.self,
     tools: [any Tool] = [],
     options: LLMReplyOptions = .default
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     let userMessage = Message.user(.init(chunks: Prompt(prompt).chunks))
     return replyStream(
       to: [userMessage],
@@ -380,7 +381,7 @@ extension LLM {
     tools: [any Tool] = [],
     options: LLMReplyOptions = .default,
     @PromptBuilder to content: () -> Prompt
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     let prompt = content()
     let userMessage = Message.user(.init(chunks: prompt.chunks))
     return replyStream(
@@ -397,7 +398,7 @@ extension LLM {
     returning type: T.Type = String.self,
     in session: Session,
     options: LLMReplyOptions = .default
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     return replyStream(to: Prompt(prompt), returning: type, in: session, options: options)
   }
 
@@ -407,7 +408,7 @@ extension LLM {
     in session: Session,
     options: LLMReplyOptions = .default,
     @PromptBuilder to content: () -> Prompt
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     return replyStream(to: content(), returning: type, in: session, options: options)
   }
 }

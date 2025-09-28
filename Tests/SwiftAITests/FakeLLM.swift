@@ -108,7 +108,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
     returning type: T.Type,
     tools: [any Tool],
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     return AsyncThrowingStream { continuation in
       continuation.finish(throwing: LLMError.generalError("Streaming not implemented for FakeLLM"))
     }
@@ -119,7 +119,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
     returning type: T.Type,
     in session: NullLLMSession,
     options: LLMReplyOptions
-  ) -> sending AsyncThrowingStream<T.Partial, Error> where T: Sendable {
+  ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
     return AsyncThrowingStream { continuation in
       continuation.finish(throwing: LLMError.generalError("Streaming not implemented for FakeLLM"))
     }

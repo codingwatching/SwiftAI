@@ -56,7 +56,7 @@ class LLMProvider {
 }
 
 // Same code works with any model
-let response = try await llm.reply(to: "Hello, how are you?")
+let response = try await llm.replyStream(to: "Hello, how are you?")
 ```
 
 ### 2. Model Availability Monitoring - Understanding `llm.availability`

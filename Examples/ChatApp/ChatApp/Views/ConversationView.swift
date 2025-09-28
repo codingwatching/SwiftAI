@@ -76,13 +76,19 @@ struct ConversationView: View {
               HStack {
                 ProgressView()
                   .controlSize(.mini)
-                Text("Thinking...")
+                Text(messages.last?.role == .ai && !messages.last!.text.isEmpty ? "Assistant is typing..." : "Thinking...")
                   .foregroundColor(.secondary)
                   .font(.caption)
+                if let lastMessage = messages.last, lastMessage.role == .ai, !lastMessage.text.isEmpty {
+                  Text("(\(lastMessage.text.count) chars)")
+                    .foregroundColor(.secondary)
+                    .font(.caption2)
+                }
                 Spacer()
               }
               .padding(.horizontal, 12)
               .padding(.vertical, 8)
+              .id("generation-indicator")
             }
           }
           .padding(.vertical, 8)
@@ -100,6 +106,15 @@ struct ConversationView: View {
               withAnimation(.easeOut(duration: 0.1)) {
                 proxy.scrollTo(lastMessage.id, anchor: .top)
               }
+            }
+          }
+        }
+        .onChange(of: messages.last?.text) { _, _ in
+          // Auto-scroll during streaming updates to keep content visible
+          if isGenerating, let lastMessage = messages.last, lastMessage.role == .ai {
+            withAnimation(.easeOut(duration: 0.2)) {
+              // Scroll to the generation indicator to ensure it's visible
+              proxy.scrollTo("generation-indicator", anchor: .bottom)
             }
           }
         }

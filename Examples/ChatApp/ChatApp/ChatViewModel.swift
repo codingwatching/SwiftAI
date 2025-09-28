@@ -100,7 +100,7 @@ class ChatViewModel {
     clear()
   }
 
-  /// Generates response for the current prompt using SwiftAI
+  /// Generates response for the current prompt using SwiftAI streaming API
   func generate() async {
     guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     guard isModelAvailable else {
@@ -124,14 +124,36 @@ class ChatViewModel {
     let currentPrompt = prompt
     prompt = ""
 
+    // Create placeholder AI message for streaming updates
+    let placeholderMessage = SwiftAI.Message.ai(.init(text: ""))
+    messages.append(placeholderMessage)
+    let placeholderIndex = messages.count - 1
+
     generationTask = Task {
       do {
-        let reply = try await llm.reply(to: messages, options: .default)
-        try Task.checkCancellation()
-        messages = reply.history
+        let stream = llm.replyStream(to: messages.dropLast(), returning: String.self, options: .default)
+        var accumulatedText = ""
+
+        for try await partialResponse in stream {
+          try Task.checkCancellation()
+          accumulatedText = partialResponse
+
+          // Update the placeholder message with streaming content
+          messages[placeholderIndex] = .ai(.init(text: accumulatedText))
+        }
+
+        // Stream completed successfully - message is already updated with final content
+
       } catch is CancellationError {
+        // Keep the partial message when cancelled - don't remove it
         // Task was cancelled by user - no action needed
         // The prompt will be restored in the onCancel handler
+      } catch {
+        // Remove the placeholder message on error
+        if placeholderIndex < messages.count {
+          messages.removeLast()
+        }
+        throw error
       }
     }
 

@@ -34,6 +34,16 @@ struct MessageView: View {
       HStack {
         Text(LocalizedStringKey(message.text))
           .textSelection(.enabled)
+          .animation(.easeInOut(duration: 0.1), value: message.text.count)
+          // Add a subtle cursor indicator for empty/streaming messages
+          .overlay(alignment: .trailing) {
+            if message.text.isEmpty {
+              Text("▌")
+                .foregroundColor(.secondary)
+                .opacity(0.6)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: message.text.isEmpty)
+            }
+          }
 
         Spacer()
       }

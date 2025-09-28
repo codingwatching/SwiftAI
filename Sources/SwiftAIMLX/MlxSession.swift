@@ -50,76 +50,20 @@ public final actor MlxSession: LLMSession {
       throw LLMError.generalError("MLX does not support structured output yet")
     }
 
-    let userMsg = SwiftAI.Message.user(.init(text: prompt.text))
-    transcript.append(userMsg)
-    unprocessedMessages.append(userMsg)
-
-    let modelContainer = try await modelManager.getOrLoadModel(forConfiguration: configuration)
-    let toolSpecs = makeMLXToolSpecs(from: self.tools)
-
-    if self.kvCache == nil {
-      // Create the KVCache if it doesn't exist.
-      self.kvCache = await modelContainer.perform { context in
-        context.model.newCache(parameters: GenerateParameters())
-      }
+    let stream = generateResponseStream(prompt: prompt, type: type, options: options)
+  
+    var finalContent: T.Partial?
+    for try await partial in stream {
+      finalContent = partial
     }
-
-    // We capture the KVCache before entering the `perform` block to avoid the following error:
-    // "Actor-isolated property 'kvCache' cannot be accessed from outside of the actor"
-    // It is safe to pass the kvCache because concurrent generations are not supported
-    // from within the same session.
-    let kvCache = self.kvCache
-
-    // Tool loop.
-    while true {
-      let mlxChatMsgs = self.unprocessedMessages.map { $0.asMlxChatMessage }
-      let stream = try await modelContainer.perform { context in
-        let languageModelInput = try await context.processor.prepare(
-          input: UserInput(chat: mlxChatMsgs, tools: toolSpecs)
-        )
-        let parameters = GenerateParameters(from: options)
-        return try MLXLMCommon.generate(
-          input: languageModelInput,
-          cache: kvCache,
-          parameters: parameters,
-          context: context
-        )
-      }
-
-      var text = ""
-      var toolCallsToExecute = [SwiftAI.Message.ToolCall]()
-
-      for await event in stream {
-        switch event {
-        case .chunk(let chunk):
-          text += chunk
-        case .toolCall(let toolCall):
-          let toolCall = SwiftAI.Message.ToolCall(from: toolCall)
-          toolCallsToExecute.append(toolCall)
-        case .info(_):
-          break
-        }
-      }
-
-      // The kvcache now contains the new context.
-      self.unprocessedMessages.removeAll()
-
-      if toolCallsToExecute.isEmpty {
-        // Terminal state.
-        transcript.append(.ai(.init(text: text)))
-        return LLMReply(content: text as! T, history: transcript)
-      }
-
-      let chunks: [ContentChunk] = text.isEmpty ? [] : [.text(text)]
-      transcript.append(.ai(.init(chunks: chunks, toolCalls: toolCallsToExecute)))
-
-      // Execute tools
-      for toolCall in toolCallsToExecute {
-        let output = try await execute(toolCall: toolCall)
-        transcript.append(.toolOutput(output))
-        unprocessedMessages.append(.toolOutput(output))
-      }
+    
+    // Currently MLX only supports String streaming.
+    // String.Partial is String, so we can cast it to T.
+    guard let content = finalContent as? T else {
+      throw LLMError.generalError("No content received from streaming response")
     }
+    
+    return LLMReply(content: content, history: transcript)
   }
 
   func generateResponseStream<T: Generable>(

@@ -51,8 +51,7 @@ public final actor SystemLLMSession: LLMSession {
       if T.self == String.self {
         return unsafeBitCast(final, to: T.self)
       } else {
-        let data = try JSONEncoder().encode(final)
-        return try JSONDecoder().decode(T.self, from: data)
+        return try T(from: final.generableContent)
       }
     }()
 
@@ -92,12 +91,8 @@ public final actor SystemLLMSession: LLMSession {
             )
 
             for try await snapshot in responseStream {
-              // TODO: Add a protocol extension on `Generable` to conform to `GeneratedContentConvertible` and use it here.
-              guard let data = snapshot.content.jsonString.data(using: .utf8) else {
-                throw LLMError.generalError("Invalid UTF-8 in partial JSON")
-              }
-
-              let partial = try JSONDecoder().decode(T.Partial.self, from: data)
+              let content = try StructuredContent(json: snapshot.content.jsonString)
+              let partial = try T.Partial(from: content)
               continuation.yield(partial)
             }
           }

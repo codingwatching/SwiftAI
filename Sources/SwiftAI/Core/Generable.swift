@@ -40,6 +40,12 @@ public protocol Generable: Codable, Sendable {
 
   /// The structured representation of this generable instance.
   var generableContent: StructuredContent { get }
+
+  /// Creates an instance from structured content.
+  ///
+  /// - Parameter structuredContent: The structured content to initialize from.
+  /// - Throws: If the structured content cannot be converted to this type.
+  init(from structuredContent: StructuredContent) throws
 }
 
 // MARK: - Macro Declaration
@@ -62,7 +68,7 @@ public protocol Generable: Codable, Sendable {
 @attached(
   extension,
   conformances: Generable,
-  names: named(schema), named(generableContent), named(Partial)
+  names: named(schema), named(generableContent), named(Partial), named(init(from:))
 )
 public macro Generable(description: String? = nil) =
   #externalMacro(module: "SwiftAIMacros", type: "GenerableMacro")
@@ -122,6 +128,10 @@ extension String: Generable {
   public var generableContent: StructuredContent {
     StructuredContent(kind: .string(self))
   }
+
+  public init(from structuredContent: StructuredContent) throws {
+    self = try structuredContent.string
+  }
 }
 
 /// Int conforms to Generable for integer generation use cases.
@@ -134,6 +144,10 @@ extension Int: Generable {
 
   public var generableContent: StructuredContent {
     StructuredContent(kind: .number(Double(self)))
+  }
+
+  public init(from structuredContent: StructuredContent) throws {
+    self = try structuredContent.int
   }
 }
 
@@ -148,6 +162,10 @@ extension Double: Generable {
   public var generableContent: StructuredContent {
     StructuredContent(kind: .number(self))
   }
+
+  public init(from structuredContent: StructuredContent) throws {
+    self = try structuredContent.double
+  }
 }
 
 /// Bool conforms to Generable for boolean generation use cases.
@@ -161,6 +179,37 @@ extension Bool: Generable {
   public var generableContent: StructuredContent {
     StructuredContent(kind: .bool(self))
   }
+
+  public init(from structuredContent: StructuredContent) throws {
+    self = try structuredContent.bool
+  }
+}
+
+/// Optional conforms to Generable when its wrapped value conforms to Generable.
+extension Optional: Generable where Wrapped: Generable {
+  public typealias Partial = Wrapped.Partial?
+
+  public static var schema: Schema {
+    assertionFailure("Optional schema should not be accessed")
+    return Wrapped.schema
+  }
+
+  public var generableContent: StructuredContent {
+    switch self {
+    case .none:
+      return StructuredContent(kind: .null)
+    case .some(let value):
+      return value.generableContent
+    }
+  }
+
+  public init(from structuredContent: StructuredContent) throws {
+    if structuredContent.isNull {
+      self = .none
+    } else {
+      self = .some(try Wrapped(from: structuredContent))
+    }
+  }
 }
 
 /// Array conforms to Generable when its elements conform to Generable.
@@ -173,5 +222,10 @@ extension Array: Generable where Element: Generable {
 
   public var generableContent: StructuredContent {
     StructuredContent(kind: .array(self.map { $0.generableContent }))
+  }
+
+  public init(from structuredContent: StructuredContent) throws {
+    let array = try structuredContent.array
+    self = try array.map { try Element(from: $0) }
   }
 }

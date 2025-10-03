@@ -148,6 +148,85 @@ struct GenerableMacroTests {
             ])
           )
         }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+
+          guard let stringFieldContent = object["stringField"] else {
+            throw LLMError.generalError("Missing required property: stringField")
+          }
+          self.stringField = try String(from: stringFieldContent)
+
+          guard let intFieldContent = object["intField"] else {
+            throw LLMError.generalError("Missing required property: intField")
+          }
+          self.intField = try Int(from: intFieldContent)
+
+          guard let doubleFieldContent = object["doubleField"] else {
+            throw LLMError.generalError("Missing required property: doubleField")
+          }
+          self.doubleField = try Double(from: doubleFieldContent)
+
+          guard let boolFieldContent = object["boolField"] else {
+            throw LLMError.generalError("Missing required property: boolField")
+          }
+          self.boolField = try Bool(from: boolFieldContent)
+
+          guard let optionalStringContent = object["optionalString"] else {
+            throw LLMError.generalError("Missing required property: optionalString")
+          }
+          self.optionalString = try String?(from: optionalStringContent)
+
+          guard let optionalIntContent = object["optionalInt"] else {
+            throw LLMError.generalError("Missing required property: optionalInt")
+          }
+          self.optionalInt = try Int?(from: optionalIntContent)
+
+          guard let arrayOfStringsContent = object["arrayOfStrings"] else {
+            throw LLMError.generalError("Missing required property: arrayOfStrings")
+          }
+          self.arrayOfStrings = try [String] (from: arrayOfStringsContent)
+
+          guard let arrayOfIntsContent = object["arrayOfInts"] else {
+            throw LLMError.generalError("Missing required property: arrayOfInts")
+          }
+          self.arrayOfInts = try [Int] (from: arrayOfIntsContent)
+
+          guard let optionalArrayOfBoolsContent = object["optionalArrayOfBools"]
+          else {
+            throw LLMError.generalError(
+              "Missing required property: optionalArrayOfBools"
+            )
+          }
+          self.optionalArrayOfBools = try [Bool]?(from: optionalArrayOfBoolsContent)
+
+          guard let customTypeContent = object["customType"] else {
+            throw LLMError.generalError("Missing required property: customType")
+          }
+          self.customType = try CustomStruct(from: customTypeContent)
+
+          guard let arrayOfCustomTypesContent = object["arrayOfCustomTypes"] else {
+            throw LLMError.generalError(
+              "Missing required property: arrayOfCustomTypes"
+            )
+          }
+          self.arrayOfCustomTypes = try [CustomStruct] (
+            from: arrayOfCustomTypesContent
+          )
+
+          guard
+            let optionalArrayOfCustomTypesContent = object[
+              "optionalArrayOfCustomTypes"
+            ]
+          else {
+            throw LLMError.generalError(
+              "Missing required property: optionalArrayOfCustomTypes"
+            )
+          }
+          self.optionalArrayOfCustomTypes = try [CustomStruct]?(
+            from: optionalArrayOfCustomTypesContent
+          )
+        }
       }
       """
     }
@@ -191,6 +270,15 @@ struct GenerableMacroTests {
 
         public nonisolated var generableContent: StructuredContent {
           StructuredContent(kind: .object(["name": self.name.generableContent]))
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+
+          guard let nameContent = object["name"] else {
+            throw LLMError.generalError("Missing required property: name")
+          }
+          self.name = try String(from: nameContent)
         }
       }
       """
@@ -303,6 +391,30 @@ struct GenerableMacroTests {
             ])
           )
         }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+
+          guard let nameContent = object["name"] else {
+            throw LLMError.generalError("Missing required property: name")
+          }
+          self.name = try String(from: nameContent)
+
+          guard let ageContent = object["age"] else {
+            throw LLMError.generalError("Missing required property: age")
+          }
+          self.age = try Int(from: ageContent)
+
+          guard let scoreContent = object["score"] else {
+            throw LLMError.generalError("Missing required property: score")
+          }
+          self.score = try Double?(from: scoreContent)
+
+          guard let tagsContent = object["tags"] else {
+            throw LLMError.generalError("Missing required property: tags")
+          }
+          self.tags = try [String] (from: tagsContent)
+        }
       }
       """
     }
@@ -398,6 +510,30 @@ struct GenerableMacroTests {
               "tags": self.tags.generableContent,
             ])
           )
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+
+          guard let nameContent = object["name"] else {
+            throw LLMError.generalError("Missing required property: name")
+          }
+          self.name = try String(from: nameContent)
+
+          guard let ageContent = object["age"] else {
+            throw LLMError.generalError("Missing required property: age")
+          }
+          self.age = try Int(from: ageContent)
+
+          guard let scoreContent = object["score"] else {
+            throw LLMError.generalError("Missing required property: score")
+          }
+          self.score = try Double?(from: scoreContent)
+
+          guard let tagsContent = object["tags"] else {
+            throw LLMError.generalError("Missing required property: tags")
+          }
+          self.tags = try [String] (from: tagsContent)
         }
       }
       """

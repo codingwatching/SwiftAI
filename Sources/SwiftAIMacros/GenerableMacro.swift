@@ -44,6 +44,9 @@ public struct GenerableMacro: ExtensionMacro {
         .with(\.trailingTrivia, .newlines(2))
 
       try emitGenerableContentVariable(typeName: typeName, properties: propertyDescriptors)
+        .with(\.trailingTrivia, .newlines(2))
+
+      try emitStructuredContentInitializer(properties: propertyDescriptors)
     }
 
     return [extensionDecl.formatted()]
@@ -407,6 +410,83 @@ private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescripto
   return nil
 }
 
+/// Generates an initializer from StructuredContent for a Generable type.
+///
+/// ## Example
+///
+/// For a struct with properties: name: String, age: Int?, tags: [String]
+/// Generates:
+///   public init(from structuredContent: StructuredContent) throws {
+///     let object = try structuredContent.object
+///
+///     guard let nameContent = object["name"] else {
+///       throw LLMError.generalError("Missing required property: name")
+///     }
+///     self.name = try String(from: nameContent)
+///
+///     guard let ageContent = object["age"] else {
+///       throw LLMError.generalError("Missing required property: age")
+///     }
+///     self.age = try Int?(from: ageContent)
+///
+///     ...
+///   }
+private func emitStructuredContentInitializer(
+  properties: [PropertyDescriptor]
+) throws -> InitializerDeclSyntax {
+  var bodyItems = [CodeBlockItemSyntax]()
+
+  // First extract the object dictionary if there are properties to initliaze.
+  if !properties.isEmpty {
+    let objectDecl = CodeBlockItemSyntax(
+      item: .decl(
+        DeclSyntax(
+          try VariableDeclSyntax("let object = try structuredContent.object")
+        )
+      )
+    )
+    .with(\.trailingTrivia, .newlines(2))
+    bodyItems.append(objectDecl)
+  }
+
+  // Then initialize each property
+  for (i, property) in properties.enumerated() {
+    let propertyName = property.name
+    let propertyTypeName = property.type.trimmed.description
+    let contentVarName = "\(propertyName)Content"
+    let isLastProperty = i == properties.count - 1
+
+    // Generate guard statement to check for missing property
+    bodyItems.append(
+      CodeBlockItemSyntax(
+        item: .stmt(
+          StmtSyntax(
+            """
+            guard let \(raw: contentVarName) = object[\(literal: propertyName)] else {
+              throw LLMError.generalError(\(literal: "Missing required property: \(propertyName)"))
+            }
+            """))))
+
+    // Generate property assignment using Type(from: content)
+    bodyItems.append(
+      CodeBlockItemSyntax(
+        item: .expr(
+          ExprSyntax(
+            "self.\(raw: propertyName) = try \(raw: propertyTypeName)(from: \(raw: contentVarName))"
+          ))
+      )
+      .with(\.trailingTrivia, isLastProperty ? .newlines(1) : .newlines(2)))
+  }
+
+  return try InitializerDeclSyntax(
+    "public nonisolated init(from structuredContent: StructuredContent) throws"
+  ) {
+    for item in bodyItems {
+      item
+    }
+  }
+}
+
 private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {
   // Handle optional types by checking their wrapped type
   if let optionalType = type.as(OptionalTypeSyntax.self) {
@@ -456,7 +536,7 @@ private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
   configuration.lineBreakBeforeControlFlowKeywords = true
   configuration.lineLength = 80
   configuration.lineBreakBeforeEachArgument = true
-  configuration.respectsExistingLineBreaks = false
+  configuration.respectsExistingLineBreaks = true
   configuration.spacesAroundRangeFormationOperators = true
 
   let formatter = SwiftFormatter(configuration: configuration)

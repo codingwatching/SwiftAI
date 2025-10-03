@@ -268,7 +268,7 @@ private func emitPartialStruct(
   }
 
   return try StructDeclSyntax(
-    "public nonisolated struct Partial: SwiftAI.GenerableContentConvertible, Codable, Sendable"
+    "public nonisolated struct Partial: SwiftAI.GenerableContentConvertible, Sendable"
   ) {
     for property in partialProperties {
       MemberBlockItemSyntax(decl: property)

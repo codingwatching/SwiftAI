@@ -28,12 +28,12 @@ import Foundation
 ///   returning: WeatherReport.self
 /// )
 /// ```
-public protocol Generable: GenerableContentConvertible, Codable, Sendable {
+public protocol Generable: GenerableContentConvertible, Sendable {
   /// The partial type used for streaming responses.
   ///
   /// This type contains optional versions of all properties to support
   /// incremental updates during streaming generation.
-  associatedtype Partial: GenerableContentConvertible, Codable, Sendable
+  associatedtype Partial: GenerableContentConvertible, Sendable
 
   /// The schema that describes the structure and constraints of this type.
   static var schema: Schema { get }

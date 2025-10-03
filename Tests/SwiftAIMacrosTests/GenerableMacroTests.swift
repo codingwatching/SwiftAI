@@ -43,7 +43,7 @@ struct GenerableMacroTests {
 
       nonisolated extension AllTypes: SwiftAI.Generable {
         public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
-          Codable, Sendable
+          Sendable
         {
           public let stringField: String.Partial?
           public let intField: Int.Partial?
@@ -381,7 +381,7 @@ struct GenerableMacroTests {
 
       nonisolated extension User: SwiftAI.Generable {
         public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
-          Codable, Sendable
+          Sendable
         {
           public let name: String.Partial?
 
@@ -494,7 +494,7 @@ struct GenerableMacroTests {
 
       nonisolated extension ConstrainedFields: SwiftAI.Generable {
         public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
-          Codable, Sendable
+          Sendable
         {
           public let name: String.Partial?
           public let age: Int.Partial?
@@ -656,7 +656,7 @@ struct GenerableMacroTests {
 
       nonisolated extension ExplicitConstraintFields: SwiftAI.Generable {
         public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
-          Codable, Sendable
+          Sendable
         {
           public let name: String.Partial?
           public let age: Int.Partial?

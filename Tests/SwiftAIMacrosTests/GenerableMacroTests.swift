@@ -42,7 +42,9 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension AllTypes: SwiftAI.Generable {
-        public nonisolated struct Partial: Codable, Sendable {
+        public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
+          Codable, Sendable
+        {
           public let stringField: String.Partial?
           public let intField: Int.Partial?
           public let doubleField: Double.Partial?
@@ -55,6 +57,133 @@ struct GenerableMacroTests {
           public let customType: CustomStruct.Partial?
           public let arrayOfCustomTypes: [CustomStruct].Partial?
           public let optionalArrayOfCustomTypes: [CustomStruct].Partial?
+
+          public nonisolated var generableContent: StructuredContent {
+            StructuredContent(
+              kind: .object([
+                "stringField": self.stringField?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "intField": self.intField?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "doubleField": self.doubleField?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "boolField": self.boolField?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "optionalString": self.optionalString?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "optionalInt": self.optionalInt?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "arrayOfStrings": self.arrayOfStrings?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "arrayOfInts": self.arrayOfInts?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "customType": self.customType?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "arrayOfCustomTypes": self.arrayOfCustomTypes?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes?
+                  .generableContent ?? StructuredContent(kind: .null),
+              ])
+            )
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+
+            if let stringFieldContent = object["stringField"] {
+              self.stringField = try String.Partial?(from: stringFieldContent)
+            }
+            else {
+              self.stringField = nil
+            }
+
+            if let intFieldContent = object["intField"] {
+              self.intField = try Int.Partial?(from: intFieldContent)
+            }
+            else {
+              self.intField = nil
+            }
+
+            if let doubleFieldContent = object["doubleField"] {
+              self.doubleField = try Double.Partial?(from: doubleFieldContent)
+            }
+            else {
+              self.doubleField = nil
+            }
+
+            if let boolFieldContent = object["boolField"] {
+              self.boolField = try Bool.Partial?(from: boolFieldContent)
+            }
+            else {
+              self.boolField = nil
+            }
+
+            if let optionalStringContent = object["optionalString"] {
+              self.optionalString = try String.Partial?(from: optionalStringContent)
+            }
+            else {
+              self.optionalString = nil
+            }
+
+            if let optionalIntContent = object["optionalInt"] {
+              self.optionalInt = try Int.Partial?(from: optionalIntContent)
+            }
+            else {
+              self.optionalInt = nil
+            }
+
+            if let arrayOfStringsContent = object["arrayOfStrings"] {
+              self.arrayOfStrings = try [String].Partial?(from: arrayOfStringsContent)
+            }
+            else {
+              self.arrayOfStrings = nil
+            }
+
+            if let arrayOfIntsContent = object["arrayOfInts"] {
+              self.arrayOfInts = try [Int].Partial?(from: arrayOfIntsContent)
+            }
+            else {
+              self.arrayOfInts = nil
+            }
+
+            if let optionalArrayOfBoolsContent = object["optionalArrayOfBools"] {
+              self.optionalArrayOfBools = try [Bool].Partial?(
+                from: optionalArrayOfBoolsContent
+              )
+            }
+            else {
+              self.optionalArrayOfBools = nil
+            }
+
+            if let customTypeContent = object["customType"] {
+              self.customType = try CustomStruct.Partial?(from: customTypeContent)
+            }
+            else {
+              self.customType = nil
+            }
+
+            if let arrayOfCustomTypesContent = object["arrayOfCustomTypes"] {
+              self.arrayOfCustomTypes = try [CustomStruct].Partial?(
+                from: arrayOfCustomTypesContent
+              )
+            }
+            else {
+              self.arrayOfCustomTypes = nil
+            }
+
+            if let optionalArrayOfCustomTypesContent = object[
+              "optionalArrayOfCustomTypes"
+            ] {
+              self.optionalArrayOfCustomTypes = try [CustomStruct].Partial?(
+                from: optionalArrayOfCustomTypesContent
+              )
+            }
+            else {
+              self.optionalArrayOfCustomTypes = nil
+            }
+          }
         }
 
         public nonisolated static var schema: Schema {
@@ -172,15 +301,19 @@ struct GenerableMacroTests {
           }
           self.boolField = try Bool(from: boolFieldContent)
 
-          guard let optionalStringContent = object["optionalString"] else {
-            throw LLMError.generalError("Missing required property: optionalString")
+          if let optionalStringContent = object["optionalString"] {
+            self.optionalString = try String?(from: optionalStringContent)
           }
-          self.optionalString = try String?(from: optionalStringContent)
+          else {
+            self.optionalString = nil
+          }
 
-          guard let optionalIntContent = object["optionalInt"] else {
-            throw LLMError.generalError("Missing required property: optionalInt")
+          if let optionalIntContent = object["optionalInt"] {
+            self.optionalInt = try Int?(from: optionalIntContent)
           }
-          self.optionalInt = try Int?(from: optionalIntContent)
+          else {
+            self.optionalInt = nil
+          }
 
           guard let arrayOfStringsContent = object["arrayOfStrings"] else {
             throw LLMError.generalError("Missing required property: arrayOfStrings")
@@ -192,13 +325,12 @@ struct GenerableMacroTests {
           }
           self.arrayOfInts = try [Int] (from: arrayOfIntsContent)
 
-          guard let optionalArrayOfBoolsContent = object["optionalArrayOfBools"]
-          else {
-            throw LLMError.generalError(
-              "Missing required property: optionalArrayOfBools"
-            )
+          if let optionalArrayOfBoolsContent = object["optionalArrayOfBools"] {
+            self.optionalArrayOfBools = try [Bool]?(from: optionalArrayOfBoolsContent)
           }
-          self.optionalArrayOfBools = try [Bool]?(from: optionalArrayOfBoolsContent)
+          else {
+            self.optionalArrayOfBools = nil
+          }
 
           guard let customTypeContent = object["customType"] else {
             throw LLMError.generalError("Missing required property: customType")
@@ -214,18 +346,16 @@ struct GenerableMacroTests {
             from: arrayOfCustomTypesContent
           )
 
-          guard
-            let optionalArrayOfCustomTypesContent = object[
-              "optionalArrayOfCustomTypes"
-            ]
-          else {
-            throw LLMError.generalError(
-              "Missing required property: optionalArrayOfCustomTypes"
+          if let optionalArrayOfCustomTypesContent = object[
+            "optionalArrayOfCustomTypes"
+          ] {
+            self.optionalArrayOfCustomTypes = try [CustomStruct]?(
+              from: optionalArrayOfCustomTypesContent
             )
           }
-          self.optionalArrayOfCustomTypes = try [CustomStruct]?(
-            from: optionalArrayOfCustomTypesContent
-          )
+          else {
+            self.optionalArrayOfCustomTypes = nil
+          }
         }
       }
       """
@@ -250,8 +380,29 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension User: SwiftAI.Generable {
-        public nonisolated struct Partial: Codable, Sendable {
+        public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
+          Codable, Sendable
+        {
           public let name: String.Partial?
+
+          public nonisolated var generableContent: StructuredContent {
+            StructuredContent(
+              kind: .object([
+                "name": self.name?.generableContent ?? StructuredContent(kind: .null)
+              ])
+            )
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+
+            if let nameContent = object["name"] {
+              self.name = try String.Partial?(from: nameContent)
+            }
+            else {
+              self.name = nil
+            }
+          }
         }
 
         public nonisolated static var schema: Schema {
@@ -342,11 +493,57 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension ConstrainedFields: SwiftAI.Generable {
-        public nonisolated struct Partial: Codable, Sendable {
+        public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
+          Codable, Sendable
+        {
           public let name: String.Partial?
           public let age: Int.Partial?
           public let score: Double.Partial?
           public let tags: [String].Partial?
+
+          public nonisolated var generableContent: StructuredContent {
+            StructuredContent(
+              kind: .object([
+                "name": self.name?.generableContent ?? StructuredContent(kind: .null),
+                "age": self.age?.generableContent ?? StructuredContent(kind: .null),
+                "score": self.score?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "tags": self.tags?.generableContent ?? StructuredContent(kind: .null),
+              ])
+            )
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+
+            if let nameContent = object["name"] {
+              self.name = try String.Partial?(from: nameContent)
+            }
+            else {
+              self.name = nil
+            }
+
+            if let ageContent = object["age"] {
+              self.age = try Int.Partial?(from: ageContent)
+            }
+            else {
+              self.age = nil
+            }
+
+            if let scoreContent = object["score"] {
+              self.score = try Double.Partial?(from: scoreContent)
+            }
+            else {
+              self.score = nil
+            }
+
+            if let tagsContent = object["tags"] {
+              self.tags = try [String].Partial?(from: tagsContent)
+            }
+            else {
+              self.tags = nil
+            }
+          }
         }
 
         public nonisolated static var schema: Schema {
@@ -405,10 +602,12 @@ struct GenerableMacroTests {
           }
           self.age = try Int(from: ageContent)
 
-          guard let scoreContent = object["score"] else {
-            throw LLMError.generalError("Missing required property: score")
+          if let scoreContent = object["score"] {
+            self.score = try Double?(from: scoreContent)
           }
-          self.score = try Double?(from: scoreContent)
+          else {
+            self.score = nil
+          }
 
           guard let tagsContent = object["tags"] else {
             throw LLMError.generalError("Missing required property: tags")
@@ -456,11 +655,57 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension ExplicitConstraintFields: SwiftAI.Generable {
-        public nonisolated struct Partial: Codable, Sendable {
+        public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
+          Codable, Sendable
+        {
           public let name: String.Partial?
           public let age: Int.Partial?
           public let score: Double.Partial?
           public let tags: [String].Partial?
+
+          public nonisolated var generableContent: StructuredContent {
+            StructuredContent(
+              kind: .object([
+                "name": self.name?.generableContent ?? StructuredContent(kind: .null),
+                "age": self.age?.generableContent ?? StructuredContent(kind: .null),
+                "score": self.score?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "tags": self.tags?.generableContent ?? StructuredContent(kind: .null),
+              ])
+            )
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+
+            if let nameContent = object["name"] {
+              self.name = try String.Partial?(from: nameContent)
+            }
+            else {
+              self.name = nil
+            }
+
+            if let ageContent = object["age"] {
+              self.age = try Int.Partial?(from: ageContent)
+            }
+            else {
+              self.age = nil
+            }
+
+            if let scoreContent = object["score"] {
+              self.score = try Double.Partial?(from: scoreContent)
+            }
+            else {
+              self.score = nil
+            }
+
+            if let tagsContent = object["tags"] {
+              self.tags = try [String].Partial?(from: tagsContent)
+            }
+            else {
+              self.tags = nil
+            }
+          }
         }
 
         public nonisolated static var schema: Schema {
@@ -525,10 +770,12 @@ struct GenerableMacroTests {
           }
           self.age = try Int(from: ageContent)
 
-          guard let scoreContent = object["score"] else {
-            throw LLMError.generalError("Missing required property: score")
+          if let scoreContent = object["score"] {
+            self.score = try Double?(from: scoreContent)
           }
-          self.score = try Double?(from: scoreContent)
+          else {
+            self.score = nil
+          }
 
           guard let tagsContent = object["tags"] else {
             throw LLMError.generalError("Missing required property: tags")

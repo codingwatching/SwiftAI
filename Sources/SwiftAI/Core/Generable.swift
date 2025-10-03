@@ -28,23 +28,23 @@ import Foundation
 ///   returning: WeatherReport.self
 /// )
 /// ```
-public protocol Generable: Codable, Sendable {
+public protocol Generable: GenerableContentConvertible, Codable, Sendable {
   /// The partial type used for streaming responses.
   ///
   /// This type contains optional versions of all properties to support
   /// incremental updates during streaming generation.
-  associatedtype Partial: Codable, Sendable
+  associatedtype Partial: GenerableContentConvertible, Codable, Sendable
 
   /// The schema that describes the structure and constraints of this type.
   static var schema: Schema { get }
+}
 
-  /// The structured representation of this generable instance.
+/// A type that can be converted to and from `StructuredContent`.
+public protocol GenerableContentConvertible {
+  /// The structured representation of the generable part of this instance.
   var generableContent: StructuredContent { get }
 
-  /// Creates an instance from structured content.
-  ///
-  /// - Parameter structuredContent: The structured content to initialize from.
-  /// - Throws: If the structured content cannot be converted to this type.
+  /// Creates an instance from a structured content.
   init(from structuredContent: StructuredContent) throws
 }
 
@@ -185,15 +185,8 @@ extension Bool: Generable {
   }
 }
 
-/// Optional conforms to Generable when its wrapped value conforms to Generable.
-extension Optional: Generable where Wrapped: Generable {
-  public typealias Partial = Wrapped.Partial?
-
-  public static var schema: Schema {
-    assertionFailure("Optional schema should not be accessed")
-    return Wrapped.schema
-  }
-
+/// Optional conforms to GenerableContentConvertible when its wrapped value does.
+extension Optional: GenerableContentConvertible where Wrapped: GenerableContentConvertible {
   public var generableContent: StructuredContent {
     switch self {
     case .none:
@@ -212,14 +205,18 @@ extension Optional: Generable where Wrapped: Generable {
   }
 }
 
-/// Array conforms to Generable when its elements conform to Generable.
-extension Array: Generable where Element: Generable {
-  public typealias Partial = [Element.Partial]
+/// Optional conforms to Generable when its wrapped value conforms to Generable.
+extension Optional: Generable where Wrapped: Generable {
+  public typealias Partial = Wrapped.Partial?
 
   public static var schema: Schema {
-    .array(items: Element.schema, constraints: [])
+    assertionFailure("Optional schema should not be accessed")
+    return Wrapped.schema
   }
+}
 
+/// Array conforms to GenerableContentConvertible when its elements do.
+extension Array: GenerableContentConvertible where Element: GenerableContentConvertible {
   public var generableContent: StructuredContent {
     StructuredContent(kind: .array(self.map { $0.generableContent }))
   }
@@ -227,5 +224,14 @@ extension Array: Generable where Element: Generable {
   public init(from structuredContent: StructuredContent) throws {
     let array = try structuredContent.array
     self = try array.map { try Element(from: $0) }
+  }
+}
+
+/// Array conforms to Generable when its elements conform to Generable.
+extension Array: Generable where Element: Generable {
+  public typealias Partial = [Element.Partial]
+
+  public static var schema: Schema {
+    .array(items: Element.schema, constraints: [])
   }
 }

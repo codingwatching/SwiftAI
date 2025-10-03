@@ -43,7 +43,7 @@ public struct GenerableMacro: ExtensionMacro {
       try emitSchemaVariable(typeName: typeName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitGenerableContentVariable(typeName: typeName, properties: propertyDescriptors)
+      try emitGenerableContentVariable(properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
       try emitStructuredContentInitializer(properties: propertyDescriptors)
@@ -197,7 +197,6 @@ private func emitSchemaVariable(
 ///     StructuredContent(kind: .object(["name": self.name.generableContent, ...]))
 ///   }
 private func emitGenerableContentVariable(
-  typeName: String,
   properties: [PropertyDescriptor]
 ) throws -> VariableDeclSyntax {
   var contentProps: [DictionaryElementSyntax] = []
@@ -239,7 +238,7 @@ private func emitGenerableContentVariable(
 ///
 /// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
 /// Output: StructDeclSyntax for:
-///   public struct Partial: Codable, Sendable {
+///   public struct Partial: GenerableContentConvertible, Codable, Sendable {
 ///     public var name: String.Partial?
 ///     public var age: Int.Partial?
 ///
@@ -252,16 +251,34 @@ private func emitPartialStruct(
   typeName: String,
   properties: [PropertyDescriptor]
 ) throws -> StructDeclSyntax {
-  let partialProperties = try properties.map { property in
+  // Convert properties to partial property descriptors (all properties become optional)
+  let partialPropertyDescriptors = properties.map { property in
+    PropertyDescriptor(
+      name: property.name,
+      type: emitPartialType(for: property.type),
+      isOptional: true,  // All partial properties are optional
+      guide: property.guide
+    )
+  }
+
+  let partialProperties = try partialPropertyDescriptors.map { property in
     let propertyName = property.name
-    let partialType = emitPartialType(for: property.type)
+    let partialType = property.type
     return try VariableDeclSyntax("public let \(raw: propertyName): \(partialType)")
   }
 
-  return try StructDeclSyntax("public nonisolated struct Partial: Codable, Sendable") {
+  return try StructDeclSyntax(
+    "public nonisolated struct Partial: SwiftAI.GenerableContentConvertible, Codable, Sendable"
+  ) {
     for property in partialProperties {
       MemberBlockItemSyntax(decl: property)
     }
+
+    try emitGenerableContentVariable(properties: partialPropertyDescriptors)
+      .with(\.trailingTrivia, .newlines(2))
+      .with(\.leadingTrivia, .newlines(2))
+
+    try emitStructuredContentInitializer(properties: partialPropertyDescriptors)
   }
 }
 
@@ -469,7 +486,8 @@ private func emitStructuredContentInitializer(
               } else {
                 self.\(raw: propertyName) = nil
               }
-              """)))
+              """))
+        )
         .with(\.trailingTrivia, isLastProperty ? .newlines(1) : .newlines(2)))
     } else {
       // For required properties, use guard statement

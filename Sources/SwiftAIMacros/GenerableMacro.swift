@@ -455,27 +455,44 @@ private func emitStructuredContentInitializer(
     let propertyTypeName = property.type.trimmed.description
     let contentVarName = "\(propertyName)Content"
     let isLastProperty = i == properties.count - 1
+    let isOptional = property.type.is(OptionalTypeSyntax.self)
 
-    // Generate guard statement to check for missing property
-    bodyItems.append(
-      CodeBlockItemSyntax(
-        item: .stmt(
-          StmtSyntax(
-            """
-            guard let \(raw: contentVarName) = object[\(literal: propertyName)] else {
-              throw LLMError.generalError(\(literal: "Missing required property: \(propertyName)"))
-            }
-            """))))
+    if isOptional {
+      // For optional properties, use if let instead of guard
+      bodyItems.append(
+        CodeBlockItemSyntax(
+          item: .stmt(
+            StmtSyntax(
+              """
+              if let \(raw: contentVarName) = object[\(literal: propertyName)] {
+                self.\(raw: propertyName) = try \(raw: propertyTypeName)(from: \(raw: contentVarName))
+              } else {
+                self.\(raw: propertyName) = nil
+              }
+              """)))
+        .with(\.trailingTrivia, isLastProperty ? .newlines(1) : .newlines(2)))
+    } else {
+      // For required properties, use guard statement
+      bodyItems.append(
+        CodeBlockItemSyntax(
+          item: .stmt(
+            StmtSyntax(
+              """
+              guard let \(raw: contentVarName) = object[\(literal: propertyName)] else {
+                throw LLMError.generalError(\(literal: "Missing required property: \(propertyName)"))
+              }
+              """))))
 
-    // Generate property assignment using Type(from: content)
-    bodyItems.append(
-      CodeBlockItemSyntax(
-        item: .expr(
-          ExprSyntax(
-            "self.\(raw: propertyName) = try \(raw: propertyTypeName)(from: \(raw: contentVarName))"
-          ))
-      )
-      .with(\.trailingTrivia, isLastProperty ? .newlines(1) : .newlines(2)))
+      // Generate property assignment using Type(from: content)
+      bodyItems.append(
+        CodeBlockItemSyntax(
+          item: .expr(
+            ExprSyntax(
+              "self.\(raw: propertyName) = try \(raw: propertyTypeName)(from: \(raw: contentVarName))"
+            ))
+        )
+        .with(\.trailingTrivia, isLastProperty ? .newlines(1) : .newlines(2)))
+    }
   }
 
   return try InitializerDeclSyntax(

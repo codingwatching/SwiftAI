@@ -29,6 +29,7 @@ public protocol LLMBaseTestCases {
   func testReply_ReturningArrays_ReturnsCorrectContent() async throws
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws
   func testReply_ReturningNestedObjects_ReturnsCorrectContent() async throws
+  func testReply_ReturningEnums_ReturnsCorrectContent() async throws
 
   // MARK: - Session-based Conversation Tests
   func testReply_InSession_MaintainsContext() async throws
@@ -409,6 +410,33 @@ extension LLMBaseTestCases {
       address: Address(street: "123 Main St", city: "New York", zipCode: 10001)
     )
     #expect(reply.content == expected)
+  }
+
+  public func testReply_ReturningEnums_ReturnsCorrectContent_Impl() async throws {
+    let reply: LLMReply<TodoList> = try await llm.reply(
+      to: """
+        Parse the following TODOs in order of priority (high priority first):
+        - Fix the login bug (high priority)
+        - Update documentation (low priority)
+        - Review pull request (medium priority)
+        """,
+      returning: TodoList.self
+    )
+
+    let todos = reply.content.todos
+    #expect(todos.count == 3)
+
+    let fixBugTodo = todos[0]
+    #expect(fixBugTodo.title.lowercased().contains("login"))
+    #expect(fixBugTodo.priority == .high)
+
+    let reviewTodo = todos[1]
+    #expect(reviewTodo.title.lowercased().contains("pull request"))
+    #expect(reviewTodo.priority == .medium)
+
+    let docsTodo = todos[2]
+    #expect(docsTodo.title.lowercased().contains("documentation"))
+    #expect(docsTodo.priority == .low)
   }
 
   public func testReply_InSession_MaintainsContext_Impl() async throws {
@@ -1023,6 +1051,27 @@ struct ComprehensiveProfile: Equatable {
 
   @Guide(description: "internal field", .constant("TOKEN"))
   let token: String
+}
+
+@Generable
+enum Priority: Equatable {
+  case low
+  case medium
+  case high
+}
+
+@Generable
+struct Todo: Equatable {
+  @Guide(description: "A short phrase describing the todo")
+  let title: String
+
+  @Guide(description: "The priority of the todo")
+  let priority: Priority
+}
+
+@Generable
+struct TodoList: Equatable {
+  let todos: [Todo]
 }
 
 // MARK: - Mock Tools

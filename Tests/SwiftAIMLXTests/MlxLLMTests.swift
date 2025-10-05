@@ -118,6 +118,9 @@ struct MlxLLMTests: LLMBaseTestCases {
   @Test(.disabled("Structured output not supported yet on MLX"))
   func testReply_ReturningNestedObjects_ReturnsCorrectContent() async throws {}
 
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReply_ReturningEnums_ReturnsCorrectContent() async throws {}
+
   // MARK: - Session-based Conversation Tests
 
   @Test(.enabled(if: testModelDirectoryIsSet()))

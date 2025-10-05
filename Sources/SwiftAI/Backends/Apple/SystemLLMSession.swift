@@ -91,9 +91,15 @@ public final actor SystemLLMSession: LLMSession {
             )
 
             for try await snapshot in responseStream {
+              try Task.checkCancellation()
               let content = try StructuredContent(json: snapshot.content.jsonString)
-              let partial = try T.Partial(from: content)
-              continuation.yield(partial)
+
+              // This may fail when a repair is attempted on a partial enum string
+              // (e.g., "color": "yello").
+              // Future tokens will complete the enum.
+              if let partial = try? T.Partial(from: content) {
+                continuation.yield(partial)
+              }
             }
           }
         } catch is CancellationError {

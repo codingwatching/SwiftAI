@@ -76,6 +76,11 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReply_ReturningNestedObjects_ReturnsCorrectContent_Impl()
   }
 
+  @Test("Structured output - enums", .enabled(if: appleIntelligenceIsAvailable()))
+  func testReply_ReturningEnums_ReturnsCorrectContent() async throws {
+    try await testReply_ReturningEnums_ReturnsCorrectContent_Impl()
+  }
+
   // MARK: - Session Tests
 
   @Test("Session maintains conversation context", .enabled(if: appleIntelligenceIsAvailable()))

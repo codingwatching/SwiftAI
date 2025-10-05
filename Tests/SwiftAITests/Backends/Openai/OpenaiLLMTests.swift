@@ -77,6 +77,11 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_ReturningNestedObjects_ReturnsCorrectContent_Impl()
   }
 
+  @Test("Structured output - enums", .enabled(if: apiKeyIsPresent()))
+  func testReply_ReturningEnums_ReturnsCorrectContent() async throws {
+    try await testReply_ReturningEnums_ReturnsCorrectContent_Impl()
+  }
+
   @Test("Session maintains conversation context", .enabled(if: apiKeyIsPresent()))
   func testReply_InSession_MaintainsContext() async throws {
     try await testReply_InSession_MaintainsContext_Impl()

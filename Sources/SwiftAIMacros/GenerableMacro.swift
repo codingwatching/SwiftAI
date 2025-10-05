@@ -693,7 +693,7 @@ private func emitEnumGenerableContentVariable(
 ///     case "pending":
 ///       self = .pending
 ///     default:
-///       throw LLMError.generalError("Unknown enum case: \\(stringValue)")
+///       throw LLMError.generalError("Unknown enum case: \(stringValue)")
 ///     }
 ///   }
 private func emitEnumStructuredContentInitializer(

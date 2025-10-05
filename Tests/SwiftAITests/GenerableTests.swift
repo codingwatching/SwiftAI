@@ -4,7 +4,6 @@ import Testing
 
 @Suite
 struct GenerableTests {
-
   @Test
   func testGenerableContent_WithAllPrimitives_ReturnsCorrectContent() throws {
     let testStruct = PrimitivesStruct(
@@ -342,6 +341,134 @@ struct GenerableTests {
 
     #expect(throws: Error.self) { try PrimitivesStruct(from: content) }
   }
+
+  @Test
+  func testEnum_Schema_IsAnyOf() {
+    let expected = Schema.anyOf(
+      name: "Status",
+      description: nil,
+      schemas: [
+        .string(constraints: [.constant("active")]),
+        .string(constraints: [.constant("inactive")]),
+        .string(constraints: [.constant("pending")]),
+      ]
+    )
+    #expect(Status.schema == expected)
+  }
+
+  @Test
+  func testEnum_GenerableContent_ReturnsString() {
+    let activeContent = Status.active.generableContent
+    #expect(activeContent == StructuredContent(kind: .string("active")))
+
+    let inactiveContent = Status.inactive.generableContent
+    #expect(inactiveContent == StructuredContent(kind: .string("inactive")))
+
+    let pendingContent = Status.pending.generableContent
+    #expect(pendingContent == StructuredContent(kind: .string("pending")))
+  }
+
+  @Test
+  func testEnum_InitFromStructuredContent_Succeeds() throws {
+    let activeContent = StructuredContent(kind: .string("active"))
+    let active = try Status(from: activeContent)
+    #expect(active == .active)
+
+    let pendingContent = StructuredContent(kind: .string("pending"))
+    let pending = try Status(from: pendingContent)
+    #expect(pending == .pending)
+  }
+
+  @Test
+  func testEnum_InitFromInvalidString_Throws() {
+    let content = StructuredContent(kind: .string("unknown"))
+    #expect(throws: LLMError.self) { try Status(from: content) }
+  }
+
+  @Test
+  func testEnum_InitFromWrongType_Throws() {
+    let numberContent = StructuredContent(kind: .number(42.0))
+    #expect(throws: Error.self) { try Status(from: numberContent) }
+
+    let objectContent = StructuredContent(kind: .object([:]))
+    #expect(throws: Error.self) { try Status(from: objectContent) }
+  }
+
+  @Test
+  func testStructWithEnum_ReturnsCorrectGenerableContent() {
+    let task = TaskWithEnum(title: "Fix bug", status: .active, priority: .high)
+    let expected = StructuredContent(
+      kind: .object([
+        "title": .init(kind: .string("Fix bug")),
+        "status": .init(kind: .string("active")),
+        "priority": .init(kind: .string("high")),
+      ])
+    )
+    #expect(task.generableContent == expected)
+  }
+
+  @Test
+  func testStructWithEnum_InitFromStructuredContent() throws {
+    let content = StructuredContent(
+      kind: .object([
+        "title": StructuredContent(kind: .string("Fix bug")),
+        "status": StructuredContent(kind: .string("inactive")),
+        "priority": StructuredContent(kind: .string("low")),
+      ])
+    )
+
+    let task = try TaskWithEnum(from: content)
+    #expect(task.title == "Fix bug")
+    #expect(task.status == .inactive)
+    #expect(task.priority == .low)
+  }
+
+  @Test
+  func testStructWithOptionalEnum_InitFromStructuredContent_HandlesNilEnum() throws {
+    let content = StructuredContent(
+      kind: .object([
+        "title": StructuredContent(kind: .string("Task")),
+        "status": StructuredContent(kind: .null),
+      ])
+    )
+
+    let task = try TaskWithOptionalEnum(from: content)
+    #expect(task.title == "Task")
+    #expect(task.status == nil)
+  }
+
+  @Test
+  func testStructWithOptionalEnum_InitFromStructuredContent_HanledSetOptionalEnum() throws {
+    let content = StructuredContent(
+      kind: .object([
+        "title": StructuredContent(kind: .string("Task")),
+        "status": StructuredContent(kind: .string("pending")),
+      ])
+    )
+
+    let task = try TaskWithOptionalEnum(from: content)
+    #expect(task.title == "Task")
+    #expect(task.status == .pending)
+  }
+
+  @Test
+  func testEnum_RoundTripConvertion() throws {
+    let originalStatus = Status.pending
+    let content = originalStatus.generableContent
+    let reconstructedStatus = try Status(from: content)
+    #expect(reconstructedStatus == originalStatus)
+  }
+
+  @Test
+  func testStructWithEnum_RoundTripConversion() throws {
+    let original = TaskWithEnum(title: "Test", status: .active, priority: .medium)
+    let content = original.generableContent
+    let reconstructed = try TaskWithEnum(from: content)
+
+    #expect(reconstructed.title == original.title)
+    #expect(reconstructed.status == original.status)
+    #expect(reconstructed.priority == original.priority)
+  }
 }
 
 // MARK: - Test Structs
@@ -373,4 +500,31 @@ private struct ArraysStruct {
 private struct NestedStruct {
   let name: String
   let nested: PrimitivesStruct
+}
+
+@Generable
+private enum Status {
+  case active
+  case inactive
+  case pending
+}
+
+@Generable
+private enum Priority {
+  case low
+  case medium
+  case high
+}
+
+@Generable
+private struct TaskWithEnum {
+  let title: String
+  let status: Status
+  let priority: Priority
+}
+
+@Generable
+private struct TaskWithOptionalEnum {
+  let title: String
+  let status: Status?
 }

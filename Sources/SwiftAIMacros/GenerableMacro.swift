@@ -22,14 +22,23 @@ public struct GenerableMacro: ExtensionMacro {
     conformingTo protocols: [TypeSyntax],
     in context: some MacroExpansionContext
   ) throws -> [ExtensionDeclSyntax] {
-    // TODO: Support enums as well.
-    guard let structDecl = declaration.as(StructDeclSyntax.self) else {
+    if let structDecl = declaration.as(StructDeclSyntax.self) {
+      return try expandStruct(structDecl, type: type, context: context)
+    } else if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+      return try expandEnum(enumDecl, type: type, context: context)
+    } else {
       throw GenerableMacroError(
-        message: "@Generable can only be applied to structs",
-        id: "notAStruct"
+        message: "@Generable can only be applied to structs or enums",
+        id: "notStructOrEnum"
       )
     }
+  }
 
+  private static func expandStruct(
+    _ structDecl: StructDeclSyntax,
+    type: some TypeSyntaxProtocol,
+    context: some MacroExpansionContext
+  ) throws -> [ExtensionDeclSyntax] {
     let typeName = type.trimmed.description
     let propertyDescriptors = try parseStoredProperties(from: structDecl)
     // TODO: Extract description from @Generable macro if provided
@@ -47,6 +56,32 @@ public struct GenerableMacro: ExtensionMacro {
         .with(\.trailingTrivia, .newlines(2))
 
       try emitStructuredContentInitializer(properties: propertyDescriptors)
+    }
+
+    return [extensionDecl.formatted()]
+  }
+
+  private static func expandEnum(
+    _ enumDecl: EnumDeclSyntax,
+    type: some TypeSyntaxProtocol,
+    context: some MacroExpansionContext
+  ) throws -> [ExtensionDeclSyntax] {
+    let typeName = type.trimmed.description
+    let caseNames = try parseEnumCases(from: enumDecl)
+
+    let extensionDecl = try ExtensionDeclSyntax(
+      "nonisolated extension \(type.trimmed): SwiftAI.Generable"
+    ) {
+      try emitEnumPartialTypealias()
+        .with(\.trailingTrivia, .newlines(2))
+
+      try emitEnumSchemaVariable(typeName: typeName, caseNames: caseNames)
+        .with(\.trailingTrivia, .newlines(2))
+
+      try emitEnumGenerableContentVariable(caseNames: caseNames)
+        .with(\.trailingTrivia, .newlines(2))
+
+      try emitEnumStructuredContentInitializer(caseNames: caseNames)
     }
 
     return [extensionDecl.formatted()]
@@ -519,6 +554,191 @@ private func emitStructuredContentInitializer(
     for item in bodyItems {
       item
     }
+  }
+}
+
+/// Parses enum cases from an enum declaration.
+///
+/// ## Example
+///
+/// Input: enum Status { case active; case inactive; case pending }
+/// Output: ["active", "inactive", "pending"]
+private func parseEnumCases(from enumDecl: EnumDeclSyntax) throws -> [String] {
+  var caseNames: [String] = []
+
+  for member in enumDecl.memberBlock.members {
+    guard let enumCaseDecl = member.decl.as(EnumCaseDeclSyntax.self) else {
+      continue
+    }
+
+    for element in enumCaseDecl.elements {
+      // TODO: Support enums with associated values
+      if element.parameterClause != nil {
+        throw GenerableMacroError(
+          message: "Enums with associated values are not yet supported",
+          id: "associatedValuesNotSupported"
+        )
+      }
+
+      caseNames.append(element.name.text)
+    }
+  }
+
+  return caseNames
+}
+
+private func emitEnumPartialTypealias() throws -> TypeAliasDeclSyntax {
+  try TypeAliasDeclSyntax("public typealias Partial = Self")
+}
+
+/// Generates a schema variable for enums using anyOf with constant strings.
+///
+/// ## Example
+///
+/// Output:
+///   public static var schema: Schema {
+///     .anyOf(
+///       name: "Status",
+///       description: nil,
+///       schemas: [
+///         .string(constraints: [.constant("active")]),
+///         .string(constraints: [.constant("inactive")]),
+///         .string(constraints: [.constant("pending")])
+///       ]
+///     )
+///   }
+private func emitEnumSchemaVariable(
+  typeName: String,
+  caseNames: [String]
+) throws -> VariableDeclSyntax {
+  var caseSchemaExprs: [ArrayElementSyntax] = []
+
+  for caseName in caseNames {
+    let schemaExpr = ExprSyntax(".string(constraints: [.constant(\(literal: caseName))])")
+    caseSchemaExprs.append(ArrayElementSyntax(expression: schemaExpr))
+  }
+
+  // TODO: Add description if set in @Generable.
+  return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
+    """
+    .anyOf(
+      name: \(literal: typeName),
+      description: nil,
+      schemas: \(ArrayExprSyntax {
+        for schemaExpr in caseSchemaExprs {
+          schemaExpr
+        }
+      })
+    )
+    """
+  }
+}
+
+/// Generates a generableContent variable for enums.
+///
+/// ## Example
+///
+/// Output:
+///   public var generableContent: StructuredContent {
+///     switch self {
+///     case .active:
+///       return StructuredContent(kind: .string("active"))
+///     case .inactive:
+///       return StructuredContent(kind: .string("inactive"))
+///     case .pending:
+///       return StructuredContent(kind: .string("pending"))
+///     }
+///   }
+private func emitEnumGenerableContentVariable(
+  caseNames: [String]
+) throws -> VariableDeclSyntax {
+  var switchCaseItems: [CodeBlockItemSyntax] = []
+
+  for caseName in caseNames {
+    switchCaseItems.append(
+      CodeBlockItemSyntax(
+        item: .stmt(
+          StmtSyntax(
+            """
+            case .\(raw: caseName):
+              return StructuredContent(kind: .string(\(literal: caseName)))
+            """
+          )
+        )
+      )
+    )
+  }
+
+  return try VariableDeclSyntax("public nonisolated var generableContent: StructuredContent") {
+    """
+    switch self {
+    \(CodeBlockItemListSyntax(switchCaseItems))
+    }
+    """
+  }
+}
+
+/// Generates an initializer from StructuredContent for enums.
+///
+/// ## Example
+///
+/// Output:
+///   public init(from structuredContent: StructuredContent) throws {
+///     let stringValue = try structuredContent.string
+///     switch stringValue {
+///     case "active":
+///       self = .active
+///     case "inactive":
+///       self = .inactive
+///     case "pending":
+///       self = .pending
+///     default:
+///       throw LLMError.generalError("Unknown enum case: \\(stringValue)")
+///     }
+///   }
+private func emitEnumStructuredContentInitializer(
+  caseNames: [String]
+) throws -> InitializerDeclSyntax {
+  var switchCaseItems: [CodeBlockItemSyntax] = []
+
+  for caseName in caseNames {
+    switchCaseItems.append(
+      CodeBlockItemSyntax(
+        item: .stmt(
+          StmtSyntax(
+            """
+            case \(literal: caseName):
+              self = .\(raw: caseName)
+            """
+          )
+        )
+      ).with(\.trailingTrivia, .newlines(1))
+    )
+  }
+
+  // Add default case for unknown values
+  switchCaseItems.append(
+    CodeBlockItemSyntax(
+      item: .stmt(
+        StmtSyntax(
+          """
+          default:
+            throw LLMError.generalError("Unknown enum case: \\(stringValue)")
+          """
+        )
+      )
+    )
+  )
+
+  return try InitializerDeclSyntax(
+    "public nonisolated init(from structuredContent: StructuredContent) throws"
+  ) {
+    """
+    let stringValue = try structuredContent.string
+    switch stringValue {
+    \(CodeBlockItemListSyntax(switchCaseItems))
+    }
+    """
   }
 }
 

@@ -801,10 +801,196 @@ struct GenerableMacroTests {
       """
       @Generable
       ┬─────────
-      ╰─ 🛑 @Generable can only be applied to structs
+      ╰─ 🛑 @Generable can only be applied to structs or enums
       class InvalidClass {
         let name: String
         let age: Int
+      }
+      """
+    }
+  }
+
+  @Test
+  func testSimpleEnum() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Status {
+        case active
+        case inactive
+        case pending
+      }
+      """
+    } expansion: {
+      #"""
+      enum Status {
+        case active
+        case inactive
+        case pending
+      }
+
+      nonisolated extension Status: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Status",
+            description: nil,
+            schemas: [
+              .string(constraints: [.constant("active")]),
+              .string(constraints: [.constant("inactive")]),
+              .string(constraints: [.constant("pending")]),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .active:
+            return StructuredContent(kind: .string("active"))
+          case .inactive:
+            return StructuredContent(kind: .string("inactive"))
+          case .pending:
+            return StructuredContent(kind: .string("pending"))
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let stringValue = try structuredContent.string
+          switch stringValue {
+          case "active":
+            self = .active
+          case "inactive":
+            self = .inactive
+          case "pending":
+            self = .pending
+          default:
+            throw LLMError.generalError("Unknown enum case: \(stringValue)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithAssociatedValues_ThrowsError() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Result {
+        case success(String)
+        case failure(Error)
+      }
+      """
+    } diagnostics: {
+      """
+      @Generable
+      ┬─────────
+      ╰─ 🛑 Enums with associated values are not yet supported
+      enum Result {
+        case success(String)
+        case failure(Error)
+      }
+      """
+    }
+  }
+
+  @Test
+  func testStructWithEnumProperty() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      struct Task {
+        let title: String
+        let status: Status
+      }
+      """
+    } expansion: {
+      """
+      struct Task {
+        let title: String
+        let status: Status
+      }
+
+      nonisolated extension Task: SwiftAI.Generable {
+        public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
+          Sendable
+        {
+          public let title: String.Partial?
+          public let status: Status.Partial?
+
+          public nonisolated var generableContent: StructuredContent {
+            StructuredContent(
+              kind: .object([
+                "title": self.title?.generableContent
+                  ?? StructuredContent(kind: .null),
+                "status": self.status?.generableContent
+                  ?? StructuredContent(kind: .null),
+              ])
+            )
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+
+            if let titleContent = object["title"] {
+              self.title = try String.Partial?(from: titleContent)
+            }
+            else {
+              self.title = nil
+            }
+
+            if let statusContent = object["status"] {
+              self.status = try Status.Partial?(from: statusContent)
+            }
+            else {
+              self.status = nil
+            }
+          }
+        }
+
+        public nonisolated static var schema: Schema {
+          .object(
+            name: "Task",
+            description: nil,
+            properties: [
+              "title": Schema.Property(
+                schema: String.schema,
+                description: nil,
+                isOptional: false
+              ),
+              "status": Schema.Property(
+                schema: Status.schema,
+                description: nil,
+                isOptional: false
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          StructuredContent(
+            kind: .object([
+              "title": self.title.generableContent,
+              "status": self.status.generableContent,
+            ])
+          )
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+
+          guard let titleContent = object["title"] else {
+            throw LLMError.generalError("Missing required property: title")
+          }
+          self.title = try String(from: titleContent)
+
+          guard let statusContent = object["status"] else {
+            throw LLMError.generalError("Missing required property: status")
+          }
+          self.status = try Status(from: statusContent)
+        }
       }
       """
     }

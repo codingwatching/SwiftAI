@@ -7,7 +7,7 @@ import Testing
 @Suite("OpenAI LLM Integration Tests")
 struct OpenaiLLMTests: LLMBaseTestCases {
   var llm: OpenaiLLM {
-    OpenaiLLM(model: "gpt-4.1-nano")
+    OpenaiLLM(model: "gpt-4.1-mini", timeoutInterval: 5)
   }
 
   // MARK: - Shared LLM Tests
@@ -82,6 +82,12 @@ struct OpenaiLLMTests: LLMBaseTestCases {
     try await testReply_ReturningEnums_ReturnsCorrectContent_Impl()
   }
 
+  @Test(
+    "Structured output - struct with enum with associated values", .enabled(if: apiKeyIsPresent()))
+  func testReply_ReturningStructWithEnum_ReturnsCorrectContent() async throws {
+    try await testReply_ReturningStructWithEnum_ReturnsCorrectContent_Impl()
+  }
+
   @Test("Session maintains conversation context", .enabled(if: apiKeyIsPresent()))
   func testReply_InSession_MaintainsContext() async throws {
     try await testReply_InSession_MaintainsContext_Impl()
@@ -122,7 +128,7 @@ struct OpenaiLLMTests: LLMBaseTestCases {
   @Test("Multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
   func testReply_MultiTurnToolLoop() async throws {
     // Using smarter model because the nano model is not good enough.
-    try await testReply_MultiTurnToolLoop_Impl(using: OpenaiLLM(model: "gpt-4.1-mini"))
+    try await testReply_MultiTurnToolLoop_Impl(using: llm)
   }
 
   @Test("Tool calling - error handling", .enabled(if: apiKeyIsPresent()))
@@ -145,7 +151,7 @@ struct OpenaiLLMTests: LLMBaseTestCases {
   @Test("Streaming multi-turn tool loop", .enabled(if: apiKeyIsPresent()))
   func testReplyStream_MultiTurnToolLoop() async throws {
     // Using smarter model because the nano model is not good enough for tool loops
-    try await testReplyStream_MultiTurnToolLoop_Impl(using: OpenaiLLM(model: "gpt-4o-mini"))
+    try await testReplyStream_MultiTurnToolLoop_Impl(using: llm)
   }
 
   // MARK: - Streaming Structured Output Tests
@@ -163,6 +169,13 @@ struct OpenaiLLMTests: LLMBaseTestCases {
   @Test("Streaming structured output - nested objects", .enabled(if: apiKeyIsPresent()))
   func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {
     try await testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl()
+  }
+
+  @Test(
+    "Streaming structured output - struct with enum with associated values",
+    .enabled(if: apiKeyIsPresent()))
+  func testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials_Impl()
   }
 
   @Test("Streaming structured output - session context", .enabled(if: apiKeyIsPresent()))

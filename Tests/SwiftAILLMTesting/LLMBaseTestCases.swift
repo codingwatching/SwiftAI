@@ -21,6 +21,8 @@ public protocol LLMBaseTestCases {
   func testReplyStream_ReturningPrimitives_EmitsProgressivePartials() async throws
   func testReplyStream_ReturningArrays_EmitsProgressivePartials() async throws
   func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws
+  func testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials()
+    async throws
   func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws
 
   // MARK: - Structured Output Tests
@@ -30,6 +32,7 @@ public protocol LLMBaseTestCases {
   func testReply_ReturningArrays_ReturnsCorrectHistory() async throws
   func testReply_ReturningNestedObjects_ReturnsCorrectContent() async throws
   func testReply_ReturningEnums_ReturnsCorrectContent() async throws
+  func testReply_ReturningStructWithEnum_ReturnsCorrectContent() async throws
 
   // MARK: - Session-based Conversation Tests
   func testReply_InSession_MaintainsContext() async throws
@@ -265,6 +268,70 @@ extension LLMBaseTestCases {
     #expect(final.address?.zipCode == 2101)
   }
 
+  public func
+    testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials_Impl()
+    async throws
+  {
+    let stream = llm.replyStream(
+      to: """
+        Example:
+        Endpoint: /api/products/789
+        Status: Success
+        Response: Product found
+        Response time: 50ms
+
+        Output:
+        {
+          "endpoint": "/api/products/789",
+          "result": {
+            "type": "success",
+            "response": "Product found"
+          },
+          "responseTimeMs": 50
+        }
+
+        Now parse this API scenario:
+        Endpoint: /api/users/456
+        Status: Success
+        Response: Hello World
+        Response time: 1200ms
+        """,
+      returning: ApiResponse.self,
+    )
+
+    var partials: [ApiResponse.Partial] = []
+    var finalPartial: ApiResponse.Partial?
+
+    for try await partial in stream {
+      partials.append(partial)
+      finalPartial = partial
+    }
+
+    // Assert multiple partials were emitted
+    #expect(partials.count > 1, "Should emit multiple partial responses")
+
+    // Assert final partial contains expected content
+    guard let final = finalPartial else {
+      Issue.record("Should have received at least one partial")
+      return
+    }
+
+    #expect(final.endpoint == "/api/users/456")
+    #expect(final.responseTimeMs == 1200)
+
+    // Verify the enum case with associated values
+    guard let result = final.result else {
+      Issue.record("Expected result to be present")
+      return
+    }
+
+    if case .success(let response) = result {
+      #expect(response?.lowercased().contains("hello world") == true)
+    } else {
+      Issue.record("Expected success case, got \(result)")
+    }
+  }
+
   public func testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl() async throws {
     // Create a new session for structured conversation
     let session = llm.makeSession(instructions: {
@@ -437,6 +504,48 @@ extension LLMBaseTestCases {
     let docsTodo = todos[2]
     #expect(docsTodo.title.lowercased().contains("documentation"))
     #expect(docsTodo.priority == .low)
+  }
+
+  public func testReply_ReturningStructWithEnum_ReturnsCorrectContent_Impl()
+    async throws
+  {
+    let reply = try await llm.reply(
+      to: """
+        Example:
+        Endpoint: /api/orders/999
+        Status: Failure
+        Error message: Order cancelled
+        Response time: 120ms
+
+        Output:
+        {
+          "endpoint": "/api/orders/999",
+          "result": {
+            "type": "failure",
+            "errorMessage": "Order cancelled"
+          },
+          "responseTimeMs": 120
+        }
+
+        Now parse this API scenario:
+        Endpoint: /api/users/123
+        Status: Failure
+        Error message: Internal error
+        Response time: 45ms
+        """,
+      returning: ApiResponse.self,
+    )
+
+    let response = reply.content
+    #expect(response.endpoint == "/api/users/123")
+    #expect(response.responseTimeMs == 45)
+
+    // Verify the enum case with associated values
+    if case .failure(let errorMessage) = response.result {
+      #expect(errorMessage.lowercased().contains("internal error"))
+    } else {
+      Issue.record("Expected status code equals failure, got \(response.result)")
+    }
   }
 
   public func testReply_InSession_MaintainsContext_Impl() async throws {
@@ -1011,7 +1120,7 @@ struct ComprehensiveProfile: Equatable {
   @Guide(.anyOf(["low", "medium", "high"]))
   let priority: String
 
-  @Guide(.pattern("default"))
+  @Guide(.constant("default"))
   let category: String
 
   // Integer constraints
@@ -1072,6 +1181,24 @@ struct Todo: Equatable {
 @Generable
 struct TodoList: Equatable {
   let todos: [Todo]
+}
+
+@Generable
+enum ApiResult: Equatable {
+  case success(response: String)
+  case failure(errorMessage: String)
+}
+
+@Generable
+struct ApiResponse: Equatable {
+  @Guide(description: "The endpoint that was called")
+  let endpoint: String
+
+  @Guide(description: "The result of the API call")
+  let result: ApiResult
+
+  @Guide(description: "Response time in milliseconds")
+  let responseTimeMs: Int
 }
 
 // MARK: - Mock Tools

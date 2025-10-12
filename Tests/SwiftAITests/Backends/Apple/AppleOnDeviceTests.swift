@@ -39,7 +39,10 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReplyStream_ReturningText_EmitsMultipleTextPartials_Impl()
   }
 
-  @Test("Streaming text generation - history verification", .enabled(if: appleIntelligenceIsAvailable()))
+  @Test(
+    "Streaming text generation - history verification",
+    .enabled(if: appleIntelligenceIsAvailable())
+  )
   func testReplyStream_ReturningText_ReturnsCorrectHistory() async throws {
     try await testReplyStream_ReturningText_ReturnsCorrectHistory_Impl()
   }
@@ -79,6 +82,13 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
   @Test("Structured output - enums", .enabled(if: appleIntelligenceIsAvailable()))
   func testReply_ReturningEnums_ReturnsCorrectContent() async throws {
     try await testReply_ReturningEnums_ReturnsCorrectContent_Impl()
+  }
+
+  @Test(
+    "Structured output - struct with enum with associated values",
+    .enabled(if: appleIntelligenceIsAvailable()))
+  func testReply_ReturningStructWithEnum_ReturnsCorrectContent() async throws {
+    try await testReply_ReturningStructWithEnum_ReturnsCorrectContent_Impl()
   }
 
   // MARK: - Session Tests
@@ -191,12 +201,21 @@ struct AppleOnDeviceTests: LLMBaseTestCases {
     try await testReplyStream_ReturningArrays_EmitsProgressivePartials_Impl()
   }
 
-  @Test("Streaming structured output - nested objects", .enabled(if: appleIntelligenceIsAvailable()))
+  @Test(
+    "Streaming structured output - nested objects", .enabled(if: appleIntelligenceIsAvailable()))
   func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {
     try await testReplyStream_ReturningNestedObjects_EmitsProgressivePartials_Impl()
   }
 
-  @Test("Streaming structured output - session context", .enabled(if: appleIntelligenceIsAvailable()))
+  @Test(
+    "Streaming structured output - struct with enum with associated values",
+    .enabled(if: appleIntelligenceIsAvailable()))
+  func testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials() async throws {
+    try await testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials_Impl()
+  }
+
+  @Test(
+    "Streaming structured output - session context", .enabled(if: appleIntelligenceIsAvailable()))
   func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {
     try await testReplyStream_ReturningStructured_InSession_MaintainsContext_Impl()
   }

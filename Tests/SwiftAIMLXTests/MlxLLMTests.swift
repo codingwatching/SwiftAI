@@ -99,6 +99,9 @@ struct MlxLLMTests: LLMBaseTestCases {
   func testReplyStream_ReturningNestedObjects_EmitsProgressivePartials() async throws {}
 
   @Test(.disabled("Streaming structured output not supported yet on MLX"))
+  func testReplyStream_ReturningStructWithEnum_EmitsProgressivePartials() async throws {}
+
+  @Test(.disabled("Streaming structured output not supported yet on MLX"))
   func testReplyStream_ReturningStructured_InSession_MaintainsContext() async throws {}
 
   // MARK: - Structured Output Tests (Disabled for MLX)
@@ -120,6 +123,9 @@ struct MlxLLMTests: LLMBaseTestCases {
 
   @Test(.disabled("Streaming structured output not supported yet on MLX"))
   func testReply_ReturningEnums_ReturnsCorrectContent() async throws {}
+
+  @Test(.disabled("Structured output not supported yet on MLX"))
+  func testReply_ReturningStructWithEnum_ReturnsCorrectContent() async throws {}
 
   // MARK: - Session-based Conversation Tests
 

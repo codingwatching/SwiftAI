@@ -580,3 +580,160 @@ func _testRoundTrip(of content: StructuredContent) throws {
   let got = try StructuredContent(json: content.jsonString)
   #expect(got == content)
 }
+
+// MARK: - Typed Accessor Tests
+
+@Suite("StructuredContent Typed Accessors")
+struct StructuredContentAccessorTests {
+  @Test("Bool accessor returns correct value for bool kind")
+  func testBoolAccessor_BoolKind_ReturnsValue() throws {
+    let content = StructuredContent(kind: .bool(true))
+    #expect(try content.bool == true)
+
+    let falseContent = StructuredContent(kind: .bool(false))
+    #expect(try falseContent.bool == false)
+  }
+
+  @Test("Bool accessor throws for non-bool kinds")
+  func testBoolAccessor_NonBoolKind_Throws() {
+    let stringContent = StructuredContent(kind: .string("test"))
+    #expect(throws: StructuredContentError.self) { try stringContent.bool }
+
+    let numberContent = StructuredContent(kind: .number(42))
+    #expect(throws: StructuredContentError.self) { try numberContent.bool }
+
+    let nullContent = StructuredContent(kind: .null)
+    #expect(throws: StructuredContentError.self) { try nullContent.bool }
+  }
+
+  @Test("String accessor returns correct value for string kind")
+  func testStringAccessor_StringKind_ReturnsValue() throws {
+    let content = StructuredContent(kind: .string("hello"))
+    #expect(try content.string == "hello")
+
+    let emptyContent = StructuredContent(kind: .string(""))
+    #expect(try emptyContent.string == "")
+  }
+
+  @Test("String accessor throws for non-string kinds")
+  func testStringAccessor_NonStringKind_Throws() {
+    let boolContent = StructuredContent(kind: .bool(true))
+    #expect(throws: StructuredContentError.self) { try boolContent.string }
+
+    let numberContent = StructuredContent(kind: .number(42))
+    #expect(throws: StructuredContentError.self) { try numberContent.string }
+  }
+
+  @Test("Int accessor returns correct value for integer numbers")
+  func testIntAccessor_IntegerNumber_ReturnsValue() throws {
+    let content = StructuredContent(kind: .number(42.0))
+    #expect(try content.int == 42)
+
+    let negativeContent = StructuredContent(kind: .number(-10.0))
+    #expect(try negativeContent.int == -10)
+
+    let zeroContent = StructuredContent(kind: .number(0.0))
+    #expect(try zeroContent.int == 0)
+  }
+
+  @Test("Int accessor throws for non-integer numbers")
+  func testIntAccessor_NonIntegerNumber_Throws() {
+    let floatContent = StructuredContent(kind: .number(3.14))
+    #expect(throws: StructuredContentError.self) { try floatContent.int }
+
+    let smallDecimalContent = StructuredContent(kind: .number(42.001))
+    #expect(throws: StructuredContentError.self) { try smallDecimalContent.int }
+  }
+
+  @Test("Int accessor throws for non-number kinds")
+  func testIntAccessor_NonNumberKind_Throws() {
+    let stringContent = StructuredContent(kind: .string("42"))
+    #expect(throws: StructuredContentError.self) { try stringContent.int }
+
+    let boolContent = StructuredContent(kind: .bool(true))
+    #expect(throws: StructuredContentError.self) { try boolContent.int }
+  }
+
+  @Test("Double accessor returns correct value for number kind")
+  func testDoubleAccessor_NumberKind_ReturnsValue() throws {
+    let content = StructuredContent(kind: .number(3.14))
+    #expect(try content.double == 3.14)
+
+    let intContent = StructuredContent(kind: .number(42.0))
+    #expect(try intContent.double == 42.0)
+
+    let negativeContent = StructuredContent(kind: .number(-2.5))
+    #expect(try negativeContent.double == -2.5)
+  }
+
+  @Test("Double accessor throws for non-number kinds")
+  func testDoubleAccessor_NonNumberKind_Throws() {
+    let stringContent = StructuredContent(kind: .string("3.14"))
+    #expect(throws: StructuredContentError.self) { try stringContent.double }
+
+    let boolContent = StructuredContent(kind: .bool(false))
+    #expect(throws: StructuredContentError.self) { try boolContent.double }
+  }
+
+  @Test("Object accessor returns correct dictionary for object kind")
+  func testObjectAccessor_ObjectKind_ReturnsDictionary() throws {
+    let content = StructuredContent(
+      kind: .object([
+        "name": StructuredContent(kind: .string("Alice")),
+        "age": StructuredContent(kind: .number(30)),
+      ]))
+
+    let object = try content.object
+    #expect(object.count == 2)
+    #expect(try object["name"]?.string == "Alice")
+    #expect(try object["age"]?.int == 30)
+  }
+
+  @Test("Object accessor returns empty dictionary for empty object")
+  func testObjectAccessor_EmptyObject_ReturnsEmptyDictionary() throws {
+    let content = StructuredContent(kind: .object([:]))
+    let object = try content.object
+    #expect(object.isEmpty)
+  }
+
+  @Test("Object accessor throws for non-object kinds")
+  func testObjectAccessor_NonObjectKind_Throws() {
+    let arrayContent = StructuredContent(kind: .array([]))
+    #expect(throws: StructuredContentError.self) { try arrayContent.object }
+
+    let stringContent = StructuredContent(kind: .string("{}"))
+    #expect(throws: StructuredContentError.self) { try stringContent.object }
+  }
+
+  @Test("Array accessor returns correct array for array kind")
+  func testArrayAccessor_ArrayKind_ReturnsArray() throws {
+    let content = StructuredContent(
+      kind: .array([
+        StructuredContent(kind: .number(1.0)),
+        StructuredContent(kind: .number(2.0)),
+        StructuredContent(kind: .number(3.0)),
+      ]))
+
+    let array = try content.array
+    #expect(array.count == 3)
+    #expect(try array[0].double == 1.0)
+    #expect(try array[1].double == 2.0)
+    #expect(try array[2].double == 3.0)
+  }
+
+  @Test("Array accessor returns empty array for empty array kind")
+  func testArrayAccessor_EmptyArray_ReturnsEmptyArray() throws {
+    let content = StructuredContent(kind: .array([]))
+    let array = try content.array
+    #expect(array.isEmpty)
+  }
+
+  @Test("Array accessor throws for non-array kinds")
+  func testArrayAccessor_NonArrayKind_Throws() {
+    let objectContent = StructuredContent(kind: .object([:]))
+    #expect(throws: StructuredContentError.self) { try objectContent.array }
+
+    let stringContent = StructuredContent(kind: .string("[]"))
+    #expect(throws: StructuredContentError.self) { try stringContent.array }
+  }
+}

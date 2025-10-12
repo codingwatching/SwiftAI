@@ -92,9 +92,8 @@ final class FakeLLM: LLM, @unchecked Sendable {
       content = reply.finalResponse as! T
     } else {
       // For structured responses, decode as JSON
-      let finalResponseData = Data(reply.finalResponse.utf8)
-      let decoder = JSONDecoder()
-      content = try decoder.decode(T.self, from: finalResponseData)
+      let structuredContent = try StructuredContent(json: reply.finalResponse)
+      content = try T(from: structuredContent)
     }
 
     let aiResponse = Message.ai(.init(text: reply.finalResponse))

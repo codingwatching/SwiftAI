@@ -61,8 +61,7 @@ public final actor OpenaiSession: LLMSession {
       if T.self == String.self {
         return unsafeBitCast(final, to: T.self)
       } else {
-        let data = try JSONEncoder().encode(final)
-        return try JSONDecoder().decode(T.self, from: data)
+        return try T(from: final.generableContent)
       }
     }()
 
@@ -125,18 +124,24 @@ public final actor OpenaiSession: LLMSession {
               switch event {
               case .outputText(.delta(let deltaEvent)):
                 accumulatedText += deltaEvent.delta
-                let partial = try {
+                let partial = try? {
                   if T.self == String.self {
-                    // String.Partial = String
-                    return accumulatedText as! T.Partial
+                    // Must always succeed because `String.Partial = String`.
+                    return accumulatedText as? T.Partial
                   } else {
                     // TODO: Do not yield when the the new partial is the same as the previous one.
                     let partialJson = repair(json: accumulatedText)
-                    return try JSONDecoder().decode(
-                      T.Partial.self, from: partialJson.data(using: .utf8) ?? Data())
+                    let content = try StructuredContent(json: partialJson)
+
+                    // This may fail when a repair is attempted on a partial enum string
+                    // (e.g., "color": "yello").
+                    // Future tokens will complete the enum.
+                    return try? T.Partial(from: content)
                   }
                 }()
-                continuation.yield(partial)
+                if let partial {
+                  continuation.yield(partial)
+                }
 
               case .completed(let responseEvent),
                 .incomplete(let responseEvent):

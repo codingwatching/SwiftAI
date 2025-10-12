@@ -138,3 +138,122 @@ extension StructuredContent {
     }
   }
 }
+
+// MARK: - Typed Accessors
+
+extension StructuredContent {
+  /// Extracts a boolean value from this structured content.
+  ///
+  /// - Throws: If this content is not a boolean.
+  /// - Returns: The boolean value.
+  public var bool: Bool {
+    get throws {
+      guard case .bool(let value) = kind else {
+        throw StructuredContentError.typeMismatch(expected: "bool", actual: kind.typeName)
+      }
+      return value
+    }
+  }
+
+  /// Extracts a string value from this structured content.
+  ///
+  /// - Throws: If this content is not a string.
+  /// - Returns: The string value.
+  public var string: String {
+    get throws {
+      guard case .string(let value) = kind else {
+        throw StructuredContentError.typeMismatch(expected: "string", actual: kind.typeName)
+      }
+      return value
+    }
+  }
+
+  /// Extracts an integer value from this structured content.
+  ///
+  /// - Throws: If this content is not a number or cannot be represented as an integer.
+  /// - Returns: The integer value.
+  public var int: Int {
+    get throws {
+      guard case .number(let value) = kind else {
+        throw StructuredContentError.typeMismatch(expected: "number", actual: kind.typeName)
+      }
+      guard value.rounded() == value else {
+        throw StructuredContentError.invalidIntegerValue(value)
+      }
+      return Int(value)
+    }
+  }
+
+  /// Extracts a double value from this structured content.
+  ///
+  /// - Throws: If this content is not a number.
+  /// - Returns: The double value.
+  public var double: Double {
+    get throws {
+      guard case .number(let value) = kind else {
+        throw StructuredContentError.typeMismatch(expected: "number", actual: kind.typeName)
+      }
+      return value
+    }
+  }
+
+  /// Extracts an object (dictionary) from this structured content.
+  ///
+  /// - Throws: If this content is not an object.
+  /// - Returns: The object as a dictionary.
+  public var object: [String: StructuredContent] {
+    get throws {
+      guard case .object(let value) = kind else {
+        throw StructuredContentError.typeMismatch(expected: "object", actual: kind.typeName)
+      }
+      return value
+    }
+  }
+
+  /// Extracts an array from this structured content.
+  ///
+  /// - Throws: If this content is not an array.
+  /// - Returns: The array of structured content items.
+  public var array: [StructuredContent] {
+    get throws {
+      guard case .array(let value) = kind else {
+        throw StructuredContentError.typeMismatch(expected: "array", actual: kind.typeName)
+      }
+      return value
+    }
+  }
+
+  /// Checks if this structured content is null.
+  ///
+  /// - Returns: `true` if this content is null, `false` otherwise.
+  public var isNull: Bool {
+    if case .null = kind {
+      return true
+    }
+    return false
+  }
+}
+
+// MARK: - Errors
+
+/// Errors that can occur when accessing structured content values.
+public enum StructuredContentError: Error {
+  /// A type mismatch occurred when accessing a value.
+  case typeMismatch(expected: String, actual: String)
+
+  /// A number value cannot be represented as an integer.
+  case invalidIntegerValue(Double)
+}
+
+extension StructuredContent.Kind {
+  fileprivate var typeName: String {
+    switch self {
+    case .bool: return "bool"
+    case .null: return "null"
+    case .number: return "number"
+    case .string: return "string"
+    case .object: return "object"
+    case .array: return "array"
+    }
+  }
+}

@@ -84,9 +84,11 @@ extension Tool where Arguments: Generable {
   /// Default implementation of the JSON call method.
   /// Decodes the JSON data into Arguments and calls the typed method.
   public func call(_ data: Data) async throws -> any PromptRepresentable {
-    let decoder = JSONDecoder()
-    // TODO: We should probably throw a SwiftAI error if decoding fails.
-    let arguments = try decoder.decode(Arguments.self, from: data)
+    guard let jsonString = String(data: data, encoding: .utf8) else {
+      throw LLMError.generalError("Invalid UTF-8 in tool arguments")
+    }
+    let content = try StructuredContent(json: jsonString)
+    let arguments = try Arguments(from: content)
     return try await call(arguments: arguments)
   }
 }

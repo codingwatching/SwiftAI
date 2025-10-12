@@ -327,15 +327,15 @@ print(response.content)
 
 ## 🎯 Quick Reference
 
-| What You Want          | What To Use              | Example                                      |
-| ---------------------- | ------------------------ | -------------------------------------------- |
-| Simple text response   | `reply(to:)`             | `reply(to: "Hello")`                         |
-| Structured data        | `reply(to:returning:)`   | `reply(to: "...", returning: MyStruct.self)` |
-| Real-time streaming    | `replyStream(to:)`       | `replyStream(to: "Hello")`                   |
-| Streaming structured   | `replyStream(returning:)`| `replyStream(to: "...", returning: MyStruct.self)` |
-| Function calling       | `reply(to:tools:)`       | `reply(to: "...", tools: [myTool])`          |
-| Conversation           | `Chat`                   | `chat.send("Hello")`                         |
-| Model switching        | `any LLM`                | `SystemLLM()` or `OpenaiLLM()`               |
+| What You Want        | What To Use               | Example                                            |
+| -------------------- | ------------------------- | -------------------------------------------------- |
+| Simple text response | `reply(to:)`              | `reply(to: "Hello")`                               |
+| Structured data      | `reply(to:returning:)`    | `reply(to: "...", returning: MyStruct.self)`       |
+| Real-time streaming  | `replyStream(to:)`        | `replyStream(to: "Hello")`                         |
+| Streaming structured | `replyStream(returning:)` | `replyStream(to: "...", returning: MyStruct.self)` |
+| Function calling     | `reply(to:tools:)`        | `reply(to: "...", tools: [myTool])`                |
+| Conversation         | `Chat`                    | `chat.send("Hello")`                               |
+| Model switching      | `any LLM`                 | `SystemLLM()` or `OpenaiLLM()`                     |
 
 ## 🔧 Supported Models
 
@@ -350,12 +350,6 @@ print(response.content)
 
 - **[ChatApp](Examples/ChatApp/README.md)**: Interactive chat app with 10+ models
 - **[ReadMitAI](Examples/ReadMitAI/README.md)**: Essay reading app with AI-powered features
-
-## ⚡ Feature Parity Status vs FoundationModels SDK
-
-| Feature                      | Status                                                    |
-| ---------------------------- | --------------------------------------------------------- |
-| Structured outputs for enums | ❌ [#issue](https://github.com/mi12labs/SwiftAI/issues/4) |
 
 ## 🤝 Contributing
 

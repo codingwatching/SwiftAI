@@ -74,7 +74,7 @@ public struct GenerableMacro: ExtensionMacro {
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
     ) {
-      try emitEnumPartialTypealias()
+      try emitEnumPartial(typeName: typeName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
       try emitEnumSchemaVariable(typeName: typeName, cases: cases)
@@ -628,8 +628,90 @@ private func parseEnumParameters(from clause: EnumCaseParameterClauseSyntax?) ->
   }
 }
 
-private func emitEnumPartialTypealias() throws -> TypeAliasDeclSyntax {
-  try TypeAliasDeclSyntax("public typealias Partial = Self")
+/// Transforms an enum case to its Partial equivalent by making all associated value parameters optional.
+///
+/// ## Example
+///
+/// Input: EnumCaseDescriptor(name: "success", parameters: [EnumParameter(label: "value", type: "String", index: 0)])
+/// Output: EnumCaseDescriptor(name: "success", parameters: [EnumParameter(label: "value", type: "String.Partial?", index: 0)])
+private func transformEnumCaseToPartial(_ enumCase: EnumCaseDescriptor) -> EnumCaseDescriptor {
+  let partialParameters = enumCase.parameters.map { param in
+    let paramTypeSyntax = TypeSyntax(stringLiteral: param.type)
+    let partialTypeSyntax = emitPartialType(for: paramTypeSyntax)
+    let partialTypeString = partialTypeSyntax.trimmed.description
+
+    return EnumParameter(
+      label: param.label,
+      type: partialTypeString,
+      index: param.index
+    )
+  }
+
+  return EnumCaseDescriptor(name: enumCase.name, parameters: partialParameters)
+}
+
+/// Generates Partial type for enums.
+///
+/// For simple enums without associated values, generates a typealias.
+/// For enums with associated values, generates a nested Partial enum.
+///
+/// ## Example (simple enum)
+///
+/// Output:
+///   public typealias Partial = Self
+///
+/// ## Example (enum with associated values)
+///
+/// Output:
+///   public enum Partial: GenerableContentConvertible, Sendable {
+///     case success(value: String.Partial?)
+///     case failure(error: String.Partial?)
+///
+///     public var generableContent: StructuredContent { ... }
+///     public init(from structuredContent: StructuredContent) throws { ... }
+///   }
+private func emitEnumPartial(
+  typeName: String,
+  cases: [EnumCaseDescriptor]
+) throws -> DeclSyntax {
+  let hasAnyAssociatedValues = cases.contains { $0.hasAssociatedValues }
+  if !hasAnyAssociatedValues {
+    // Simple enum without associated values - use typealias
+    return DeclSyntax(try TypeAliasDeclSyntax("public typealias Partial = Self"))
+  }
+
+  // Generate enum case declarations with partial parameters.
+  let partialCases = cases.map { transformEnumCaseToPartial($0) }
+  let partialCaseDecls = partialCases.map { partialCase in
+    if !partialCase.hasAssociatedValues {
+      return DeclSyntax("case \(raw: partialCase.name)")
+    }
+    let caseSignature = partialCase.parameters.map { param in
+      if let label = param.label {
+        return "\(label): \(param.type)"
+      } else {
+        return param.type
+      }
+    }.joined(separator: ", ")
+    return DeclSyntax("case \(raw: partialCase.name)(\(raw: caseSignature))")
+  }
+
+  return DeclSyntax(
+    try EnumDeclSyntax(
+      "public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable"
+    ) {
+      for caseItem in partialCaseDecls {
+        MemberBlockItemSyntax(decl: caseItem)
+          .with(\.trailingTrivia, .newlines(1))
+      }
+
+      try emitEnumGenerableContentVariable(cases: partialCases)
+        .with(\.trailingTrivia, .newlines(2))
+        .with(\.leadingTrivia, .newlines(2))
+
+      try emitEnumStructuredContentInitializer(cases: partialCases)
+    }
+  )
 }
 
 /// Generates a schema variable for enums using anyOf.

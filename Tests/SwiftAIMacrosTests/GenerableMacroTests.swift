@@ -991,7 +991,55 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension Result: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case success(value: String.Partial?)
+          case failure
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .success(let value):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("success")),
+                  "value": value.generableContent,
+                ])
+              )
+            case .failure:
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("failure"))
+                ]
+                )
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "success":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .success(value: value)
+            case "failure":
+              self = .failure
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(
@@ -1091,7 +1139,71 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension Data: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case text(String.Partial?)
+          case pair(String.Partial?, Int.Partial?)
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .text(let value):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("text")),
+                  "value": value.generableContent,
+                ])
+              )
+            case .pair(let value, let value1):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("pair")),
+                  "value": value.generableContent, "value1": value1.generableContent,
+                ])
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "text":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .text(value)
+            case "pair":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let value1: Int.Partial? = try {
+                if let value1Content = object["value1"] {
+                  return try Int.Partial?(from: value1Content)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .pair(value, value1)
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(
@@ -1211,7 +1323,73 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension Status: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case idle
+          case loading(message: String.Partial?)
+          case error(String.Partial?)
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .idle:
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("idle"))
+                ]
+                )
+              )
+            case .loading(let message):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("loading")),
+                  "message": message.generableContent,
+                ])
+              )
+            case .error(let value):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("error")),
+                  "value": value.generableContent,
+                ])
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "idle":
+              self = .idle
+            case "loading":
+              let message: String.Partial? = try {
+                if let messageContent = object["message"] {
+                  return try String.Partial?(from: messageContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .loading(message: message)
+            case "error":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .error(value)
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(
@@ -1340,7 +1518,71 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension Event: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case click(x: Int.Partial?, y: Int.Partial?)
+          case scroll(delta: Double.Partial?)
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .click(let x, let y):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("click")),
+                  "x": x.generableContent, "y": y.generableContent,
+                ])
+              )
+            case .scroll(let delta):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("scroll")),
+                  "delta": delta.generableContent,
+                ])
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "click":
+              let x: Int.Partial? = try {
+                if let xContent = object["x"] {
+                  return try Int.Partial?(from: xContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let y: Int.Partial? = try {
+                if let yContent = object["y"] {
+                  return try Int.Partial?(from: yContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .click(x: x, y: y)
+            case "scroll":
+              let delta: Double.Partial? = try {
+                if let deltaContent = object["delta"] {
+                  return try Double.Partial?(from: deltaContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .scroll(delta: delta)
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(
@@ -1458,7 +1700,55 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension OptionalData: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case withData(value: String.Partial?)
+          case noData
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .withData(let value):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("withData")),
+                  "value": value.generableContent,
+                ])
+              )
+            case .noData:
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("noData"))
+                ]
+                )
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "withData":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .withData(value: value)
+            case "noData":
+              self = .noData
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(
@@ -1564,7 +1854,134 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension Complex: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case item0(
+            String.Partial?,
+            count: Int.Partial?,
+            Double.Partial?,
+            flag: Bool.Partial?
+          )
+          case item1(
+            String.Partial?,
+            String.Partial?,
+            [String].Partial?,
+            [String].Partial?
+          )
+          case item3
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .item0(let value, let count, let value2, let flag):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("item0")),
+                  "value": value.generableContent, "count": count.generableContent,
+                  "value2": value2.generableContent, "flag": flag.generableContent,
+                ])
+              )
+            case .item1(let value, let value1, let value2, let value3):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("item1")),
+                  "value": value.generableContent, "value1": value1.generableContent,
+                  "value2": value2.generableContent,
+                  "value3": value3.generableContent,
+                ])
+              )
+            case .item3:
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("item3"))
+                ]
+                )
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "item0":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let count: Int.Partial? = try {
+                if let countContent = object["count"] {
+                  return try Int.Partial?(from: countContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let value2: Double.Partial? = try {
+                if let value2Content = object["value2"] {
+                  return try Double.Partial?(from: value2Content)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let flag: Bool.Partial? = try {
+                if let flagContent = object["flag"] {
+                  return try Bool.Partial?(from: flagContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .item0(value, count: count, value2, flag: flag)
+            case "item1":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let value1: String.Partial? = try {
+                if let value1Content = object["value1"] {
+                  return try String.Partial?(from: value1Content)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let value2: [String].Partial? = try {
+                if let value2Content = object["value2"] {
+                  return try [String].Partial?(from: value2Content)
+                }
+                else {
+                  return nil
+                }
+              }()
+              let value3: [String].Partial? = try {
+                if let value3Content = object["value3"] {
+                  return try [String].Partial?(from: value3Content)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .item1(value, value1, value2, value3)
+            case "item3":
+              self = .item3
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(
@@ -1757,7 +2174,91 @@ struct GenerableMacroTests {
       }
 
       nonisolated extension Status: SwiftAI.Generable {
-        public typealias Partial = Self
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case idle
+          case loading(message: String.Partial?)
+          case success(value: String.Partial?)
+          case failure(error: String.Partial?)
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .idle:
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("idle"))
+                ]
+                )
+              )
+            case .loading(let message):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("loading")),
+                  "message": message.generableContent,
+                ])
+              )
+            case .success(let value):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("success")),
+                  "value": value.generableContent,
+                ])
+              )
+            case .failure(let error):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("failure")),
+                  "error": error.generableContent,
+                ])
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+            let type = try typeContent.string
+
+            switch type {
+            case "idle":
+              self = .idle
+            case "loading":
+              let message: String.Partial? = try {
+                if let messageContent = object["message"] {
+                  return try String.Partial?(from: messageContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .loading(message: message)
+            case "success":
+              let value: String.Partial? = try {
+                if let valueContent = object["value"] {
+                  return try String.Partial?(from: valueContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .success(value: value)
+            case "failure":
+              let error: String.Partial? = try {
+                if let errorContent = object["error"] {
+                  return try String.Partial?(from: errorContent)
+                }
+                else {
+                  return nil
+                }
+              }()
+              self = .failure(error: error)
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
 
         public nonisolated static var schema: Schema {
           .anyOf(

@@ -874,29 +874,6 @@ struct GenerableMacroTests {
   }
 
   @Test
-  func testEnumWithAssociatedValues_ThrowsError() throws {
-    assertMacro(indentationWidth: .spaces(2)) {
-      """
-      @Generable
-      enum Result {
-        case success(String)
-        case failure(Error)
-      }
-      """
-    } diagnostics: {
-      """
-      @Generable
-      ┬─────────
-      ╰─ 🛑 Enums with associated values are not yet supported
-      enum Result {
-        case success(String)
-        case failure(Error)
-      }
-      """
-    }
-  }
-
-  @Test
   func testStructWithEnumProperty() throws {
     assertMacro(indentationWidth: .spaces(2)) {
       """
@@ -993,6 +970,930 @@ struct GenerableMacroTests {
         }
       }
       """
+    }
+  }
+
+  @Test
+  func testEnumWithSingleLabeledAssociatedValue() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Result {
+        case success(value: String)
+        case failure
+      }
+      """
+    } expansion: {
+      #"""
+      enum Result {
+        case success(value: String)
+        case failure
+      }
+
+      nonisolated extension Result: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Result",
+            description: nil,
+            schemas: [
+              .object(
+                name: "successDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("success")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "failureDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("failure")]),
+                    description: nil,
+                    isOptional: false
+                  )
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .success(let value):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("success")),
+                "value": value.generableContent,
+              ])
+            )
+          case .failure:
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("failure"))
+              ]
+              )
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "success":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            self = .success(value: value)
+          case "failure":
+            self = .failure
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithUnlabeledAssociatedValues() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Data {
+        case text(String)
+        case pair(String, Int)
+      }
+      """
+    } expansion: {
+      #"""
+      enum Data {
+        case text(String)
+        case pair(String, Int)
+      }
+
+      nonisolated extension Data: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Data",
+            description: nil,
+            schemas: [
+              .object(
+                name: "textDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("text")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "pairDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("pair")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value1": Schema.Property(
+                    schema: Int.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .text(let value):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("text")),
+                "value": value.generableContent,
+              ])
+            )
+          case .pair(let value, let value1):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("pair")),
+                "value": value.generableContent, "value1": value1.generableContent,
+              ])
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "text":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            self = .text(value)
+          case "pair":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            guard let value1Content = object["value1"] else {
+              throw LLMError.generalError("Missing required property: value1")
+            }
+            let value1 = try Int(from: value1Content)
+            self = .pair(value, value1)
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testMixedEnum_SimpleAndAssociatedValueCases() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Status {
+        case idle
+        case loading(message: String)
+        case error(String)
+      }
+      """
+    } expansion: {
+      #"""
+      enum Status {
+        case idle
+        case loading(message: String)
+        case error(String)
+      }
+
+      nonisolated extension Status: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Status",
+            description: nil,
+            schemas: [
+              .object(
+                name: "idleDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("idle")]),
+                    description: nil,
+                    isOptional: false
+                  )
+                ]
+              ),
+              .object(
+                name: "loadingDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("loading")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "message": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "errorDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("error")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .idle:
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("idle"))
+              ]
+              )
+            )
+          case .loading(let message):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("loading")),
+                "message": message.generableContent,
+              ])
+            )
+          case .error(let value):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("error")),
+                "value": value.generableContent,
+              ])
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "idle":
+            self = .idle
+          case "loading":
+            guard let messageContent = object["message"] else {
+              throw LLMError.generalError("Missing required property: message")
+            }
+            let message = try String(from: messageContent)
+            self = .loading(message: message)
+          case "error":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            self = .error(value)
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithMultipleLabeledAssociatedValues() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Event {
+        case click(x: Int, y: Int)
+        case scroll(delta: Double)
+      }
+      """
+    } expansion: {
+      #"""
+      enum Event {
+        case click(x: Int, y: Int)
+        case scroll(delta: Double)
+      }
+
+      nonisolated extension Event: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Event",
+            description: nil,
+            schemas: [
+              .object(
+                name: "clickDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("click")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "x": Schema.Property(
+                    schema: Int.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "y": Schema.Property(
+                    schema: Int.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "scrollDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("scroll")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "delta": Schema.Property(
+                    schema: Double.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .click(let x, let y):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("click")),
+                "x": x.generableContent, "y": y.generableContent,
+              ])
+            )
+          case .scroll(let delta):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("scroll")),
+                "delta": delta.generableContent,
+              ])
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "click":
+            guard let xContent = object["x"] else {
+              throw LLMError.generalError("Missing required property: x")
+            }
+            let x = try Int(from: xContent)
+            guard let yContent = object["y"] else {
+              throw LLMError.generalError("Missing required property: y")
+            }
+            let y = try Int(from: yContent)
+            self = .click(x: x, y: y)
+          case "scroll":
+            guard let deltaContent = object["delta"] else {
+              throw LLMError.generalError("Missing required property: delta")
+            }
+            let delta = try Double(from: deltaContent)
+            self = .scroll(delta: delta)
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithOptionalAssociatedValues() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum OptionalData {
+        case withData(value: String?)
+        case noData
+      }
+      """
+    } expansion: {
+      #"""
+      enum OptionalData {
+        case withData(value: String?)
+        case noData
+      }
+
+      nonisolated extension OptionalData: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "OptionalData",
+            description: nil,
+            schemas: [
+              .object(
+                name: "withDataDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("withData")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String?.schema,
+                    description: nil,
+                    isOptional: true
+                  ),
+                ]
+              ),
+              .object(
+                name: "noDataDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("noData")]),
+                    description: nil,
+                    isOptional: false
+                  )
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .withData(let value):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("withData")),
+                "value": value.generableContent,
+              ])
+            )
+          case .noData:
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("noData"))
+              ]
+              )
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "withData":
+            let value: String? = try {
+              if let valueContent = object["value"] {
+                return try String?(from: valueContent)
+              }
+              else {
+                return nil
+              }
+            }()
+            self = .withData(value: value)
+          case "noData":
+            self = .noData
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithMixedLabeledAndUnlabeledAssociatedValues() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Complex {
+        case item0(String, count: Int, Double, flag: Bool)
+        case item1(String, String?, [String], [String]?)
+        case item3
+      }
+      """
+    } expansion: {
+      #"""
+      enum Complex {
+        case item0(String, count: Int, Double, flag: Bool)
+        case item1(String, String?, [String], [String]?)
+        case item3
+      }
+
+      nonisolated extension Complex: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Complex",
+            description: nil,
+            schemas: [
+              .object(
+                name: "item0Discriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("item0")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "count": Schema.Property(
+                    schema: Int.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value2": Schema.Property(
+                    schema: Double.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "flag": Schema.Property(
+                    schema: Bool.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "item1Discriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("item1")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value1": Schema.Property(
+                    schema: String?.schema,
+                    description: nil,
+                    isOptional: true
+                  ),
+                  "value2": Schema.Property(
+                    schema: [String].schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value3": Schema.Property(
+                    schema: [String]?.schema,
+                    description: nil,
+                    isOptional: true
+                  ),
+                ]
+              ),
+              .object(
+                name: "item3Discriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("item3")]),
+                    description: nil,
+                    isOptional: false
+                  )
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .item0(let value, let count, let value2, let flag):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("item0")),
+                "value": value.generableContent, "count": count.generableContent,
+                "value2": value2.generableContent, "flag": flag.generableContent,
+              ])
+            )
+          case .item1(let value, let value1, let value2, let value3):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("item1")),
+                "value": value.generableContent, "value1": value1.generableContent,
+                "value2": value2.generableContent, "value3": value3.generableContent,
+              ])
+            )
+          case .item3:
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("item3"))
+              ]
+              )
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "item0":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            guard let countContent = object["count"] else {
+              throw LLMError.generalError("Missing required property: count")
+            }
+            let count = try Int(from: countContent)
+            guard let value2Content = object["value2"] else {
+              throw LLMError.generalError("Missing required property: value2")
+            }
+            let value2 = try Double(from: value2Content)
+            guard let flagContent = object["flag"] else {
+              throw LLMError.generalError("Missing required property: flag")
+            }
+            let flag = try Bool(from: flagContent)
+            self = .item0(value, count: count, value2, flag: flag)
+          case "item1":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            let value1: String? = try {
+              if let value1Content = object["value1"] {
+                return try String?(from: value1Content)
+              }
+              else {
+                return nil
+              }
+            }()
+            guard let value2Content = object["value2"] else {
+              throw LLMError.generalError("Missing required property: value2")
+            }
+            let value2 = try [String] (from: value2Content)
+            let value3: [String]? = try {
+              if let value3Content = object["value3"] {
+                return try [String]?(from: value3Content)
+              }
+              else {
+                return nil
+              }
+            }()
+            self = .item1(value, value1, value2, value3)
+          case "item3":
+            self = .item3
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithCommaSeparatedCaseDeclarations() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum Status {
+        case idle, loading(message: String)
+        case success(value: String), failure(error: String)
+      }
+      """
+    } expansion: {
+      #"""
+      enum Status {
+        case idle, loading(message: String)
+        case success(value: String), failure(error: String)
+      }
+
+      nonisolated extension Status: SwiftAI.Generable {
+        public typealias Partial = Self
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "Status",
+            description: nil,
+            schemas: [
+              .object(
+                name: "idleDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("idle")]),
+                    description: nil,
+                    isOptional: false
+                  )
+                ]
+              ),
+              .object(
+                name: "loadingDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("loading")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "message": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "successDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("success")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "value": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+              .object(
+                name: "failureDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("failure")]),
+                    description: nil,
+                    isOptional: false
+                  ),
+                  "error": Schema.Property(
+                    schema: String.schema,
+                    description: nil,
+                    isOptional: false
+                  ),
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .idle:
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("idle"))
+              ]
+              )
+            )
+          case .loading(let message):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("loading")),
+                "message": message.generableContent,
+              ])
+            )
+          case .success(let value):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("success")),
+                "value": value.generableContent,
+              ])
+            )
+          case .failure(let error):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("failure")),
+                "error": error.generableContent,
+              ])
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+          let type = try typeContent.string
+
+          switch type {
+          case "idle":
+            self = .idle
+          case "loading":
+            guard let messageContent = object["message"] else {
+              throw LLMError.generalError("Missing required property: message")
+            }
+            let message = try String(from: messageContent)
+            self = .loading(message: message)
+          case "success":
+            guard let valueContent = object["value"] else {
+              throw LLMError.generalError("Missing required property: value")
+            }
+            let value = try String(from: valueContent)
+            self = .success(value: value)
+          case "failure":
+            guard let errorContent = object["error"] else {
+              throw LLMError.generalError("Missing required property: error")
+            }
+            let error = try String(from: errorContent)
+            self = .failure(error: error)
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
     }
   }
 }

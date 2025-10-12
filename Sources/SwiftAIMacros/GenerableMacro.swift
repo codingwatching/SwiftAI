@@ -6,6 +6,8 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+// TODO: Handle Optional<T> during expansion. Now optionals are assumed to always end with "?".
+
 // MARK: - Naming Conventions
 
 // 1. SwiftSyntax variables end with Decl/Expr/Syntax (memberDecls, bindingSyntax, typeSyntax)
@@ -67,7 +69,7 @@ public struct GenerableMacro: ExtensionMacro {
     context: some MacroExpansionContext
   ) throws -> [ExtensionDeclSyntax] {
     let typeName = type.trimmed.description
-    let caseNames = try parseEnumCases(from: enumDecl)
+    let cases = try parseEnumCases(from: enumDecl)
 
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
@@ -75,13 +77,13 @@ public struct GenerableMacro: ExtensionMacro {
       try emitEnumPartialTypealias()
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitEnumSchemaVariable(typeName: typeName, caseNames: caseNames)
+      try emitEnumSchemaVariable(typeName: typeName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitEnumGenerableContentVariable(caseNames: caseNames)
+      try emitEnumGenerableContentVariable(cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitEnumStructuredContentInitializer(caseNames: caseNames)
+      try emitEnumStructuredContentInitializer(cases: cases)
     }
 
     return [extensionDecl.formatted()]
@@ -557,43 +559,85 @@ private func emitStructuredContentInitializer(
   }
 }
 
+/// Provides a programmatic representation of an enum case and its associated values.
+private struct EnumCaseDescriptor {
+  /// The case name.
+  let name: String
+
+  /// The associated values for the case.
+  let parameters: [EnumParameter]
+
+  var hasAssociatedValues: Bool {
+    !parameters.isEmpty
+  }
+}
+
+/// Represents an associated value parameter for an enum case.
+private struct EnumParameter {
+  let label: String?  // nil for unnamed parameters
+  let type: String
+  let index: Int
+
+  /// The effective label to use for this parameter in generated code.
+  /// For labeled parameters, returns the label.
+  /// For unlabeled parameters, returns "value" for the first parameter, "value", "value1", etc. for subsequent ones.
+  var effectiveLabel: String {
+    label ?? (index == 0 ? "value" : "value\(index)")
+  }
+}
+
 /// Parses enum cases from an enum declaration.
 ///
 /// ## Example
 ///
 /// Input: enum Status { case active; case inactive; case pending }
-/// Output: ["active", "inactive", "pending"]
-private func parseEnumCases(from enumDecl: EnumDeclSyntax) throws -> [String] {
-  var caseNames: [String] = []
-
-  for member in enumDecl.memberBlock.members {
-    guard let enumCaseDecl = member.decl.as(EnumCaseDeclSyntax.self) else {
-      continue
+/// Output: [EnumCaseDescriptor(name: "active", parameters: []), ...]
+///
+/// Input: enum Result { case success(value: String); case failure(Error) }
+/// Output: [EnumCaseDescriptor(name: "success", parameters: [EnumParameter(label: "value", type: "String")]), ...]
+private func parseEnumCases(from enumDecl: EnumDeclSyntax) throws -> [EnumCaseDescriptor] {
+  return enumDecl.memberBlock.members
+    .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
+    .flatMap { $0.elements }
+    .map { enumCase in
+      let parameters = parseEnumParameters(from: enumCase.parameterClause)
+      return EnumCaseDescriptor(name: enumCase.name.text, parameters: parameters)
     }
+}
 
-    for element in enumCaseDecl.elements {
-      // TODO: Support enums with associated values
-      if element.parameterClause != nil {
-        throw GenerableMacroError(
-          message: "Enums with associated values are not yet supported",
-          id: "associatedValuesNotSupported"
-        )
-      }
-
-      caseNames.append(element.name.text)
-    }
+/// Parses parameters from an enum case parameter clause.
+///
+/// ## Example
+///
+/// Input: case success(value: String)
+/// Output: [EnumParameter(label: "value", type: "String", index: 0)]
+///
+/// Input: case pair(String, Int)
+/// Output: [EnumParameter(label: nil, type: "String", index: 0), EnumParameter(label: nil, type: "Int", index: 1)]
+private func parseEnumParameters(from clause: EnumCaseParameterClauseSyntax?) -> [EnumParameter] {
+  guard let clause = clause else {
+    return []
   }
 
-  return caseNames
+  return clause.parameters.enumerated().map { index, param in
+    EnumParameter(
+      label: param.firstName?.text,
+      type: param.type.trimmedDescription,
+      index: index
+    )
+  }
 }
 
 private func emitEnumPartialTypealias() throws -> TypeAliasDeclSyntax {
   try TypeAliasDeclSyntax("public typealias Partial = Self")
 }
 
-/// Generates a schema variable for enums using anyOf with constant strings.
+/// Generates a schema variable for enums using anyOf.
 ///
-/// ## Example
+/// For enums without associated values, uses constant strings.
+/// For enums with associated values, uses objects with a "type" discriminator field.
+///
+/// ## Example (simple enum)
 ///
 /// Output:
 ///   public static var schema: Schema {
@@ -602,20 +646,100 @@ private func emitEnumPartialTypealias() throws -> TypeAliasDeclSyntax {
 ///       description: nil,
 ///       schemas: [
 ///         .string(constraints: [.constant("active")]),
-///         .string(constraints: [.constant("inactive")]),
-///         .string(constraints: [.constant("pending")])
+///         .string(constraints: [.constant("inactive")])
+///       ]
+///     )
+///   }
+///
+/// ## Example (enum with associated values)
+///
+/// Output:
+///   public static var schema: Schema {
+///     .anyOf(
+///       name: "Result",
+///       description: nil,
+///       schemas: [
+///         .object(
+///           name: nil,
+///           description: nil,
+///           properties: [
+///             "type": Schema.Property(schema: .string(constraints: [.constant("success")]), description: nil, isOptional: false),
+///             "value": Schema.Property(schema: String.schema, description: nil, isOptional: false)
+///           ]
+///         ),
+///         .object(
+///           name: nil,
+///           description: nil,
+///           properties: [
+///             "type": Schema.Property(schema: .string(constraints: [.constant("failure")]), description: nil, isOptional: false),
+///             "error": Schema.Property(schema: Error.schema, description: nil, isOptional: false)
+///           ]
+///         )
 ///       ]
 ///     )
 ///   }
 private func emitEnumSchemaVariable(
   typeName: String,
-  caseNames: [String]
+  cases: [EnumCaseDescriptor]
 ) throws -> VariableDeclSyntax {
-  var caseSchemaExprs: [ArrayElementSyntax] = []
+  var caseSchemaExprs = [ArrayElementSyntax]()
 
-  for caseName in caseNames {
-    let schemaExpr = ExprSyntax(".string(constraints: [.constant(\(literal: caseName))])")
-    caseSchemaExprs.append(ArrayElementSyntax(expression: schemaExpr))
+  let hasAnyAssociatedValues = cases.contains { $0.hasAssociatedValues }
+
+  for enumCase in cases {
+    if hasAnyAssociatedValues {
+      // If enum has any associated values, all cases use object schema with "type" discriminator
+      var properties = [DictionaryElementSyntax]()
+
+      // Add the "type" discriminator field
+      let typeProperty = DictionaryElementSyntax(
+        key: ExprSyntax(literal: "type"),
+        value: ExprSyntax(
+          """
+          Schema.Property(
+            schema: .string(constraints: [.constant(\(literal: enumCase.name))]),
+            description: nil,
+            isOptional: false
+          )
+          """)
+      )
+      properties.append(typeProperty)
+
+      // Add properties for each associated value
+      for param in enumCase.parameters {
+        let isOptional = param.type.hasSuffix("?")
+        let propertySchema = DictionaryElementSyntax(
+          key: ExprSyntax(literal: param.effectiveLabel),
+          value: ExprSyntax(
+            """
+            Schema.Property(
+              schema: \(raw: param.type).schema,
+              description: nil,
+              isOptional: \(raw: isOptional ? "true" : "false")
+            )
+            """)
+        )
+        properties.append(propertySchema)
+      }
+
+      let objectSchema = ExprSyntax(
+        """
+        .object(
+          name: \(literal: "\(enumCase.name)Discriminator"),
+          description: nil,
+          properties: \(DictionaryExprSyntax {
+            for property in properties {
+              property
+            }
+          })
+        )
+        """)
+      caseSchemaExprs.append(ArrayElementSyntax(expression: objectSchema))
+    } else {
+      // For simple enums without any associated values, use constant strings
+      let schemaExpr = ExprSyntax(".string(constraints: [.constant(\(literal: enumCase.name))])")
+      caseSchemaExprs.append(ArrayElementSyntax(expression: schemaExpr))
+    }
   }
 
   // TODO: Add description if set in @Generable.
@@ -636,7 +760,10 @@ private func emitEnumSchemaVariable(
 
 /// Generates a generableContent variable for enums.
 ///
-/// ## Example
+/// For simple enums without associated values, returns string content.
+/// For enums with associated values, returns object content with "type" discriminator.
+///
+/// ## Example (simple enum)
 ///
 /// Output:
 ///   public var generableContent: StructuredContent {
@@ -645,28 +772,98 @@ private func emitEnumSchemaVariable(
 ///       return StructuredContent(kind: .string("active"))
 ///     case .inactive:
 ///       return StructuredContent(kind: .string("inactive"))
-///     case .pending:
-///       return StructuredContent(kind: .string("pending"))
+///     }
+///   }
+///
+/// ## Example (enum with associated values)
+///
+/// Output:
+///   public var generableContent: StructuredContent {
+///     switch self {
+///     case .success(let value):
+///       return StructuredContent(kind: .object([
+///         "type": StructuredContent(kind: .string("success")),
+///         "value": value.generableContent
+///       ]))
+///     case .failure(let error):
+///       return StructuredContent(kind: .object([
+///         "type": StructuredContent(kind: .string("failure")),
+///         "error": error.generableContent
+///       ]))
 ///     }
 ///   }
 private func emitEnumGenerableContentVariable(
-  caseNames: [String]
+  cases: [EnumCaseDescriptor]
 ) throws -> VariableDeclSyntax {
-  var switchCaseItems: [CodeBlockItemSyntax] = []
+  let hasAnyAssociatedValues = cases.contains { $0.hasAssociatedValues }
 
-  for caseName in caseNames {
-    switchCaseItems.append(
-      CodeBlockItemSyntax(
-        item: .stmt(
-          StmtSyntax(
-            """
-            case .\(raw: caseName):
-              return StructuredContent(kind: .string(\(literal: caseName)))
-            """
+  var switchCaseItems = [CodeBlockItemSyntax]()
+  for enumCase in cases {
+    if hasAnyAssociatedValues {
+      // If enum has any associated values, all cases use object format with "type" discriminator
+      if enumCase.hasAssociatedValues {
+        // Generate pattern with let bindings for associated values
+        let bindings = enumCase.parameters.map { param in
+          "let \(param.effectiveLabel)"
+        }.joined(separator: ", ")
+
+        // Generate object properties
+        var properties: [String] = []
+        properties.append("\"type\": StructuredContent(kind: .string(\"\(enumCase.name)\"))")
+
+        for param in enumCase.parameters {
+          properties.append("\"\(param.effectiveLabel)\": \(param.effectiveLabel).generableContent")
+        }
+
+        let propertiesStr = properties.joined(separator: ", ")
+
+        switchCaseItems.append(
+          CodeBlockItemSyntax(
+            item: .stmt(
+              StmtSyntax(
+                """
+                case .\(raw: enumCase.name)(\(raw: bindings)):
+                  return StructuredContent(kind: .object([\(raw: propertiesStr)]))
+                """
+              )
+            )
+          )
+        )
+      } else {
+        // Simple case, but still use object format with just "type" field
+        switchCaseItems.append(
+          CodeBlockItemSyntax(
+            item: .stmt(
+              StmtSyntax(
+                """
+                case .\(raw: enumCase.name):
+                  return StructuredContent(
+                    kind: .object([
+                      "type": StructuredContent(kind: .string(\(literal: enumCase.name)))
+                    ]
+                  )
+                )
+                """
+              )
+            )
+          )
+        )
+      }
+    } else {
+      // Purely simple enum - use string format for all cases
+      switchCaseItems.append(
+        CodeBlockItemSyntax(
+          item: .stmt(
+            StmtSyntax(
+              """
+              case .\(raw: enumCase.name):
+                return StructuredContent(kind: .string(\(literal: enumCase.name)))
+              """
+            )
           )
         )
       )
-    )
+    }
   }
 
   return try VariableDeclSyntax("public nonisolated var generableContent: StructuredContent") {
@@ -679,6 +876,18 @@ private func emitEnumGenerableContentVariable(
 }
 
 /// Generates an initializer from StructuredContent for enums.
+private func emitEnumStructuredContentInitializer(
+  cases: [EnumCaseDescriptor]
+) throws -> InitializerDeclSyntax {
+  let hasAnyAssociatedValues = cases.contains { $0.hasAssociatedValues }
+  if hasAnyAssociatedValues {
+    return try emitEnumObjectBasedInitializer(cases: cases)
+  } else {
+    return try emitEnumStringBasedInitializer(cases: cases)
+  }
+}
+
+/// Generates a string-based initializer for simple enums without associated values.
 ///
 /// ## Example
 ///
@@ -690,25 +899,22 @@ private func emitEnumGenerableContentVariable(
 ///       self = .active
 ///     case "inactive":
 ///       self = .inactive
-///     case "pending":
-///       self = .pending
 ///     default:
 ///       throw LLMError.generalError("Unknown enum case: \(stringValue)")
 ///     }
 ///   }
-private func emitEnumStructuredContentInitializer(
-  caseNames: [String]
+private func emitEnumStringBasedInitializer(
+  cases: [EnumCaseDescriptor]
 ) throws -> InitializerDeclSyntax {
-  var switchCaseItems: [CodeBlockItemSyntax] = []
-
-  for caseName in caseNames {
+  var switchCaseItems = [CodeBlockItemSyntax]()
+  for enumCase in cases {
     switchCaseItems.append(
       CodeBlockItemSyntax(
         item: .stmt(
           StmtSyntax(
             """
-            case \(literal: caseName):
-              self = .\(raw: caseName)
+            case \(literal: enumCase.name):
+              self = .\(raw: enumCase.name)
             """
           )
         )
@@ -736,6 +942,122 @@ private func emitEnumStructuredContentInitializer(
     """
     let stringValue = try structuredContent.string
     switch stringValue {
+    \(CodeBlockItemListSyntax(switchCaseItems))
+    }
+    """
+  }
+}
+
+/// Generates an object-based initializer for enums with associated values.
+///
+/// Parses object format with "type" discriminator field.
+private func emitEnumObjectBasedInitializer(
+  cases: [EnumCaseDescriptor]
+) throws -> InitializerDeclSyntax {
+  var switchCaseItems = [CodeBlockItemSyntax]()
+
+  // Generate switch case for each enum case
+  for enumCase in cases {
+    if enumCase.hasAssociatedValues {
+      // Cases with associated values - extract each parameter
+      var caseBodyLines = [String]()
+
+      // Extract associated value parameters
+      for param in enumCase.parameters {
+        let isOptional = param.type.hasSuffix("?")
+        let effectiveLabel = param.effectiveLabel
+
+        if isOptional {
+          // Optional parameter - use if let
+          caseBodyLines.append(
+            """
+            let \(effectiveLabel): \(param.type) = try {
+              if let \(effectiveLabel)Content = object[\"\(effectiveLabel)\"] {
+                return try \(param.type)(from: \(effectiveLabel)Content)
+              } else {
+                return nil
+              }
+            }()
+            """)
+        } else {
+          // Required parameter - use guard
+          caseBodyLines.append(
+            """
+            guard let \(param.effectiveLabel)Content = object[\"\(param.effectiveLabel)\"] else {
+              throw LLMError.generalError("Missing required property: \(param.effectiveLabel)")
+            }
+            let \(param.effectiveLabel) = try \(param.type)(from: \(param.effectiveLabel)Content)
+            """)
+        }
+      }
+
+      // Generate enum case construction
+      let associatedValues = enumCase.parameters.map { param in
+        if let label = param.label {
+          return "\(label): \(param.effectiveLabel)"
+        } else {
+          return param.effectiveLabel
+        }
+      }.joined(separator: ", ")
+
+      caseBodyLines.append("self = .\(enumCase.name)(\(associatedValues))")
+
+      let caseBody = caseBodyLines.joined(separator: "\n")
+
+      switchCaseItems.append(
+        CodeBlockItemSyntax(
+          item: .stmt(
+            StmtSyntax(
+              """
+              case \(literal: enumCase.name):
+              \(raw: caseBody)
+              """
+            )
+          )
+        ).with(\.trailingTrivia, .newlines(1))
+      )
+    } else {
+      // Simple case without associated values
+      switchCaseItems.append(
+        CodeBlockItemSyntax(
+          item: .stmt(
+            StmtSyntax(
+              """
+              case \(literal: enumCase.name):
+                self = .\(raw: enumCase.name)
+              """
+            )
+          )
+        ).with(\.trailingTrivia, .newlines(1))
+      )
+    }
+  }
+
+  // Add default case for unknown enum values
+  switchCaseItems.append(
+    CodeBlockItemSyntax(
+      item: .stmt(
+        StmtSyntax(
+          """
+          default:
+            throw LLMError.generalError("Unknown enum case: \\(type)")
+          """
+        )
+      )
+    )
+  )
+
+  return try InitializerDeclSyntax(
+    "public nonisolated init(from structuredContent: StructuredContent) throws"
+  ) {
+    """
+    let object = try structuredContent.object
+    guard let typeContent = object["type"] else {
+      throw LLMError.generalError("Missing 'type' discriminator for enum")
+    }
+    let type = try typeContent.string
+
+    switch type {
     \(CodeBlockItemListSyntax(switchCaseItems))
     }
     """

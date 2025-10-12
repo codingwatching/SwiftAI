@@ -344,7 +344,7 @@ struct GenerableTests {
 
   @Test
   func testEnum_Schema_IsAnyOf() {
-    let expected = Schema.anyOf(
+    let want = Schema.anyOf(
       name: "Status",
       description: nil,
       schemas: [
@@ -353,7 +353,7 @@ struct GenerableTests {
         .string(constraints: [.constant("pending")]),
       ]
     )
-    #expect(Status.schema == expected)
+    #expect(Status.schema == want)
   }
 
   @Test
@@ -469,6 +469,708 @@ struct GenerableTests {
     #expect(reconstructed.status == original.status)
     #expect(reconstructed.priority == original.priority)
   }
+
+  // MARK: - Enums with Associated Values Tests
+
+  // MARK: Schema Tests
+
+  @Test
+  func schemaForEnumWithLabeledAssociatedValues_ReturnsAnyOfWithObjectDiscriminators() {
+    let want = Schema.anyOf(
+      name: "Result",
+      description: nil,
+      schemas: [
+        .object(
+          name: "successDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("success")]),
+              description: nil,
+              isOptional: false
+            ),
+            "value": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+        .object(
+          name: "failureDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("failure")]),
+              description: nil,
+              isOptional: false
+            ),
+            "error": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+      ]
+    )
+    #expect(Result.schema == want)
+  }
+
+  @Test
+  func
+    schemaForEnumWithMultipleLabeledAssociatedValues_ReturnsAnyOfWithAllPropertiesInObjectDiscriminators()
+  {
+    let want = Schema.anyOf(
+      name: "Event",
+      description: nil,
+      schemas: [
+        .object(
+          name: "clickDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("click")]),
+              description: nil,
+              isOptional: false
+            ),
+            "x": Schema.Property(
+              schema: Int.schema,
+              description: nil,
+              isOptional: false
+            ),
+            "y": Schema.Property(
+              schema: Int.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+        .object(
+          name: "scrollDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("scroll")]),
+              description: nil,
+              isOptional: false
+            ),
+            "delta": Schema.Property(
+              schema: Double.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+      ]
+    )
+    #expect(Event.schema == want)
+  }
+
+  @Test
+  func schemaForMixedEnumWithSimpleAndAssociatedValueCases() {
+    let want = Schema.anyOf(
+      name: "MixedStatus",
+      description: nil,
+      schemas: [
+        .object(
+          name: "idleDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("idle")]),
+              description: nil,
+              isOptional: false
+            )
+          ]
+        ),
+        .object(
+          name: "loadingDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("loading")]),
+              description: nil,
+              isOptional: false
+            ),
+            "message": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+        .object(
+          name: "errorDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("error")]),
+              description: nil,
+              isOptional: false
+            ),
+            "value": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+      ]
+    )
+    #expect(MixedStatus.schema == want)
+  }
+
+  // MARK: GenerableContent Tests
+
+  @Test
+  func
+    generableContentForEnumWithLabeledAssociatedValue_ReturnsObjectWithTypeDiscriminatorAndValueProperty()
+  {
+    let result = Result.success(value: "OK")
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("success")),
+        "value": StructuredContent(kind: .string("OK")),
+      ])
+    )
+    #expect(result.generableContent == want)
+  }
+
+  @Test
+  func
+    generableContentForEnumWithMultipleLabeledAssociatedValues_ReturnsObjectWithTypeAndAllProperties()
+  {
+    let event = Event.click(x: 100, y: 200)
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("click")),
+        "x": StructuredContent(kind: .number(100.0)),
+        "y": StructuredContent(kind: .number(200.0)),
+      ])
+    )
+    #expect(event.generableContent == want)
+  }
+
+  // 2. GenerableContent for associated values (unlabeled)
+  @Test
+  func generableContentForEnumWithUnlabeledAssociatedValue_ReturnsObjectWithValueKey() {
+    let data = Data.text("hello")
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("text")),
+        "value": StructuredContent(kind: .string("hello")),
+      ])
+    )
+    #expect(data.generableContent == want)
+  }
+
+  @Test
+  func
+    generableContentForEnumWithMultipleUnlabeledAssociatedValues_ReturnsObjectWithIndexedValueKeys()
+  {
+    let data = Data.pair("key", 42)
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("pair")),
+        "value": StructuredContent(kind: .string("key")),
+        "value1": StructuredContent(kind: .number(42.0)),
+      ])
+    )
+    #expect(data.generableContent == want)
+  }
+
+  @Test
+  func generableContentForMixedEnumSimpleCase_ReturnsObjectWithTypeDiscriminatorOnly() {
+    let status = MixedStatus.idle
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("idle"))
+      ])
+    )
+    #expect(status.generableContent == want)
+  }
+
+  @Test
+  func generableContentForMixedEnumAssociatedValueCase_ReturnsObjectWithTypeAndValueProperties() {
+    let status = MixedStatus.loading(message: "Loading...")
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("loading")),
+        "message": StructuredContent(kind: .string("Loading...")),
+      ])
+    )
+    #expect(status.generableContent == want)
+  }
+
+  @Test
+  func generableContentForStructContainingEnumWithAssociatedValues_ReturnsNestedObjectStructure() {
+    let job = JobResult(title: "Deploy", result: .success(value: "Deployed v1.0"))
+    let want = StructuredContent(
+      kind: .object([
+        "title": StructuredContent(kind: .string("Deploy")),
+        "result": StructuredContent(
+          kind: .object([
+            "type": StructuredContent(kind: .string("success")),
+            "value": StructuredContent(kind: .string("Deployed v1.0")),
+          ])
+        ),
+      ])
+    )
+    #expect(job.generableContent == want)
+  }
+
+  @Test
+  func generableContentForEnumWithOptionalAssociatedValue_WithNonNilValue_ReturnsObjectWithValue() {
+    let data = OptionalData.withOptionalData(value: "test")
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("withOptionalData")),
+        "value": StructuredContent(kind: .string("test")),
+      ])
+    )
+    #expect(data.generableContent == want)
+  }
+
+  @Test
+  func generableContentForEnumWithOptionalAssociatedValue_WithNilValue_ReturnsObjectWithNull() {
+    let data = OptionalData.withOptionalData(value: nil)
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("withOptionalData")),
+        "value": StructuredContent(kind: .null),
+      ])
+    )
+    #expect(data.generableContent == want)
+  }
+
+  // MARK: Init from StructuredContent Tests
+
+  @Test
+  func initEnumWithLabeledAssociatedValue_FromObjectStructuredContent_SucceedsAndExtractsValue()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("success")),
+        "value": StructuredContent(kind: .string("OK")),
+      ])
+    )
+
+    let result = try Result(from: content)
+    let want = Result.success(value: "OK")
+    #expect(result == want)
+  }
+
+  @Test
+  func
+    initEnumWithMultipleLabeledAssociatedValues_FromObjectStructuredContent_SucceedsAndExtractsAllValues()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("click")),
+        "x": StructuredContent(kind: .number(150.0)),
+        "y": StructuredContent(kind: .number(250.0)),
+      ])
+    )
+
+    let event = try Event(from: content)
+    let want = Event.click(x: 150, y: 250)
+    #expect(event == want)
+  }
+
+  // 3. Init from StructuredContent (success cases - unlabeled)
+  @Test
+  func
+    initEnumWithUnlabeledAssociatedValue_FromObjectStructuredContent_SucceedsAndExtractsValueFromValueKey()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("text")),
+        "value": StructuredContent(kind: .string("test")),
+      ])
+    )
+
+    let data = try Data(from: content)
+    let want = Data.text("test")
+    #expect(data == want)
+  }
+
+  @Test
+  func
+    initEnumWithMultipleUnlabeledAssociatedValues_FromObjectStructuredContent_SucceedsAndExtractsValuesFromIndexedKeys()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("pair")),
+        "value": StructuredContent(kind: .string("name")),
+        "value1": StructuredContent(kind: .number(99.0)),
+      ])
+    )
+
+    let data = try Data(from: content)
+    let want = Data.pair("name", 99)
+    #expect(data == want)
+  }
+
+  @Test
+  func initMixedEnumSimpleCase_FromObjectWithTypeOnly_SucceedsAndReturnsCorrectCase() throws {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("idle"))
+      ])
+    )
+
+    let status = try MixedStatus(from: content)
+    #expect(status == .idle)
+  }
+
+  @Test
+  func initMixedEnumAssociatedValueCase_FromObjectWithTypeAndValue_SucceedsAndExtractsValue() throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("error")),
+        "value": StructuredContent(kind: .string("Failed")),
+      ])
+    )
+
+    let status = try MixedStatus(from: content)
+    let want = MixedStatus.error("Failed")
+    #expect(status == want)
+  }
+
+  @Test
+  func
+    initStructContainingEnumWithAssociatedValues_FromNestedObjectStructuredContent_SucceedsAndExtractsValues()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "title": StructuredContent(kind: .string("Build")),
+        "result": StructuredContent(
+          kind: .object([
+            "type": StructuredContent(kind: .string("failure")),
+            "error": StructuredContent(kind: .string("Compilation failed")),
+          ])
+        ),
+      ])
+    )
+
+    let job = try JobResult(from: content)
+    let want = JobResult(title: "Build", result: .failure(error: "Compilation failed"))
+    #expect(job == want)
+  }
+
+  @Test
+  func initEnumWithOptionalAssociatedValue_FromObjectWithNonNullValue_SucceedsAndExtractsValue()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("withOptionalData")),
+        "value": StructuredContent(kind: .string("data")),
+      ])
+    )
+
+    let data = try OptionalData(from: content)
+    let want = OptionalData.withOptionalData(value: "data")
+    #expect(data == want)
+  }
+
+  @Test
+  func initEnumWithOptionalAssociatedValue_FromObjectWithNullValue_SucceedsAndExtractsNil() throws {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("withOptionalData")),
+        "value": StructuredContent(kind: .null),
+      ])
+    )
+
+    let data = try OptionalData(from: content)
+    let want = OptionalData.withOptionalData(value: nil)
+    #expect(data == want)
+  }
+
+  @Test
+  func initEnumWithOptionalAssociatedValue_FromObjectMissingOptionalProperty_SucceedsWithNil()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("withOptionalData"))
+        // "value" is optional, so it's okay if missing
+      ])
+    )
+
+    let data = try OptionalData(from: content)
+    let want = OptionalData.withOptionalData(value: nil)
+    #expect(data == want)
+  }
+
+  @Test
+  func initEnumWithAssociatedValues_FromNonObjectStructuredContent_ThrowsError() {
+    let stringContent = StructuredContent(kind: .string("success"))
+    #expect(throws: Error.self) { try Result(from: stringContent) }
+
+    let arrayContent = StructuredContent(kind: .array([]))
+    #expect(throws: Error.self) { try Result(from: arrayContent) }
+  }
+
+  @Test
+  func initEnumWithAssociatedValues_FromObjectMissingTypeDiscriminator_ThrowsLLMError() {
+    let content = StructuredContent(
+      kind: .object([
+        "value": StructuredContent(kind: .string("OK"))
+      ])
+    )
+    #expect(throws: LLMError.self) { try Result(from: content) }
+  }
+
+  @Test
+  func initEnumWithAssociatedValues_FromObjectWithUnknownCaseType_ThrowsLLMError() {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("unknown")),
+        "value": StructuredContent(kind: .string("test")),
+      ])
+    )
+    #expect(throws: LLMError.self) { try Result(from: content) }
+  }
+
+  @Test
+  func initEnumWithAssociatedValues_FromObjectMissingRequiredProperty_ThrowsLLMError() {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("success"))
+        // Missing "value" property
+      ])
+    )
+    #expect(throws: LLMError.self) { try Result(from: content) }
+  }
+
+  @Test
+  func initEnumWithAssociatedValues_FromObjectWithWrongPropertyType_ThrowsError() {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("click")),
+        "x": StructuredContent(kind: .string("not a number")),  // Wrong type
+        "y": StructuredContent(kind: .number(100.0)),
+      ])
+    )
+    #expect(throws: Error.self) { try Event(from: content) }
+  }
+
+  @Test
+  func initEnumWithLabeledAssociatedValue_FromObjectWithMisspelledParameterName_ThrowsLLMError() {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("success")),
+        "valu": StructuredContent(kind: .string("OK")),  // Misspelled: should be "value"
+      ])
+    )
+    #expect(throws: LLMError.self) { try Result(from: content) }
+  }
+
+  @Test
+  func initEnumWithMultipleLabeledAssociatedValues_FromObjectMissingOneParameter_ThrowsLLMError() {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("click")),
+        "x": StructuredContent(kind: .number(100.0)),
+        // Missing "y" parameter
+      ])
+    )
+    #expect(throws: LLMError.self) { try Event(from: content) }
+  }
+
+  // MARK: Round-Trip Conversion Tests
+
+  @Test
+  func roundTripConversionForEnumWithLabeledAssociatedValue_PreservesValue() throws {
+    let original = Result.failure(error: "Network error")
+    let content = original.generableContent
+    let reconstructed = try Result(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForEnumWithMultipleLabeledAssociatedValues_PreservesAllValues() throws {
+    let original = Event.scroll(delta: 42.5)
+    let content = original.generableContent
+    let reconstructed = try Event(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForEnumWithUnlabeledAssociatedValue_PreservesValue() throws {
+    let original = Data.number(777)
+    let content = original.generableContent
+    let reconstructed = try Data(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForMixedEnumSimpleCase_PreservesCase() throws {
+    let original = MixedStatus.idle
+    let content = original.generableContent
+    let reconstructed = try MixedStatus(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForMixedEnumAssociatedValueCase_PreservesCaseAndValue() throws {
+    let original = MixedStatus.loading(message: "Please wait")
+    let content = original.generableContent
+    let reconstructed = try MixedStatus(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForStructContainingEnumWithAssociatedValues_PreservesAllValues() throws {
+    let original = JobResult(title: "Test", result: .failure(error: "Tests failed"))
+    let content = original.generableContent
+    let reconstructed = try JobResult(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForEnumWithOptionalAssociatedValue_WithNonNilValue_PreservesValue() throws
+  {
+    let original = OptionalData.withOptionalData(value: "hello")
+    let content = original.generableContent
+    let reconstructed = try OptionalData(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForEnumWithOptionalAssociatedValue_WithNilValue_PreservesNil() throws {
+    let original = OptionalData.withOptionalData(value: nil)
+    let content = original.generableContent
+    let reconstructed = try OptionalData(from: content)
+    #expect(reconstructed == original)
+  }
+
+  // MARK: Comma-Separated Case Declarations Tests
+
+  @Test
+  func schemaForEnumWithCommaSeparatedCaseDeclarations_ReturnsAnyOfWithObjectDiscriminators() {
+    let want = Schema.anyOf(
+      name: "ApiResponse",
+      description: nil,
+      schemas: [
+        .object(
+          name: "pendingDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("pending")]),
+              description: nil,
+              isOptional: false
+            )
+          ]
+        ),
+        .object(
+          name: "successDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("success")]),
+              description: nil,
+              isOptional: false
+            ),
+            "data": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+        .object(
+          name: "errorDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("error")]),
+              description: nil,
+              isOptional: false
+            ),
+            "message": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: false
+            ),
+          ]
+        ),
+      ]
+    )
+    #expect(ApiResponse.schema == want)
+  }
+
+  @Test
+  func generableContentForEnumWithCommaSeparatedCases_SimpleCaseReturnsObjectWithTypeOnly() {
+    let response = ApiResponse.pending
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("pending"))
+      ])
+    )
+    #expect(response.generableContent == want)
+  }
+
+  @Test
+  func generableContentForEnumWithCommaSeparatedCases_AssociatedValueCaseReturnsObjectWithTypeAndProperties()
+  {
+    let response = ApiResponse.success(data: "test data")
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("success")),
+        "data": StructuredContent(kind: .string("test data")),
+      ])
+    )
+    #expect(response.generableContent == want)
+  }
+
+  @Test
+  func initEnumWithCommaSeparatedCases_FromObjectWithSimpleCase_SucceedsAndReturnsCorrectCase()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("pending"))
+      ])
+    )
+
+    let response = try ApiResponse(from: content)
+    #expect(response == .pending)
+  }
+
+  @Test
+  func initEnumWithCommaSeparatedCases_FromObjectWithAssociatedValues_SucceedsAndExtractsValues()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("error")),
+        "message": StructuredContent(kind: .string("Not found")),
+      ])
+    )
+
+    let response = try ApiResponse(from: content)
+    let want = ApiResponse.error(message: "Not found")
+    #expect(response == want)
+  }
+
+  @Test
+  func roundTripConversionForEnumWithCommaSeparatedCases_PreservesAllValues() throws {
+    let original = ApiResponse.success(data: "test")
+    let content = original.generableContent
+    let reconstructed = try ApiResponse(from: content)
+    #expect(reconstructed == original)
+  }
 }
 
 // MARK: - Test Structs
@@ -527,4 +1229,50 @@ private struct TaskWithEnum {
 private struct TaskWithOptionalEnum {
   let title: String
   let status: Status?
+}
+
+// Enums with associated values for Phase 2 testing
+@Generable
+private enum Result: Equatable {
+  case success(value: String)
+  case failure(error: String)
+}
+
+@Generable
+private enum Event: Equatable {
+  case click(x: Int, y: Int)
+  case scroll(delta: Double)
+}
+
+@Generable
+private enum Data: Equatable {
+  case text(String)
+  case number(Int)
+  case pair(String, Int)
+}
+
+@Generable
+private enum MixedStatus: Equatable {
+  case idle
+  case loading(message: String)
+  case error(String)
+}
+
+@Generable
+private enum OptionalData: Equatable {
+  case withOptionalData(value: String?)
+  case noData
+}
+
+@Generable
+private struct JobResult: Equatable {
+  let title: String
+  let result: Result
+}
+
+// Enum with comma-separated case declarations
+@Generable
+private enum ApiResponse: Equatable {
+  case pending, success(data: String)
+  case error(message: String)
 }

@@ -21,13 +21,13 @@ public struct GenerableMacro: ExtensionMacro {
     of node: AttributeSyntax,
     attachedTo declaration: some DeclGroupSyntax,
     providingExtensionsOf type: some TypeSyntaxProtocol,
-    conformingTo protocols: [TypeSyntax],
-    in context: some MacroExpansionContext
+    conformingTo _: [TypeSyntax],
+    in _: some MacroExpansionContext
   ) throws -> [ExtensionDeclSyntax] {
     if let structDecl = declaration.as(StructDeclSyntax.self) {
-      return try expandStruct(structDecl, type: type, context: context)
+      return try expandStruct(structDecl, type: type)
     } else if let enumDecl = declaration.as(EnumDeclSyntax.self) {
-      return try expandEnum(enumDecl, type: type, context: context)
+      return try expandEnum(enumDecl, type: type)
     } else {
       throw GenerableMacroError(
         message: "@Generable can only be applied to structs or enums",
@@ -38,20 +38,19 @@ public struct GenerableMacro: ExtensionMacro {
 
   private static func expandStruct(
     _ structDecl: StructDeclSyntax,
-    type: some TypeSyntaxProtocol,
-    context: some MacroExpansionContext
+    type: some TypeSyntaxProtocol
   ) throws -> [ExtensionDeclSyntax] {
-    let typeName = type.trimmed.description
+    let structName = type.trimmed.description
     let propertyDescriptors = try parseStoredProperties(from: structDecl)
     // TODO: Extract description from @Generable macro if provided
 
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
     ) {
-      try emitPartialStruct(typeName: typeName, properties: propertyDescriptors)
+      try emitPartialStruct(structName: structName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitSchemaVariable(typeName: typeName, properties: propertyDescriptors)
+      try emitSchemaVariable(structName: structName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
       try emitGenerableContentVariable(properties: propertyDescriptors)
@@ -65,19 +64,18 @@ public struct GenerableMacro: ExtensionMacro {
 
   private static func expandEnum(
     _ enumDecl: EnumDeclSyntax,
-    type: some TypeSyntaxProtocol,
-    context: some MacroExpansionContext
+    type: some TypeSyntaxProtocol
   ) throws -> [ExtensionDeclSyntax] {
-    let typeName = type.trimmed.description
+    let enumName = type.trimmed.description
     let cases = try parseEnumCases(from: enumDecl)
 
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
     ) {
-      try emitEnumPartial(typeName: typeName, cases: cases)
+      try emitEnumPartial(enumName: enumName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitEnumSchemaVariable(typeName: typeName, cases: cases)
+      try emitEnumSchemaVariable(enumName: enumName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
       try emitEnumGenerableContentVariable(cases: cases)
@@ -90,13 +88,14 @@ public struct GenerableMacro: ExtensionMacro {
   }
 }
 
-struct GuideDescriptor {
-  // The user provided description in the @Guide macro.
+private struct GuideMacroDescriptor {
+  /// The user provided description in the @Guide macro.
+  /// For example: @Guide(description: "User name")
   let description: String?
 
-  // The syntax nodes for the constraints attached to a property.
-  // For example, `.minLength(3)`
-  let constraints: [ExprSyntax]
+  /// The syntax nodes for the constraints attached to a property.
+  /// For example: @Guide(.minLength(3))
+  let constraintExprs: [ExprSyntax]
 }
 
 /// Extracts stored properties from a struct declaration and parses their metadata.
@@ -169,13 +168,13 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
 ///
 /// ## Example
 ///
-/// Input: typeName: "User", properties: [Property(name: "name", type: "String", ...)]
+/// Input: structName: "User", properties: [Property(name: "name", type: "String", ...)]
 /// Output: VariableDeclSyntax for:
 ///   public static var schema: Schema {
 ///     .object(name: "User", description: nil, properties: ["name": Schema.Property(...)])
 ///   }
 private func emitSchemaVariable(
-  typeName: String,
+  structName: String,
   properties: [PropertyDescriptor]
 ) throws -> VariableDeclSyntax {
   var schemaPropExprs: [DictionaryElementSyntax] = []
@@ -212,7 +211,7 @@ private func emitSchemaVariable(
   return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .object(
-      name: "\(raw: typeName)",
+      name: "\(raw: structName)",
       description: nil,
       properties: \(DictionaryExprSyntax {
         for schemaPropExpr in schemaPropExprs {
@@ -228,7 +227,7 @@ private func emitSchemaVariable(
 ///
 /// ## Example
 ///
-/// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
+/// Input: structName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
 /// Output: VariableDeclSyntax for:
 ///   public var generableContent: StructuredContent {
 ///     StructuredContent(kind: .object(["name": self.name.generableContent, ...]))
@@ -273,7 +272,7 @@ private func emitGenerableContentVariable(
 ///
 /// ## Example
 ///
-/// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
+/// Input: structName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
 /// Output: StructDeclSyntax for:
 ///   public struct Partial: GenerableContentConvertible, Codable, Sendable {
 ///     public var name: String.Partial?
@@ -285,7 +284,7 @@ private func emitGenerableContentVariable(
 ///     }
 ///   }
 private func emitPartialStruct(
-  typeName: String,
+  structName: String,
   properties: [PropertyDescriptor]
 ) throws -> StructDeclSyntax {
   // Convert properties to partial property descriptors (all properties become optional)
@@ -345,7 +344,7 @@ private func emitPartialType(for type: TypeSyntax) -> TypeSyntax {
 ///
 /// Input: type: "String", guideInfo: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
 /// Output: ExprSyntax for: .string(constraints: []).withConstraint(.minLength(3))
-private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescriptor? = nil)
+private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideMacroDescriptor? = nil)
   -> ExprSyntax
 {
   // Generate base schema without constraints
@@ -379,9 +378,9 @@ private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
 /// Output: ExprSyntax for: .string(constraints: []).withConstraints([.minLength(3)])
 private func emitConstrainedSchema(
   baseSchema: ExprSyntax,
-  guideInfo: GuideDescriptor?
+  guideInfo: GuideMacroDescriptor?
 ) -> ExprSyntax {
-  guard let guideInfo, !guideInfo.constraints.isEmpty else {
+  guard let guideInfo, !guideInfo.constraintExprs.isEmpty else {
     return baseSchema
   }
 
@@ -403,7 +402,7 @@ private func emitConstrainedSchema(
       LabeledExprSyntax(
         expression: ExprSyntax(
           ArrayExprSyntax {
-            for constraint in guideInfo.constraints {
+            for constraint in guideInfo.constraintExprs {
               ArrayElementSyntax(expression: constraint)
             }
           }
@@ -421,7 +420,7 @@ private func emitConstrainedSchema(
 ///   description: "User name",
 ///   constraints: [Constraint<String>.minLength(3)]
 /// )
-private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescriptor? {
+private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideMacroDescriptor? {
   // Look for @Guide attributes on this property
   for attribute in property.attributes {
     if case .attribute(let attr) = attribute,
@@ -457,7 +456,7 @@ private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescripto
 
       // Only return GuideInfo if we have constraints or a description
       if !constraints.isEmpty || description != nil {
-        return GuideDescriptor(description: description, constraints: constraints)
+        return GuideMacroDescriptor(description: description, constraintExprs: constraints)
       }
     }
   }
@@ -671,7 +670,7 @@ private func transformEnumCaseToPartial(_ enumCase: EnumCaseDescriptor) -> EnumC
 ///     public init(from structuredContent: StructuredContent) throws { ... }
 ///   }
 private func emitEnumPartial(
-  typeName: String,
+  enumName: String,
   cases: [EnumCaseDescriptor]
 ) throws -> DeclSyntax {
   let hasAnyAssociatedValues = cases.contains { $0.hasAssociatedValues }
@@ -761,7 +760,7 @@ private func emitEnumPartial(
 ///     )
 ///   }
 private func emitEnumSchemaVariable(
-  typeName: String,
+  enumName: String,
   cases: [EnumCaseDescriptor]
 ) throws -> VariableDeclSyntax {
   var caseSchemaExprs = [ArrayElementSyntax]()
@@ -828,7 +827,7 @@ private func emitEnumSchemaVariable(
   return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .anyOf(
-      name: \(literal: typeName),
+      name: \(literal: enumName),
       description: nil,
       schemas: \(ArrayExprSyntax {
         for schemaExpr in caseSchemaExprs {
@@ -1179,7 +1178,7 @@ private struct PropertyDescriptor {
   let isOptional: Bool
 
   /// Guide information including description and constraints.
-  let guide: GuideDescriptor?
+  let guide: GuideMacroDescriptor?
 }
 
 extension DeclSyntaxParseable {
@@ -1210,17 +1209,5 @@ private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
     return try T(SyntaxNodeString(stringLiteral: output))
   } catch {
     return node
-  }
-}
-
-struct GenerableMacroError: DiagnosticMessage, Error {
-  let message: String
-  let diagnosticID: MessageID
-  let severity: DiagnosticSeverity
-
-  init(message: String, id: String) {
-    self.message = message
-    self.diagnosticID = MessageID(domain: "GenerableMacro", id: id)
-    self.severity = .error
   }
 }

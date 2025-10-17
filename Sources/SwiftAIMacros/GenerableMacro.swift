@@ -1035,113 +1035,117 @@ private func emitEnumStringBasedInitializer(
 private func emitEnumObjectBasedInitializer(
   cases: [EnumCaseDescriptor]
 ) throws -> InitializerDeclSyntax {
-  var switchCaseItems = [CodeBlockItemSyntax]()
+  var switchCaseSyntaxes: [SwitchCaseSyntax] = []
 
-  // Generate switch case for each enum case
   for enumCase in cases {
-    if enumCase.hasAssociatedValues {
-      // Cases with associated values - extract each parameter
-      var caseBodyLines = [String]()
+    let caseSyntax = try SwitchCaseSyntax("case \(literal: enumCase.name):") {
+      if enumCase.hasAssociatedValues {
+        for param in enumCase.parameters {
+          let effectiveLabel = param.effectiveLabel
+          let paramType = param.type
 
-      // Extract associated value parameters
-      for param in enumCase.parameters {
-        let isOptional = param.type.hasSuffix("?")
-        let effectiveLabel = param.effectiveLabel
-
-        if isOptional {
-          // Optional parameter - use if let
-          caseBodyLines.append(
-            """
-            let \(effectiveLabel): \(param.type) = try {
-              if let \(effectiveLabel)Content = object[\"\(effectiveLabel)\"] {
-                return try \(param.type)(from: \(effectiveLabel)Content)
-              } else {
-                return nil
-              }
-            }()
-            """)
-        } else {
-          // Required parameter - use guard
-          caseBodyLines.append(
-            """
-            guard let \(param.effectiveLabel)Content = object[\"\(param.effectiveLabel)\"] else {
-              throw LLMError.generalError("Missing required property: \(param.effectiveLabel)")
+          let isOptional = param.type.hasSuffix("?")
+          if isOptional {
+            DeclSyntax(
+              try VariableDeclSyntax(
+                """
+                let \(raw: effectiveLabel) = if let \(raw: effectiveLabel)Content = object[\(literal: effectiveLabel)] {
+                  try \(raw: paramType)(from: \(raw: effectiveLabel)Content)
+                } else {
+                  nil
+                }
+                """
+              )
+              .with(\.trailingTrivia, .newlines(1))
+            )
+          } else {
+            try GuardStmtSyntax(
+              "guard let \(raw: effectiveLabel)Content = object[\(literal: effectiveLabel)] else"
+            ) {
+              StmtSyntax(
+                """
+                throw LLMError.generalError(\(literal: "Missing required property: \(effectiveLabel)"))
+                """
+              )
             }
-            let \(param.effectiveLabel) = try \(param.type)(from: \(param.effectiveLabel)Content)
-            """)
+            .with(\.trailingTrivia, .newlines(1))
+
+            DeclSyntax(
+              try VariableDeclSyntax(
+                "let \(raw: effectiveLabel) = try \(raw: paramType)(from: \(raw: effectiveLabel)Content)"
+              )
+              .with(\.trailingTrivia, .newlines(1))
+            )
+          }
         }
+
+        let associatedValues = enumCase.parameters.map { param in
+          if let label = param.label {
+            return "\(label): \(param.effectiveLabel)"
+          } else {
+            return param.effectiveLabel
+          }
+        }.joined(separator: ", ")
+
+        ExprSyntax("self = .\(raw: enumCase.name)(\(raw: associatedValues))")
+          .with(\.trailingTrivia, .newlines(1))
+      } else {
+        ExprSyntax("self = .\(raw: enumCase.name)")
+          .with(\.trailingTrivia, .newlines(1))
       }
-
-      // Generate enum case construction
-      let associatedValues = enumCase.parameters.map { param in
-        if let label = param.label {
-          return "\(label): \(param.effectiveLabel)"
-        } else {
-          return param.effectiveLabel
-        }
-      }.joined(separator: ", ")
-
-      caseBodyLines.append("self = .\(enumCase.name)(\(associatedValues))")
-
-      let caseBody = caseBodyLines.joined(separator: "\n")
-
-      switchCaseItems.append(
-        CodeBlockItemSyntax(
-          item: .stmt(
-            StmtSyntax(
-              """
-              case \(literal: enumCase.name):
-              \(raw: caseBody)
-              """
-            )
-          )
-        ).with(\.trailingTrivia, .newlines(1))
-      )
-    } else {
-      // Simple case without associated values
-      switchCaseItems.append(
-        CodeBlockItemSyntax(
-          item: .stmt(
-            StmtSyntax(
-              """
-              case \(literal: enumCase.name):
-                self = .\(raw: enumCase.name)
-              """
-            )
-          )
-        ).with(\.trailingTrivia, .newlines(1))
-      )
     }
+    .with(\.trailingTrivia, .newlines(1))
+
+    switchCaseSyntaxes.append(caseSyntax)
   }
 
-  // Add default case for unknown enum values
-  switchCaseItems.append(
-    CodeBlockItemSyntax(
-      item: .stmt(
-        StmtSyntax(
-          """
-          default:
-            throw LLMError.generalError("Unknown enum case: \\(type)")
-          """
-        )
-      )
+  let defaultCase = SwitchCaseSyntax("default:") {
+    StmtSyntax(
+      """
+      throw LLMError.generalError("Unknown enum case: \\(type)")
+      """
     )
+  }
+
+  let switchCaseList = SwitchCaseListSyntax {
+    for caseSyntax in switchCaseSyntaxes {
+      caseSyntax
+    }
+    defaultCase
+  }
+
+  let objectDecl = DeclSyntax(
+    try VariableDeclSyntax("let object = try structuredContent.object")
+      .with(\.trailingTrivia, .newlines(1))
+  )
+
+  let guardTypeContent = try GuardStmtSyntax("guard let typeContent = object[\"type\"] else") {
+    StmtSyntax(
+      """
+      throw LLMError.generalError("Missing 'type' discriminator for enum")
+      """
+    )
+  }
+  .with(\.trailingTrivia, .newlines(2))
+
+  let typeBinding = DeclSyntax(
+    try VariableDeclSyntax("let type = try typeContent.string")
+      .with(\.trailingTrivia, .newlines(1))
   )
 
   return try InitializerDeclSyntax(
     "public nonisolated init(from structuredContent: StructuredContent) throws"
   ) {
-    """
-    let object = try structuredContent.object
-    guard let typeContent = object["type"] else {
-      throw LLMError.generalError("Missing 'type' discriminator for enum")
-    }
-    let type = try typeContent.string
-
-    switch type {
-    \(CodeBlockItemListSyntax(switchCaseItems))
-    }
-    """
+    objectDecl
+    guardTypeContent
+    typeBinding
+    StmtSyntax(
+      """
+      switch type {
+      \(switchCaseList)
+      }
+      """
+    )
   }
 }
 

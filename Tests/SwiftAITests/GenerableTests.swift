@@ -70,6 +70,78 @@ struct GenerableTests {
   }
 
   @Test
+  func testGenerableContent_WithExplicitOptionalSyntax_AllValuesSet_ReturnsCorrectContent() throws {
+    let testStruct = ExplicitOptionalStruct(
+      optionalString: "hello",
+      optionalInt: 42,
+      optionalArray: ["a", "b", "c"]
+    )
+
+    let content = testStruct.generableContent
+
+    let expected = StructuredContent(
+      kind: .object([
+        "optionalString": StructuredContent(kind: .string("hello")),
+        "optionalInt": StructuredContent(kind: .number(Double(42))),
+        "optionalArray": StructuredContent(
+          kind: .array([
+            StructuredContent(kind: .string("a")),
+            StructuredContent(kind: .string("b")),
+            StructuredContent(kind: .string("c")),
+          ])),
+      ]))
+
+    #expect(content == expected)
+  }
+
+  @Test
+  func testGenerableContent_WithExplicitOptionalSyntax_AllValuesNil_ReturnsCorrectContent() throws {
+    let testStruct = ExplicitOptionalStruct(
+      optionalString: nil,
+      optionalInt: nil,
+      optionalArray: nil
+    )
+
+    let content = testStruct.generableContent
+
+    let expected = StructuredContent(
+      kind: .object([
+        "optionalString": StructuredContent(kind: .null),
+        "optionalInt": StructuredContent(kind: .null),
+        "optionalArray": StructuredContent(kind: .null),
+      ]))
+
+    #expect(content == expected)
+  }
+
+  @Test
+  func testSchema_WithExplicitOptionalSyntax_ReturnsCorrectSchema() {
+    let expected = Schema.object(
+      name: "ExplicitOptionalStruct",
+      description: nil,
+      properties: [
+        "optionalString": Schema.Property(
+          schema: String.schema,
+          description: nil,
+          isOptional: true
+        ),
+        "optionalInt": Schema.Property(
+          schema: Int.schema,
+          description: nil,
+          isOptional: true
+        ),
+        "optionalArray": Schema.Property(
+          schema: [String].schema,
+          description: nil,
+          isOptional: true
+        ),
+      ]
+    )
+
+    #expect(ExplicitOptionalStruct.schema == expected)
+  }
+
+  @Test
   func testGenerableContent_WithArrayProperties_ReturnsCorrectContent() throws {
     let testStruct = ArraysStruct(
       stringArray: ["tag1", "tag2"],
@@ -911,6 +983,144 @@ struct GenerableTests {
     #expect(data == want)
   }
 
+  // MARK: Enum with Explicit Optional Syntax Tests
+
+  @Test
+  func schemaForEnumWithExplicitOptionalAssociatedValues_ReturnsAnyOfWithObjectDiscriminators() {
+    let want = Schema.anyOf(
+      name: "DataResult",
+      description: nil,
+      schemas: [
+        .object(
+          name: "dataDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("data")]),
+              description: nil,
+              isOptional: false
+            ),
+            "value": Schema.Property(
+              schema: String.schema,
+              description: nil,
+              isOptional: true
+            ),
+          ]
+        ),
+        .object(
+          name: "errorDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("error")]),
+              description: nil,
+              isOptional: false
+            ),
+            "code": Schema.Property(
+              schema: Int.schema,
+              description: nil,
+              isOptional: true
+            ),
+          ]
+        ),
+        .object(
+          name: "emptyDiscriminator",
+          description: nil,
+          properties: [
+            "type": Schema.Property(
+              schema: .string(constraints: [.constant("empty")]),
+              description: nil,
+              isOptional: false
+            )
+          ]
+        ),
+      ]
+    )
+    #expect(DataResult.schema == want)
+  }
+
+  @Test
+  func
+    generableContentForEnum_WithExplicitOptionalAssociatedValue_WithNonNilValue_ReturnsObjectWithValue()
+  {
+    let data = DataResult.data(value: "test data")
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("data")),
+        "value": StructuredContent(kind: .string("test data")),
+      ])
+    )
+    #expect(data.generableContent == want)
+  }
+
+  @Test
+  func
+    generableContentForEnum_WithExplicitOptionalAssociatedValue_WithNilValue_ReturnsObjectWithNull()
+  {
+    let data = DataResult.data(value: nil)
+    let want = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("data")),
+        "value": StructuredContent(kind: .null),
+      ])
+    )
+    #expect(data.generableContent == want)
+  }
+
+  @Test
+  func
+    initEnumWithExplicitOptionalAssociatedValue_FromObjectWithNonNilValue_SucceedsAndExtractsValue()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("error")),
+        "code": StructuredContent(kind: .number(404)),
+      ])
+    )
+
+    let result = try DataResult(from: content)
+    let want = DataResult.error(code: 404)
+    #expect(result == want)
+  }
+
+  @Test
+  func initEnumWithExplicitOptionalAssociatedValue_FromObjectWithNilValue_SucceedsAndExtractsNil()
+    throws
+  {
+    let content = StructuredContent(
+      kind: .object([
+        "type": StructuredContent(kind: .string("data")),
+        "value": StructuredContent(kind: .null),
+      ])
+    )
+
+    let result = try DataResult(from: content)
+    let want = DataResult.data(value: nil)
+    #expect(result == want)
+  }
+
+  @Test
+  func
+    roundTripConversionForEnumWithExplicitOptionalAssociatedValue_WithNonNilValue_PreservesValue()
+    throws
+  {
+    let original = DataResult.error(code: 500)
+    let content = original.generableContent
+    let reconstructed = try DataResult(from: content)
+    #expect(reconstructed == original)
+  }
+
+  @Test
+  func roundTripConversionForEnumWithExplicitOptionalAssociatedValue_WithNilValue_PreservesNil()
+    throws
+  {
+    let original = DataResult.data(value: nil)
+    let content = original.generableContent
+    let reconstructed = try DataResult(from: content)
+    #expect(reconstructed == original)
+  }
+
   @Test
   func initEnumWithAssociatedValues_FromNonObjectStructuredContent_ThrowsError() {
     let stringContent = StructuredContent(kind: .string("success"))
@@ -1122,7 +1332,8 @@ struct GenerableTests {
   }
 
   @Test
-  func generableContentForEnumWithCommaSeparatedCases_AssociatedValueCaseReturnsObjectWithTypeAndProperties()
+  func
+    generableContentForEnumWithCommaSeparatedCases_AssociatedValueCaseReturnsObjectWithTypeAndProperties()
   {
     let response = ApiResponse.success(data: "test data")
     let want = StructuredContent(
@@ -1189,6 +1400,13 @@ private struct OptionalsStruct {
   let optionalInt: Int?
   let optionalDouble: Double?
   let optionalBool: Bool?
+}
+
+@Generable
+private struct ExplicitOptionalStruct {
+  let optionalString: String?
+  let optionalInt: Swift.Optional<Int>
+  let optionalArray: [String]?
 }
 
 @Generable
@@ -1275,4 +1493,12 @@ private struct JobResult: Equatable {
 private enum ApiResponse: Equatable {
   case pending, success(data: String)
   case error(message: String)
+}
+
+// Enum with explicit Optional<T> syntax for associated values
+@Generable
+private enum DataResult: Equatable {
+  case data(value: String?)
+  case error(code: Swift.Optional<Int>)
+  case empty
 }

@@ -6,8 +6,6 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-// TODO: Handle Optional<T> during expansion. Now optionals are assumed to always end with "?".
-
 // MARK: - Naming Conventions
 
 // 1. SwiftSyntax variables end with Decl/Expr/Syntax (memberDecls, bindingSyntax, typeSyntax)
@@ -15,6 +13,8 @@ import SwiftSyntaxMacros
 // 3. Functions that emit code start with emit.
 
 // TODO: If @Guide is attached to a non generable field then it should throw an error.
+
+// MARK: - Public API
 
 public struct GenerableMacro: ExtensionMacro {
   public static func expansion(
@@ -88,6 +88,8 @@ public struct GenerableMacro: ExtensionMacro {
   }
 }
 
+// MARK: - Private API
+
 private struct GuideMacroDescriptor {
   /// The user provided description in the @Guide macro.
   /// For example: @Guide(description: "User name")
@@ -144,7 +146,7 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
       }
 
       let propertyName = identifierSyntax.identifier.text
-      let isOptional = typeSyntax.is(OptionalTypeSyntax.self)
+      let isOptional = isOptionalType(typeSyntax)
 
       try validateNotArrayOfOptional(type: typeSyntax, propertyName: propertyName)
 
@@ -327,15 +329,13 @@ private func emitPartialStruct(
 /// Input: "[String]" -> Output: "[String].Partial?"
 /// Input: "CustomType" -> Output: "CustomType.Partial?"
 private func emitPartialType(for type: TypeSyntax) -> TypeSyntax {
-  // Handle optional types: T? -> T.Partial?
-  if let optionalType = type.as(OptionalTypeSyntax.self) {
-    let baseType = optionalType.wrappedType.trimmed.description
-    return TypeSyntax("\(raw: baseType).Partial?")
+  if let wrappedType = optionalWrappedType(type) {
+    let wrappedTypeName = wrappedType.trimmed.description
+    return TypeSyntax("\(raw: wrappedTypeName).Partial?")
   }
 
-  // Handle base types: T -> T.Partial?
-  let baseType = type.trimmed.description
-  return TypeSyntax("\(raw: baseType).Partial?")
+  let typeName = type.trimmed.description
+  return TypeSyntax("\(raw: typeName).Partial?")
 }
 
 /// Generates a schema expression for a given type with optional constraints.
@@ -361,9 +361,8 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideMacroDes
 /// Input: type: "String"
 /// Output: ExprSyntax for: "String.schema"
 private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
-  // Handle optional types
-  if let optionalType = type.as(OptionalTypeSyntax.self) {
-    return emitBaseSchemaExpression(for: optionalType.wrappedType)
+  if let wrappedType = optionalWrappedType(type) {
+    return emitBaseSchemaExpression(for: wrappedType)
   }
 
   let typeName = type.trimmed.description
@@ -508,7 +507,7 @@ private func emitStructuredContentInitializer(
     let propertyTypeName = property.type.trimmed.description
     let contentVarName = "\(propertyName)Content"
     let isLastProperty = i == properties.count - 1
-    let isOptional = property.type.is(OptionalTypeSyntax.self)
+    let isOptional = isOptionalType(property.type)
 
     if isOptional {
       // For optional properties, use if let instead of guard
@@ -574,7 +573,7 @@ private struct EnumCaseDescriptor {
 /// Represents an associated value parameter for an enum case.
 private struct EnumParameter {
   let label: String?  // nil for unnamed parameters
-  let type: String
+  let type: TypeSyntax
   let index: Int
 
   /// The effective label to use for this parameter in generated code.
@@ -621,7 +620,7 @@ private func parseEnumParameters(from clause: EnumCaseParameterClauseSyntax?) ->
   return clause.parameters.enumerated().map { index, param in
     EnumParameter(
       label: param.firstName?.text,
-      type: param.type.trimmedDescription,
+      type: param.type.trimmed,
       index: index
     )
   }
@@ -635,13 +634,9 @@ private func parseEnumParameters(from clause: EnumCaseParameterClauseSyntax?) ->
 /// Output: EnumCaseDescriptor(name: "success", parameters: [EnumParameter(label: "value", type: "String.Partial?", index: 0)])
 private func transformEnumCaseToPartial(_ enumCase: EnumCaseDescriptor) -> EnumCaseDescriptor {
   let partialParameters = enumCase.parameters.map { param in
-    let paramTypeSyntax = TypeSyntax(stringLiteral: param.type)
-    let partialTypeSyntax = emitPartialType(for: paramTypeSyntax)
-    let partialTypeString = partialTypeSyntax.trimmed.description
-
     return EnumParameter(
       label: param.label,
-      type: partialTypeString,
+      type: emitPartialType(for: param.type),
       index: param.index
     )
   }
@@ -687,9 +682,9 @@ private func emitEnumPartial(
     }
     let caseSignature = partialCase.parameters.map { param in
       if let label = param.label {
-        return "\(label): \(param.type)"
+        return "\(label): \(param.type.trimmed.description)"
       } else {
-        return param.type
+        return param.type.trimmed.description
       }
     }.joined(separator: ", ")
     return DeclSyntax("case \(raw: partialCase.name)(\(raw: caseSignature))")
@@ -788,17 +783,17 @@ private func emitEnumSchemaVariable(
 
       // Add properties for each associated value
       for param in enumCase.parameters {
-        let isOptional = param.type.hasSuffix("?")
+        let schemaExpr = emitBaseSchemaExpression(for: param.type)
+        let isOptional = isOptionalType(param.type)
         let propertySchema = DictionaryElementSyntax(
           key: ExprSyntax(literal: param.effectiveLabel),
           value: ExprSyntax(
-            """
-            Schema.Property(
-              schema: \(raw: param.type).schema,
-              description: nil,
-              isOptional: \(raw: isOptional ? "true" : "false")
-            )
-            """)
+            FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
+              LabeledExprSyntax(label: "schema", expression: schemaExpr)
+              LabeledExprSyntax(label: "description", expression: ExprSyntax("nil"))
+              LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
+            }
+          )
         )
         properties.append(propertySchema)
       }
@@ -1042,15 +1037,14 @@ private func emitEnumObjectBasedInitializer(
       if enumCase.hasAssociatedValues {
         for param in enumCase.parameters {
           let effectiveLabel = param.effectiveLabel
-          let paramType = param.type
+          let paramTypeName = param.type.trimmed.description
 
-          let isOptional = param.type.hasSuffix("?")
-          if isOptional {
+          if isOptionalType(param.type) {
             DeclSyntax(
               try VariableDeclSyntax(
                 """
-                let \(raw: effectiveLabel) = if let \(raw: effectiveLabel)Content = object[\(literal: effectiveLabel)] {
-                  try \(raw: paramType)(from: \(raw: effectiveLabel)Content)
+                let \(raw: effectiveLabel): \(raw: paramTypeName) = if let \(raw: effectiveLabel)Content = object[\(literal: effectiveLabel)] {
+                  try \(raw: paramTypeName)(from: \(raw: effectiveLabel)Content)
                 } else {
                   nil
                 }
@@ -1072,7 +1066,7 @@ private func emitEnumObjectBasedInitializer(
 
             DeclSyntax(
               try VariableDeclSyntax(
-                "let \(raw: effectiveLabel) = try \(raw: paramType)(from: \(raw: effectiveLabel)Content)"
+                "let \(raw: effectiveLabel) = try \(raw: paramTypeName)(from: \(raw: effectiveLabel)Content)"
               )
               .with(\.trailingTrivia, .newlines(1))
             )
@@ -1151,16 +1145,15 @@ private func emitEnumObjectBasedInitializer(
 
 private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {
   // Handle optional types by checking their wrapped type
-  if let optionalType = type.as(OptionalTypeSyntax.self) {
-    try validateNotArrayOfOptional(type: optionalType.wrappedType, propertyName: propertyName)
+  if let wrappedType = optionalWrappedType(type) {
+    try validateNotArrayOfOptional(type: wrappedType, propertyName: propertyName)
     return
   }
 
   // Check if this is an array type with optional elements
   if let arrayType = type.as(ArrayTypeSyntax.self) {
-    if arrayType.element.is(OptionalTypeSyntax.self) {
-      let elementTypeName =
-        arrayType.element.as(OptionalTypeSyntax.self)?.wrappedType.trimmed.description ?? "Unknown"
+    if let wrappedElementType = optionalWrappedType(arrayType.element) {
+      let elementTypeName = wrappedElementType.trimmed.description
       throw GenerableMacroError(
         message:
           "Property '\(propertyName)' cannot be an array of optional types '[\(elementTypeName)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead.",
@@ -1168,6 +1161,39 @@ private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) 
       )
     }
   }
+}
+
+private func isOptionalType(_ type: TypeSyntax) -> Bool {
+  optionalWrappedType(type) != nil
+}
+
+/// Extracts the wrapped type from an optional type, or nil if the type is not optional.
+private func optionalWrappedType(_ type: TypeSyntax) -> TypeSyntax? {
+  if let optionalType = type.as(OptionalTypeSyntax.self) {
+    return optionalType.wrappedType
+  }
+
+  if let implicitlyUnwrapped = type.as(ImplicitlyUnwrappedOptionalTypeSyntax.self) {
+    return implicitlyUnwrapped.wrappedType
+  }
+
+  // Handles Optional<T> syntax.
+  if let identifier = type.as(IdentifierTypeSyntax.self),
+    identifier.name.text == "Optional",
+    let firstArgument = identifier.genericArgumentClause?.arguments.first?.argument
+  {
+    return firstArgument
+  }
+
+  // Handles Swift.Optional<T> syntax.
+  if let member = type.as(MemberTypeSyntax.self),
+    member.name.text == "Optional",
+    let firstArgument = member.genericArgumentClause?.arguments.first?.argument
+  {
+    return firstArgument
+  }
+
+  return nil
 }
 
 /// Metadata about a property extracted from a struct declaration.

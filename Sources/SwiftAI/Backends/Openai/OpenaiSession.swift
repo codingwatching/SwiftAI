@@ -93,15 +93,14 @@ public final actor OpenaiSession: LLMSession {
           return try .jsonSchema(makeStructuredOutputConfig(for: type))
         }()
 
-        var input: CreateModelResponseQuery.Input = try {
+        var input: CreateModelResponseQuery.Input =
           if self.previousResponseID != nil {
             // Continue from previous response.
-            return try CreateModelResponseQuery.Input.from([userMessage])
+            try CreateModelResponseQuery.Input.from([userMessage])
           } else {
             // Start a new conversation with the user message.
-            return try CreateModelResponseQuery.Input.from(messages + [userMessage])
+            try CreateModelResponseQuery.Input.from(messages)
           }
-        }()
 
         do {
           while true {

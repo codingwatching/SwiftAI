@@ -180,65 +180,38 @@ struct GenerableMacroTests {
             name: "AllTypes",
             description: nil,
             properties: [
-              "stringField": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "intField": Schema.Property(
-                schema: Int.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "doubleField": Schema.Property(
-                schema: Double.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "boolField": Schema.Property(
-                schema: Bool.schema,
-                description: nil,
-                isOptional: false
-              ),
+              "stringField": Schema.Property(schema: String.schema, description: nil),
+              "intField": Schema.Property(schema: Int.schema, description: nil),
+              "doubleField": Schema.Property(schema: Double.schema, description: nil),
+              "boolField": Schema.Property(schema: Bool.schema, description: nil),
               "optionalString": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: String.schema),
+                description: nil
               ),
               "optionalInt": Schema.Property(
-                schema: Int.schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: Int.schema),
+                description: nil
               ),
               "arrayOfStrings": Schema.Property(
                 schema: [String].schema,
-                description: nil,
-                isOptional: false
+                description: nil
               ),
-              "arrayOfInts": Schema.Property(
-                schema: [Int].schema,
-                description: nil,
-                isOptional: false
-              ),
+              "arrayOfInts": Schema.Property(schema: [Int].schema, description: nil),
               "optionalArrayOfBools": Schema.Property(
-                schema: [Bool].schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: [Bool].schema),
+                description: nil
               ),
               "customType": Schema.Property(
                 schema: CustomStruct.schema,
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "arrayOfCustomTypes": Schema.Property(
                 schema: [CustomStruct].schema,
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "optionalArrayOfCustomTypes": Schema.Property(
-                schema: [CustomStruct].schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: [CustomStruct].schema),
+                description: nil
               ),
             ]
           )
@@ -417,19 +390,16 @@ struct GenerableMacroTests {
             description: nil,
             properties: [
               "optionalString": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: String.schema),
+                description: nil
               ),
               "optionalArray": Schema.Property(
-                schema: [Int].schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: [Int].schema),
+                description: nil
               ),
               "optionalDouble": Schema.Property(
-                schema: Double.schema,
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: Double.schema),
+                description: nil
               ),
             ]
           )
@@ -520,11 +490,7 @@ struct GenerableMacroTests {
             name: "User",
             description: nil,
             properties: [
-              "name": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: false
-              )
+              "name": Schema.Property(schema: String.schema, description: nil)
             ]
           )
         }
@@ -663,25 +629,23 @@ struct GenerableMacroTests {
                 schema: String.schema.withConstraints([
                   .pattern("[A-Z]+"), .minLength(5),
                 ]),
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "age": Schema.Property(
                 schema: Int.schema.withConstraints([.minimum(18), .maximum(100)]),
-                description: "User age in years",
-                isOptional: false
+                description: "User age in years"
               ),
               "score": Schema.Property(
-                schema: Double.schema.withConstraints([.minimum(0.0)]),
-                description: nil,
-                isOptional: true
+                schema: Schema.optional(wrapped: Double.schema).withConstraints([
+                  .minimum(0.0)
+                ]),
+                description: nil
               ),
               "tags": Schema.Property(
                 schema: [String].schema.withConstraints([
                   .minimumCount(1), .element(.minLength(2)),
                 ]),
-                description: "Tags array",
-                isOptional: false
+                description: "Tags array"
               ),
             ]
           )
@@ -824,30 +788,26 @@ struct GenerableMacroTests {
                   Constraint<String> .pattern("[A-Z]+"),
                   Constraint<String> .minLength(5),
                 ]),
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "age": Schema.Property(
                 schema: Int.schema.withConstraints([
                   Constraint<Int> .minimum(18), Constraint<Int> .maximum(100),
                 ]),
-                description: "User age in years",
-                isOptional: false
+                description: "User age in years"
               ),
               "score": Schema.Property(
-                schema: Double.schema.withConstraints([
+                schema: Schema.optional(wrapped: Double.schema).withConstraints([
                   Constraint<Double> .minimum(0.0)
                 ]),
-                description: nil,
-                isOptional: true
+                description: nil
               ),
               "tags": Schema.Property(
                 schema: [String].schema.withConstraints([
                   Constraint<[String]> .minimumCount(1),
                   Constraint<[String]> .element(Constraint<String> .minLength(2)),
                 ]),
-                description: "Tags array",
-                isOptional: false
+                description: "Tags array"
               ),
             ]
           )
@@ -1036,16 +996,8 @@ struct GenerableMacroTests {
             name: "Task",
             description: nil,
             properties: [
-              "title": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "status": Schema.Property(
-                schema: Status.schema,
-                description: nil,
-                isOptional: false
-              ),
+              "title": Schema.Property(schema: String.schema, description: nil),
+              "status": Schema.Property(schema: Status.schema, description: nil),
             ]
           )
         }
@@ -1155,14 +1107,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("success")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -1171,8 +1118,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("failure")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -1316,14 +1262,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("text")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -1332,19 +1273,10 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("pair")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "value1": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
+                  "value1": Schema.Property(schema: Int.schema, description: nil),
                 ]
               ),
             ]
@@ -1500,8 +1432,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("idle")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -1511,14 +1442,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("loading")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "message": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "message": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -1527,14 +1453,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("error")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
             ]
@@ -1690,19 +1611,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("click")]),
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "x": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "y": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                    description: nil
+                  ), "x": Schema.Property(schema: Int.schema, description: nil),
+                  "y": Schema.Property(schema: Int.schema, description: nil),
                 ]
               ),
               .object(
@@ -1711,14 +1622,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("scroll")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "delta": Schema.Property(
-                    schema: Double.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "delta": Schema.Property(schema: Double.schema, description: nil),
                 ]
               ),
             ]
@@ -1855,13 +1761,11 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("withData")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
                   "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: true
+                    schema: Schema.optional(wrapped: String.schema),
+                    description: nil
                   ),
                 ]
               ),
@@ -1871,8 +1775,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("noData")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -2079,29 +1982,12 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("item0")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "count": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "value2": Schema.Property(
-                    schema: Double.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "flag": Schema.Property(
-                    schema: Bool.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
+                  "count": Schema.Property(schema: Int.schema, description: nil),
+                  "value2": Schema.Property(schema: Double.schema, description: nil),
+                  "flag": Schema.Property(schema: Bool.schema, description: nil),
                 ]
               ),
               .object(
@@ -2110,28 +1996,20 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("item1")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                   "value1": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: true
+                    schema: Schema.optional(wrapped: String.schema),
+                    description: nil
                   ),
                   "value2": Schema.Property(
                     schema: [String].schema,
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
                   "value3": Schema.Property(
-                    schema: [String].schema,
-                    description: nil,
-                    isOptional: true
+                    schema: Schema.optional(wrapped: [String].schema),
+                    description: nil
                   ),
                 ]
               ),
@@ -2141,8 +2019,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("item3")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -2351,8 +2228,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("idle")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -2362,14 +2238,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("loading")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "message": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "message": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -2378,14 +2249,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("success")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -2394,14 +2260,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("failure")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "error": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "error": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
             ]
@@ -2575,13 +2436,11 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("data")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
                   "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: true
+                    schema: Schema.optional(wrapped: String.schema),
+                    description: nil
                   ),
                 ]
               ),
@@ -2591,13 +2450,11 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("error")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
                   "code": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: true
+                    schema: Schema.optional(wrapped: Int.schema),
+                    description: nil
                   ),
                 ]
               ),
@@ -2607,8 +2464,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("empty")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),

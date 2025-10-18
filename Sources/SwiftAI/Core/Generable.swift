@@ -210,8 +210,7 @@ extension Optional: Generable where Wrapped: Generable {
   public typealias Partial = Wrapped.Partial?
 
   public static var schema: Schema {
-    assertionFailure("Optional schema should not be accessed")
-    return Wrapped.schema
+    return .optional(wrapped: Wrapped.schema)
   }
 }
 

@@ -121,19 +121,16 @@ struct GenerableTests {
       description: nil,
       properties: [
         "optionalString": Schema.Property(
-          schema: String.schema,
-          description: nil,
-          isOptional: true
+          schema: .optional(wrapped: String.schema),
+          description: nil
         ),
         "optionalInt": Schema.Property(
-          schema: Int.schema,
-          description: nil,
-          isOptional: true
+          schema: .optional(wrapped: Int.schema),
+          description: nil
         ),
         "optionalArray": Schema.Property(
-          schema: [String].schema,
-          description: nil,
-          isOptional: true
+          schema: .optional(wrapped: [String].schema),
+          description: nil
         ),
       ]
     )
@@ -558,13 +555,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("success")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "value": Schema.Property(
               schema: String.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -574,13 +569,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("failure")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "error": Schema.Property(
               schema: String.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -603,18 +596,15 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("click")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "x": Schema.Property(
               schema: Int.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "y": Schema.Property(
               schema: Int.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -624,13 +614,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("scroll")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "delta": Schema.Property(
               schema: Double.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -651,8 +639,7 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("idle")]),
-              description: nil,
-              isOptional: false
+              description: nil
             )
           ]
         ),
@@ -662,13 +649,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("loading")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "message": Schema.Property(
               schema: String.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -678,13 +663,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("error")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "value": Schema.Property(
               schema: String.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -997,13 +980,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("data")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "value": Schema.Property(
-              schema: String.schema,
-              description: nil,
-              isOptional: true
+              schema: .optional(wrapped: String.schema),
+              description: nil
             ),
           ]
         ),
@@ -1013,13 +994,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("error")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "code": Schema.Property(
-              schema: Int.schema,
-              description: nil,
-              isOptional: true
+              schema: .optional(wrapped: Int.schema),
+              description: nil
             ),
           ]
         ),
@@ -1029,8 +1008,7 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("empty")]),
-              description: nil,
-              isOptional: false
+              description: nil
             )
           ]
         ),
@@ -1278,8 +1256,7 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("pending")]),
-              description: nil,
-              isOptional: false
+              description: nil
             )
           ]
         ),
@@ -1289,13 +1266,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("success")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "data": Schema.Property(
               schema: String.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),
@@ -1305,13 +1280,11 @@ struct GenerableTests {
           properties: [
             "type": Schema.Property(
               schema: .string(constraints: [.constant("error")]),
-              description: nil,
-              isOptional: false
+              description: nil
             ),
             "message": Schema.Property(
               schema: String.schema,
-              description: nil,
-              isOptional: false
+              description: nil
             ),
           ]
         ),

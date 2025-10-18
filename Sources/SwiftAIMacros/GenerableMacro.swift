@@ -106,8 +106,8 @@ private struct GuideMacroDescriptor {
 ///
 /// Input: struct User { let name: String, let age: Int? }
 /// Output: [
-///   Property(name: "name", type: "String", isOptional: false, guide: nil),
-///   Property(name: "age", type: "Int", isOptional: true, guide: nil)
+///   Property(name: "name", type: "String", guide: nil),
+///   Property(name: "age", type: "Int?", guide: nil)
 /// ]
 private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
   -> [PropertyDescriptor]
@@ -146,8 +146,6 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
       }
 
       let propertyName = identifierSyntax.identifier.text
-      let isOptional = isOptionalType(typeSyntax)
-
       try validateNotArrayOfOptional(type: typeSyntax, propertyName: propertyName)
 
       // Parse @Guide attributes for this property
@@ -156,7 +154,6 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
       let propertyDescriptor = PropertyDescriptor(
         name: propertyName,
         type: typeSyntax,
-        isOptional: isOptional,
         guide: guideDescriptor
       )
       propertyDescriptors.append(propertyDescriptor)
@@ -183,7 +180,6 @@ private func emitSchemaVariable(
 
   for property in properties {
     let propertyName = property.name
-    let isOptional = property.isOptional
 
     try validateNotArrayOfOptional(type: property.type, propertyName: propertyName)
 
@@ -203,7 +199,6 @@ private func emitSchemaVariable(
       value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
         LabeledExprSyntax(label: "schema", expression: schemaExpr)
         LabeledExprSyntax(label: "description", expression: descriptionExpr)
-        LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
       }
     )
 
@@ -282,7 +277,6 @@ private func emitPartialStruct(
     PropertyDescriptor(
       name: property.name,
       type: emitPartialType(for: property.type),
-      isOptional: true,  // All partial properties are optional
       guide: property.guide
     )
   }
@@ -336,7 +330,7 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideMacroDes
   -> ExprSyntax
 {
   // Generate base schema without constraints
-  let baseSchemaExpr = emitBaseSchemaExpression(for: type)
+  let baseSchemaExpr = emitUnconstrainedSchemaExpression(for: type)
 
   // Apply constraints using withConstraint if any exist
   return emitConstrainedSchema(baseSchema: baseSchemaExpr, guideInfo: guideInfo)
@@ -348,9 +342,16 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideMacroDes
 ///
 /// Input: type: "String"
 /// Output: ExprSyntax for: "String.schema"
-private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
+private func emitUnconstrainedSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
   if let wrappedType = optionalWrappedType(type) {
-    return emitBaseSchemaExpression(for: wrappedType)
+    let wrappedExpr = emitUnconstrainedSchemaExpression(for: wrappedType)
+    return ExprSyntax(
+      FunctionCallExprSyntax(
+        callee: ExprSyntax("Schema.optional")
+      ) {
+        LabeledExprSyntax(label: "wrapped", expression: wrappedExpr)
+      }
+    )
   }
 
   let typeName = type.trimmed.description
@@ -727,16 +728,16 @@ private func emitEnumPartial(
 ///           name: nil,
 ///           description: nil,
 ///           properties: [
-///             "type": Schema.Property(schema: .string(constraints: [.constant("success")]), description: nil, isOptional: false),
-///             "value": Schema.Property(schema: String.schema, description: nil, isOptional: false)
+///             "type": Schema.Property(schema: .string(constraints: [.constant("success")]), description: nil),
+///             "value": Schema.Property(schema: String.schema, description: nil)
 ///           ]
 ///         ),
 ///         .object(
 ///           name: nil,
 ///           description: nil,
 ///           properties: [
-///             "type": Schema.Property(schema: .string(constraints: [.constant("failure")]), description: nil, isOptional: false),
-///             "error": Schema.Property(schema: Error.schema, description: nil, isOptional: false)
+///             "type": Schema.Property(schema: .string(constraints: [.constant("failure")]), description: nil),
+///             "error": Schema.Property(schema: Error.schema, description: nil)
 ///           ]
 ///         )
 ///       ]
@@ -762,8 +763,7 @@ private func emitEnumSchemaVariable(
           """
           Schema.Property(
             schema: .string(constraints: [.constant(\(literal: enumCase.name))]),
-            description: nil,
-            isOptional: false
+            description: nil
           )
           """)
       )
@@ -771,15 +771,13 @@ private func emitEnumSchemaVariable(
 
       // Add properties for each associated value
       for param in enumCase.parameters {
-        let schemaExpr = emitBaseSchemaExpression(for: param.type)
-        let isOptional = isOptionalType(param.type)
+        let schemaExpr = emitUnconstrainedSchemaExpression(for: param.type)
         let propertySchema = DictionaryElementSyntax(
           key: ExprSyntax(literal: param.effectiveLabel),
           value: ExprSyntax(
             FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
               LabeledExprSyntax(label: "schema", expression: schemaExpr)
               LabeledExprSyntax(label: "description", expression: ExprSyntax("nil"))
-              LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
             }
           )
         )
@@ -1191,9 +1189,6 @@ private struct PropertyDescriptor {
 
   /// The type of the property.
   let type: TypeSyntax
-
-  /// Whether the property is optional.
-  let isOptional: Bool
 
   /// Guide information including description and constraints.
   let guide: GuideMacroDescriptor?

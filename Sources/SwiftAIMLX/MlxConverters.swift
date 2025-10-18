@@ -77,17 +77,20 @@ extension SwiftAI.Tool {
 extension Schema {
   var asJSONObject: [String: Any] {
     switch self {
+    case .optional(let wrapped):
+      assertionFailure("Top-level optional schemas are not supported by MLX backend")
+      return wrapped.asJSONObject
     case .object(let name, let description, let properties):
       var json: [String: Any] = [
         "type": "object",
         "properties": properties.mapValues { prop in
-          var propertySchema = prop.schema.asJSONObject
+          var propertySchema = prop.schema.unwrapped.asJSONObject
           if let d = prop.description {
             propertySchema["description"] = d
           }
           return propertySchema
         },
-        "required": Array(properties.filter { !$0.value.isOptional }.keys),
+        "required": Array(properties.filter { !$0.value.schema.isOptional }.keys),
         "additionalProperties": false,
       ]
       if let description {

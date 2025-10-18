@@ -118,32 +118,48 @@ extension Message.ToolOutput {
 
 // MARK: - Schema Conversion
 
+func convertRootSchemaToOpenaiSupportedJsonSchema(_ schema: Schema) throws -> JSONSchema {
+  guard case .object(let name, let description, let properties) = schema.unwrapped else {
+    // Root object must be an object.
+    // https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object
+    throw LLMError.generalError("Root schema must be an object, got \(schema)")
+  }
+  return try convertObjectSchema(
+    name: name,
+    description: description,
+    properties: properties
+  )
+}
+
 /// Converts SwiftAI Schema to Openai JSONSchema format.
-func convertSchemaToJSONSchema(
-  _ schema: Schema,
-  isOptional: Bool = false
-) throws -> JSONSchema {
-  switch schema {
+private func convertSchemaToJSONSchema(_ schema: Schema) throws -> JSONSchema {
+  // TODO: Optional objects and anyOf schemas are not supported.
+  // It's unclear if we need to support nullability for these cases.
+
+  switch schema.unwrapped {
   case .object(let name, let description, let properties):
     return try convertObjectSchema(
       name: name, description: description, properties: properties)
-  case .string(let constraints):
-    return convertStringSchema(
-      constraints: constraints, isOptional: isOptional)
-  case .integer(let constraints):
-    return convertIntegerSchema(
-      constraints: constraints, isOptional: isOptional)
-  case .number(let constraints):
-    return convertNumberSchema(
-      constraints: constraints, isOptional: isOptional)
-  case .boolean(let constraints):
-    return convertBooleanSchema(
-      constraints: constraints, isOptional: isOptional)
-  case .array(let itemSchema, let constraints):
-    return try convertArraySchema(
-      itemSchema: itemSchema, constraints: constraints, isOptional: isOptional)
   case .anyOf(let name, let description, let schemas):
     return try convertAnyOfSchema(name: name, description: description, schemas: schemas)
+  case .string(let constraints):
+    return convertStringSchema(
+      constraints: constraints, isOptional: schema.isOptional)
+  case .integer(let constraints):
+    return convertIntegerSchema(
+      constraints: constraints, isOptional: schema.isOptional)
+  case .number(let constraints):
+    return convertNumberSchema(
+      constraints: constraints, isOptional: schema.isOptional)
+  case .boolean(let constraints):
+    return convertBooleanSchema(
+      constraints: constraints, isOptional: schema.isOptional)
+  case .array(let itemSchema, let constraints):
+    return try convertArraySchema(
+      itemSchema: itemSchema, constraints: constraints, isOptional: schema.isOptional)
+  case .optional(_):
+    assertionFailure("Impossible case. Type was already unwrapped. This should never happen.")
+    return JSONSchema(fields: [])
   }
 }
 
@@ -155,10 +171,13 @@ private func convertObjectSchema(
   properties: [String: Schema.Property]
 ) throws -> JSONSchema {
   let jsonProperties = try properties.mapValues { property in
-    try convertSchemaToJSONSchema(property.schema, isOptional: property.isOptional)
+    // TODO: Should we send the property description here?
+    try convertSchemaToJSONSchema(property.schema)
   }
 
   var fields: [JSONSchemaField] = [
+    // Root object must be an object.
+    // https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object
     .type(.object),
     .title(name),
     .properties(jsonProperties),
@@ -318,6 +337,8 @@ private func typeName<T: Generable>(of type: T.Type) -> String {
 
 private func extractTypeDescription(from schema: Schema) -> String? {
   switch schema {
+  case .optional(let wrapped):
+    return extractTypeDescription(from: wrapped)
   case .object(_, let description, _):
     return description
   case .anyOf(_, let description, _):
@@ -335,7 +356,7 @@ func makeStructuredOutputConfig<T: Generable>(for type: T.Type) throws
   // TODO: Check that T is a struct (Root must be a struct ; Openai requires an object as a root).
 
   let schema = type.schema
-  let jsonSchema = try convertSchemaToJSONSchema(schema)
+  let jsonSchema = try convertRootSchemaToOpenaiSupportedJsonSchema(schema)
 
   return CreateModelResponseQuery.TextResponseConfigurationOptions.OutputFormat
     .StructuredOutputsConfig(
@@ -355,7 +376,7 @@ func convertTools(_ tools: [any SwiftAI.Tool]) throws -> [FunctionTool] {
     let functionTool = FunctionTool(
       name: tool.name,
       description: tool.description,
-      parameters: try convertSchemaToJSONSchema(type(of: tool).parameters),
+      parameters: try convertRootSchemaToOpenaiSupportedJsonSchema(type(of: tool).parameters),
       strict: true  // Always use strict mode for reliable function calls.
     )
     return functionTool

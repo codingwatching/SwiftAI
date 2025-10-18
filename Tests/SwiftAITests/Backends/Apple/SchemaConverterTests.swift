@@ -193,8 +193,11 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func simpleObjectConversion() throws {
   let properties = [
-    "name": Schema.Property(schema: .string(constraints: []), description: nil, isOptional: false),
-    "age": Schema.Property(schema: .integer(constraints: []), description: nil, isOptional: true),
+    "name": Schema.Property(schema: .string(constraints: []), description: nil),
+    "age": Schema.Property(
+      schema: .optional(wrapped: .integer(constraints: [])),
+      description: nil
+    ),
   ]
   let schema = Schema.object(
     name: "Person", description: "Basic information about a person", properties: properties)
@@ -415,9 +418,11 @@ import FoundationModels
       description: "A person object",
       properties: [
         "name": Schema.Property(
-          schema: .string(constraints: []), description: "Person's name", isOptional: false),
+          schema: .string(constraints: []), description: "Person's name"),
         "age": Schema.Property(
-          schema: .integer(constraints: []), description: "Person's age", isOptional: true),
+          schema: .optional(wrapped: .integer(constraints: [])),
+          description: "Person's age"
+        ),
       ]
     ),
     constraints: []
@@ -465,18 +470,15 @@ import FoundationModels
   let properties = [
     "title": Schema.Property(
       schema: .string(constraints: []),
-      description: "The title of the item",
-      isOptional: false
+      description: "The title of the item"
     ),
     "count": Schema.Property(
-      schema: .integer(constraints: []),
-      description: "Number of items",
-      isOptional: true
+      schema: .optional(wrapped: .integer(constraints: [])),
+      description: "Number of items"
     ),
     "tags": Schema.Property(
       schema: .array(items: .string(constraints: []), constraints: []),
-      description: "List of tags",
-      isOptional: false
+      description: "List of tags"
     ),
   ]
   let schema = Schema.object(
@@ -508,7 +510,7 @@ import FoundationModels
 @available(iOS 26.0, macOS 26.0, *)
 @Test func objectWithoutDescriptionConversion() throws {
   let properties = [
-    "value": Schema.Property(schema: .string(constraints: []), description: nil, isOptional: false)
+    "value": Schema.Property(schema: .string(constraints: []), description: nil)
   ]
   let schema = Schema.object(
     name: "SimpleObject",

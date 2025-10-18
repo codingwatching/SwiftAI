@@ -6,8 +6,6 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-// TODO: Handle Optional<T> during expansion. Now optionals are assumed to always end with "?".
-
 // MARK: - Naming Conventions
 
 // 1. SwiftSyntax variables end with Decl/Expr/Syntax (memberDecls, bindingSyntax, typeSyntax)
@@ -16,18 +14,20 @@ import SwiftSyntaxMacros
 
 // TODO: If @Guide is attached to a non generable field then it should throw an error.
 
+// MARK: - Public API
+
 public struct GenerableMacro: ExtensionMacro {
   public static func expansion(
     of node: AttributeSyntax,
     attachedTo declaration: some DeclGroupSyntax,
     providingExtensionsOf type: some TypeSyntaxProtocol,
-    conformingTo protocols: [TypeSyntax],
-    in context: some MacroExpansionContext
+    conformingTo _: [TypeSyntax],
+    in _: some MacroExpansionContext
   ) throws -> [ExtensionDeclSyntax] {
     if let structDecl = declaration.as(StructDeclSyntax.self) {
-      return try expandStruct(structDecl, type: type, context: context)
+      return try expandStruct(structDecl, type: type)
     } else if let enumDecl = declaration.as(EnumDeclSyntax.self) {
-      return try expandEnum(enumDecl, type: type, context: context)
+      return try expandEnum(enumDecl, type: type)
     } else {
       throw GenerableMacroError(
         message: "@Generable can only be applied to structs or enums",
@@ -38,20 +38,19 @@ public struct GenerableMacro: ExtensionMacro {
 
   private static func expandStruct(
     _ structDecl: StructDeclSyntax,
-    type: some TypeSyntaxProtocol,
-    context: some MacroExpansionContext
+    type: some TypeSyntaxProtocol
   ) throws -> [ExtensionDeclSyntax] {
-    let typeName = type.trimmed.description
+    let structName = type.trimmed.description
     let propertyDescriptors = try parseStoredProperties(from: structDecl)
     // TODO: Extract description from @Generable macro if provided
 
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
     ) {
-      try emitPartialStruct(typeName: typeName, properties: propertyDescriptors)
+      try emitPartialStruct(structName: structName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitSchemaVariable(typeName: typeName, properties: propertyDescriptors)
+      try emitSchemaVariable(structName: structName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
       try emitGenerableContentVariable(properties: propertyDescriptors)
@@ -65,19 +64,18 @@ public struct GenerableMacro: ExtensionMacro {
 
   private static func expandEnum(
     _ enumDecl: EnumDeclSyntax,
-    type: some TypeSyntaxProtocol,
-    context: some MacroExpansionContext
+    type: some TypeSyntaxProtocol
   ) throws -> [ExtensionDeclSyntax] {
-    let typeName = type.trimmed.description
+    let enumName = type.trimmed.description
     let cases = try parseEnumCases(from: enumDecl)
 
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
     ) {
-      try emitEnumPartial(typeName: typeName, cases: cases)
+      try emitEnumPartial(enumName: enumName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitEnumSchemaVariable(typeName: typeName, cases: cases)
+      try emitEnumSchemaVariable(enumName: enumName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
       try emitEnumGenerableContentVariable(cases: cases)
@@ -90,13 +88,16 @@ public struct GenerableMacro: ExtensionMacro {
   }
 }
 
-struct GuideDescriptor {
-  // The user provided description in the @Guide macro.
+// MARK: - Private API
+
+private struct GuideMacroDescriptor {
+  /// The user provided description in the @Guide macro.
+  /// For example: @Guide(description: "User name")
   let description: String?
 
-  // The syntax nodes for the constraints attached to a property.
-  // For example, `.minLength(3)`
-  let constraints: [ExprSyntax]
+  /// The syntax nodes for the constraints attached to a property.
+  /// For example: @Guide(.minLength(3))
+  let constraintExprs: [ExprSyntax]
 }
 
 /// Extracts stored properties from a struct declaration and parses their metadata.
@@ -105,8 +106,8 @@ struct GuideDescriptor {
 ///
 /// Input: struct User { let name: String, let age: Int? }
 /// Output: [
-///   Property(name: "name", type: "String", isOptional: false, guide: nil),
-///   Property(name: "age", type: "Int", isOptional: true, guide: nil)
+///   Property(name: "name", type: "String", guide: nil),
+///   Property(name: "age", type: "Int?", guide: nil)
 /// ]
 private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
   -> [PropertyDescriptor]
@@ -145,8 +146,6 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
       }
 
       let propertyName = identifierSyntax.identifier.text
-      let isOptional = typeSyntax.is(OptionalTypeSyntax.self)
-
       try validateNotArrayOfOptional(type: typeSyntax, propertyName: propertyName)
 
       // Parse @Guide attributes for this property
@@ -155,7 +154,6 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
       let propertyDescriptor = PropertyDescriptor(
         name: propertyName,
         type: typeSyntax,
-        isOptional: isOptional,
         guide: guideDescriptor
       )
       propertyDescriptors.append(propertyDescriptor)
@@ -169,20 +167,19 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
 ///
 /// ## Example
 ///
-/// Input: typeName: "User", properties: [Property(name: "name", type: "String", ...)]
+/// Input: structName: "User", properties: [Property(name: "name", type: "String", ...)]
 /// Output: VariableDeclSyntax for:
 ///   public static var schema: Schema {
 ///     .object(name: "User", description: nil, properties: ["name": Schema.Property(...)])
 ///   }
 private func emitSchemaVariable(
-  typeName: String,
+  structName: String,
   properties: [PropertyDescriptor]
 ) throws -> VariableDeclSyntax {
   var schemaPropExprs: [DictionaryElementSyntax] = []
 
   for property in properties {
     let propertyName = property.name
-    let isOptional = property.isOptional
 
     try validateNotArrayOfOptional(type: property.type, propertyName: propertyName)
 
@@ -202,7 +199,6 @@ private func emitSchemaVariable(
       value: FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
         LabeledExprSyntax(label: "schema", expression: schemaExpr)
         LabeledExprSyntax(label: "description", expression: descriptionExpr)
-        LabeledExprSyntax(label: "isOptional", expression: ExprSyntax(literal: isOptional))
       }
     )
 
@@ -212,7 +208,7 @@ private func emitSchemaVariable(
   return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .object(
-      name: "\(raw: typeName)",
+      name: "\(raw: structName)",
       description: nil,
       properties: \(DictionaryExprSyntax {
         for schemaPropExpr in schemaPropExprs {
@@ -228,7 +224,7 @@ private func emitSchemaVariable(
 ///
 /// ## Example
 ///
-/// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
+/// Input: structName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
 /// Output: VariableDeclSyntax for:
 ///   public var generableContent: StructuredContent {
 ///     StructuredContent(kind: .object(["name": self.name.generableContent, ...]))
@@ -236,34 +232,22 @@ private func emitSchemaVariable(
 private func emitGenerableContentVariable(
   properties: [PropertyDescriptor]
 ) throws -> VariableDeclSyntax {
-  var contentProps: [DictionaryElementSyntax] = []
-
-  for property in properties {
+  // Each property is mapped to a key-value pair in the object, making a member of the final object.
+  // The "key" is the "property name", and the "value" is the "generable content" of the property.
+  // For example, the property "name" is mapped to ("name": self.name.generableContent)
+  let contentMembers = properties.map { property in
     let propertyName = property.name
-
-    let valueExpr: ExprSyntax
-    if property.isOptional {
-      // Handle optional properties by safely unwrapping
-      valueExpr = ExprSyntax(
-        "self.\(raw: propertyName)?.generableContent ?? StructuredContent(kind: .null)")
-    } else {
-      valueExpr = ExprSyntax("self.\(raw: propertyName).generableContent")
-    }
-
-    let contentProp = DictionaryElementSyntax(
+    let valueExpr = ExprSyntax("self.\(raw: propertyName).generableContent")
+    return DictionaryElementSyntax(
       key: ExprSyntax(literal: propertyName),
       value: valueExpr
     )
-
-    contentProps.append(contentProp)
   }
 
   return try VariableDeclSyntax("public nonisolated var generableContent: StructuredContent") {
     """
     StructuredContent(kind: .object(\(DictionaryExprSyntax {
-      for contentProp in contentProps {
-        contentProp
-      }
+      for member in contentMembers { member }
     })))
     """
   }
@@ -273,7 +257,7 @@ private func emitGenerableContentVariable(
 ///
 /// ## Example
 ///
-/// Input: typeName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
+/// Input: structName: "User", properties: [PropertyDescriptor(name: "name", type: "String", ...)]
 /// Output: StructDeclSyntax for:
 ///   public struct Partial: GenerableContentConvertible, Codable, Sendable {
 ///     public var name: String.Partial?
@@ -285,7 +269,7 @@ private func emitGenerableContentVariable(
 ///     }
 ///   }
 private func emitPartialStruct(
-  typeName: String,
+  structName: String,
   properties: [PropertyDescriptor]
 ) throws -> StructDeclSyntax {
   // Convert properties to partial property descriptors (all properties become optional)
@@ -293,7 +277,6 @@ private func emitPartialStruct(
     PropertyDescriptor(
       name: property.name,
       type: emitPartialType(for: property.type),
-      isOptional: true,  // All partial properties are optional
       guide: property.guide
     )
   }
@@ -328,15 +311,13 @@ private func emitPartialStruct(
 /// Input: "[String]" -> Output: "[String].Partial?"
 /// Input: "CustomType" -> Output: "CustomType.Partial?"
 private func emitPartialType(for type: TypeSyntax) -> TypeSyntax {
-  // Handle optional types: T? -> T.Partial?
-  if let optionalType = type.as(OptionalTypeSyntax.self) {
-    let baseType = optionalType.wrappedType.trimmed.description
-    return TypeSyntax("\(raw: baseType).Partial?")
+  if let wrappedType = optionalWrappedType(type) {
+    let wrappedTypeName = wrappedType.trimmed.description
+    return TypeSyntax("\(raw: wrappedTypeName).Partial?")
   }
 
-  // Handle base types: T -> T.Partial?
-  let baseType = type.trimmed.description
-  return TypeSyntax("\(raw: baseType).Partial?")
+  let typeName = type.trimmed.description
+  return TypeSyntax("\(raw: typeName).Partial?")
 }
 
 /// Generates a schema expression for a given type with optional constraints.
@@ -345,11 +326,11 @@ private func emitPartialType(for type: TypeSyntax) -> TypeSyntax {
 ///
 /// Input: type: "String", guideInfo: GuideDescriptor(description: "User name", constraints: [.minLength(3)])
 /// Output: ExprSyntax for: .string(constraints: []).withConstraint(.minLength(3))
-private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescriptor? = nil)
+private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideMacroDescriptor? = nil)
   -> ExprSyntax
 {
   // Generate base schema without constraints
-  let baseSchemaExpr = emitBaseSchemaExpression(for: type)
+  let baseSchemaExpr = emitUnconstrainedSchemaExpression(for: type)
 
   // Apply constraints using withConstraint if any exist
   return emitConstrainedSchema(baseSchema: baseSchemaExpr, guideInfo: guideInfo)
@@ -361,12 +342,7 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideDescript
 ///
 /// Input: type: "String"
 /// Output: ExprSyntax for: "String.schema"
-private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
-  // Handle optional types
-  if let optionalType = type.as(OptionalTypeSyntax.self) {
-    return emitBaseSchemaExpression(for: optionalType.wrappedType)
-  }
-
+private func emitUnconstrainedSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
   let typeName = type.trimmed.description
   return ExprSyntax("\(raw: typeName).schema")
 }
@@ -379,9 +355,9 @@ private func emitBaseSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
 /// Output: ExprSyntax for: .string(constraints: []).withConstraints([.minLength(3)])
 private func emitConstrainedSchema(
   baseSchema: ExprSyntax,
-  guideInfo: GuideDescriptor?
+  guideInfo: GuideMacroDescriptor?
 ) -> ExprSyntax {
-  guard let guideInfo, !guideInfo.constraints.isEmpty else {
+  guard let guideInfo, !guideInfo.constraintExprs.isEmpty else {
     return baseSchema
   }
 
@@ -403,7 +379,7 @@ private func emitConstrainedSchema(
       LabeledExprSyntax(
         expression: ExprSyntax(
           ArrayExprSyntax {
-            for constraint in guideInfo.constraints {
+            for constraint in guideInfo.constraintExprs {
               ArrayElementSyntax(expression: constraint)
             }
           }
@@ -421,7 +397,7 @@ private func emitConstrainedSchema(
 ///   description: "User name",
 ///   constraints: [Constraint<String>.minLength(3)]
 /// )
-private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescriptor? {
+private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideMacroDescriptor? {
   // Look for @Guide attributes on this property
   for attribute in property.attributes {
     if case .attribute(let attr) = attribute,
@@ -457,7 +433,7 @@ private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideDescripto
 
       // Only return GuideInfo if we have constraints or a description
       if !constraints.isEmpty || description != nil {
-        return GuideDescriptor(description: description, constraints: constraints)
+        return GuideMacroDescriptor(description: description, constraintExprs: constraints)
       }
     }
   }
@@ -509,7 +485,7 @@ private func emitStructuredContentInitializer(
     let propertyTypeName = property.type.trimmed.description
     let contentVarName = "\(propertyName)Content"
     let isLastProperty = i == properties.count - 1
-    let isOptional = property.type.is(OptionalTypeSyntax.self)
+    let isOptional = isOptionalType(property.type)
 
     if isOptional {
       // For optional properties, use if let instead of guard
@@ -575,7 +551,7 @@ private struct EnumCaseDescriptor {
 /// Represents an associated value parameter for an enum case.
 private struct EnumParameter {
   let label: String?  // nil for unnamed parameters
-  let type: String
+  let type: TypeSyntax
   let index: Int
 
   /// The effective label to use for this parameter in generated code.
@@ -622,7 +598,7 @@ private func parseEnumParameters(from clause: EnumCaseParameterClauseSyntax?) ->
   return clause.parameters.enumerated().map { index, param in
     EnumParameter(
       label: param.firstName?.text,
-      type: param.type.trimmedDescription,
+      type: param.type.trimmed,
       index: index
     )
   }
@@ -636,13 +612,9 @@ private func parseEnumParameters(from clause: EnumCaseParameterClauseSyntax?) ->
 /// Output: EnumCaseDescriptor(name: "success", parameters: [EnumParameter(label: "value", type: "String.Partial?", index: 0)])
 private func transformEnumCaseToPartial(_ enumCase: EnumCaseDescriptor) -> EnumCaseDescriptor {
   let partialParameters = enumCase.parameters.map { param in
-    let paramTypeSyntax = TypeSyntax(stringLiteral: param.type)
-    let partialTypeSyntax = emitPartialType(for: paramTypeSyntax)
-    let partialTypeString = partialTypeSyntax.trimmed.description
-
     return EnumParameter(
       label: param.label,
-      type: partialTypeString,
+      type: emitPartialType(for: param.type),
       index: param.index
     )
   }
@@ -671,7 +643,7 @@ private func transformEnumCaseToPartial(_ enumCase: EnumCaseDescriptor) -> EnumC
 ///     public init(from structuredContent: StructuredContent) throws { ... }
 ///   }
 private func emitEnumPartial(
-  typeName: String,
+  enumName: String,
   cases: [EnumCaseDescriptor]
 ) throws -> DeclSyntax {
   let hasAnyAssociatedValues = cases.contains { $0.hasAssociatedValues }
@@ -688,9 +660,9 @@ private func emitEnumPartial(
     }
     let caseSignature = partialCase.parameters.map { param in
       if let label = param.label {
-        return "\(label): \(param.type)"
+        return "\(label): \(param.type.trimmed.description)"
       } else {
-        return param.type
+        return param.type.trimmed.description
       }
     }.joined(separator: ", ")
     return DeclSyntax("case \(raw: partialCase.name)(\(raw: caseSignature))")
@@ -745,23 +717,23 @@ private func emitEnumPartial(
 ///           name: nil,
 ///           description: nil,
 ///           properties: [
-///             "type": Schema.Property(schema: .string(constraints: [.constant("success")]), description: nil, isOptional: false),
-///             "value": Schema.Property(schema: String.schema, description: nil, isOptional: false)
+///             "type": Schema.Property(schema: .string(constraints: [.constant("success")]), description: nil),
+///             "value": Schema.Property(schema: String.schema, description: nil)
 ///           ]
 ///         ),
 ///         .object(
 ///           name: nil,
 ///           description: nil,
 ///           properties: [
-///             "type": Schema.Property(schema: .string(constraints: [.constant("failure")]), description: nil, isOptional: false),
-///             "error": Schema.Property(schema: Error.schema, description: nil, isOptional: false)
+///             "type": Schema.Property(schema: .string(constraints: [.constant("failure")]), description: nil),
+///             "error": Schema.Property(schema: Error.schema, description: nil)
 ///           ]
 ///         )
 ///       ]
 ///     )
 ///   }
 private func emitEnumSchemaVariable(
-  typeName: String,
+  enumName: String,
   cases: [EnumCaseDescriptor]
 ) throws -> VariableDeclSyntax {
   var caseSchemaExprs = [ArrayElementSyntax]()
@@ -780,8 +752,7 @@ private func emitEnumSchemaVariable(
           """
           Schema.Property(
             schema: .string(constraints: [.constant(\(literal: enumCase.name))]),
-            description: nil,
-            isOptional: false
+            description: nil
           )
           """)
       )
@@ -789,17 +760,15 @@ private func emitEnumSchemaVariable(
 
       // Add properties for each associated value
       for param in enumCase.parameters {
-        let isOptional = param.type.hasSuffix("?")
+        let schemaExpr = emitUnconstrainedSchemaExpression(for: param.type)
         let propertySchema = DictionaryElementSyntax(
           key: ExprSyntax(literal: param.effectiveLabel),
           value: ExprSyntax(
-            """
-            Schema.Property(
-              schema: \(raw: param.type).schema,
-              description: nil,
-              isOptional: \(raw: isOptional ? "true" : "false")
-            )
-            """)
+            FunctionCallExprSyntax(callee: ExprSyntax("Schema.Property")) {
+              LabeledExprSyntax(label: "schema", expression: schemaExpr)
+              LabeledExprSyntax(label: "description", expression: ExprSyntax("nil"))
+            }
+          )
         )
         properties.append(propertySchema)
       }
@@ -828,7 +797,7 @@ private func emitEnumSchemaVariable(
   return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .anyOf(
-      name: \(literal: typeName),
+      name: \(literal: enumName),
       description: nil,
       schemas: \(ArrayExprSyntax {
         for schemaExpr in caseSchemaExprs {
@@ -1036,128 +1005,130 @@ private func emitEnumStringBasedInitializer(
 private func emitEnumObjectBasedInitializer(
   cases: [EnumCaseDescriptor]
 ) throws -> InitializerDeclSyntax {
-  var switchCaseItems = [CodeBlockItemSyntax]()
+  var switchCaseSyntaxes: [SwitchCaseSyntax] = []
 
-  // Generate switch case for each enum case
   for enumCase in cases {
-    if enumCase.hasAssociatedValues {
-      // Cases with associated values - extract each parameter
-      var caseBodyLines = [String]()
+    let caseSyntax = try SwitchCaseSyntax("case \(literal: enumCase.name):") {
+      if enumCase.hasAssociatedValues {
+        for param in enumCase.parameters {
+          let effectiveLabel = param.effectiveLabel
+          let paramTypeName = param.type.trimmed.description
 
-      // Extract associated value parameters
-      for param in enumCase.parameters {
-        let isOptional = param.type.hasSuffix("?")
-        let effectiveLabel = param.effectiveLabel
-
-        if isOptional {
-          // Optional parameter - use if let
-          caseBodyLines.append(
-            """
-            let \(effectiveLabel): \(param.type) = try {
-              if let \(effectiveLabel)Content = object[\"\(effectiveLabel)\"] {
-                return try \(param.type)(from: \(effectiveLabel)Content)
-              } else {
-                return nil
-              }
-            }()
-            """)
-        } else {
-          // Required parameter - use guard
-          caseBodyLines.append(
-            """
-            guard let \(param.effectiveLabel)Content = object[\"\(param.effectiveLabel)\"] else {
-              throw LLMError.generalError("Missing required property: \(param.effectiveLabel)")
+          if isOptionalType(param.type) {
+            DeclSyntax(
+              try VariableDeclSyntax(
+                """
+                let \(raw: effectiveLabel): \(raw: paramTypeName) = if let \(raw: effectiveLabel)Content = object[\(literal: effectiveLabel)] {
+                  try \(raw: paramTypeName)(from: \(raw: effectiveLabel)Content)
+                } else {
+                  nil
+                }
+                """
+              )
+              .with(\.trailingTrivia, .newlines(1))
+            )
+          } else {
+            try GuardStmtSyntax(
+              "guard let \(raw: effectiveLabel)Content = object[\(literal: effectiveLabel)] else"
+            ) {
+              StmtSyntax(
+                """
+                throw LLMError.generalError(\(literal: "Missing required property: \(effectiveLabel)"))
+                """
+              )
             }
-            let \(param.effectiveLabel) = try \(param.type)(from: \(param.effectiveLabel)Content)
-            """)
+            .with(\.trailingTrivia, .newlines(1))
+
+            DeclSyntax(
+              try VariableDeclSyntax(
+                "let \(raw: effectiveLabel) = try \(raw: paramTypeName)(from: \(raw: effectiveLabel)Content)"
+              )
+              .with(\.trailingTrivia, .newlines(1))
+            )
+          }
         }
+
+        let associatedValues = enumCase.parameters.map { param in
+          if let label = param.label {
+            return "\(label): \(param.effectiveLabel)"
+          } else {
+            return param.effectiveLabel
+          }
+        }.joined(separator: ", ")
+
+        ExprSyntax("self = .\(raw: enumCase.name)(\(raw: associatedValues))")
+          .with(\.trailingTrivia, .newlines(1))
+      } else {
+        ExprSyntax("self = .\(raw: enumCase.name)")
+          .with(\.trailingTrivia, .newlines(1))
       }
-
-      // Generate enum case construction
-      let associatedValues = enumCase.parameters.map { param in
-        if let label = param.label {
-          return "\(label): \(param.effectiveLabel)"
-        } else {
-          return param.effectiveLabel
-        }
-      }.joined(separator: ", ")
-
-      caseBodyLines.append("self = .\(enumCase.name)(\(associatedValues))")
-
-      let caseBody = caseBodyLines.joined(separator: "\n")
-
-      switchCaseItems.append(
-        CodeBlockItemSyntax(
-          item: .stmt(
-            StmtSyntax(
-              """
-              case \(literal: enumCase.name):
-              \(raw: caseBody)
-              """
-            )
-          )
-        ).with(\.trailingTrivia, .newlines(1))
-      )
-    } else {
-      // Simple case without associated values
-      switchCaseItems.append(
-        CodeBlockItemSyntax(
-          item: .stmt(
-            StmtSyntax(
-              """
-              case \(literal: enumCase.name):
-                self = .\(raw: enumCase.name)
-              """
-            )
-          )
-        ).with(\.trailingTrivia, .newlines(1))
-      )
     }
+    .with(\.trailingTrivia, .newlines(1))
+
+    switchCaseSyntaxes.append(caseSyntax)
   }
 
-  // Add default case for unknown enum values
-  switchCaseItems.append(
-    CodeBlockItemSyntax(
-      item: .stmt(
-        StmtSyntax(
-          """
-          default:
-            throw LLMError.generalError("Unknown enum case: \\(type)")
-          """
-        )
-      )
+  let defaultCase = SwitchCaseSyntax("default:") {
+    StmtSyntax(
+      """
+      throw LLMError.generalError("Unknown enum case: \\(type)")
+      """
     )
+  }
+
+  let switchCaseList = SwitchCaseListSyntax {
+    for caseSyntax in switchCaseSyntaxes {
+      caseSyntax
+    }
+    defaultCase
+  }
+
+  let objectDecl = DeclSyntax(
+    try VariableDeclSyntax("let object = try structuredContent.object")
+      .with(\.trailingTrivia, .newlines(1))
+  )
+
+  let guardTypeContent = try GuardStmtSyntax("guard let typeContent = object[\"type\"] else") {
+    StmtSyntax(
+      """
+      throw LLMError.generalError("Missing 'type' discriminator for enum")
+      """
+    )
+  }
+  .with(\.trailingTrivia, .newlines(2))
+
+  let typeBinding = DeclSyntax(
+    try VariableDeclSyntax("let type = try typeContent.string")
+      .with(\.trailingTrivia, .newlines(1))
   )
 
   return try InitializerDeclSyntax(
     "public nonisolated init(from structuredContent: StructuredContent) throws"
   ) {
-    """
-    let object = try structuredContent.object
-    guard let typeContent = object["type"] else {
-      throw LLMError.generalError("Missing 'type' discriminator for enum")
-    }
-    let type = try typeContent.string
-
-    switch type {
-    \(CodeBlockItemListSyntax(switchCaseItems))
-    }
-    """
+    objectDecl
+    guardTypeContent
+    typeBinding
+    StmtSyntax(
+      """
+      switch type {
+      \(switchCaseList)
+      }
+      """
+    )
   }
 }
 
 private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) throws {
   // Handle optional types by checking their wrapped type
-  if let optionalType = type.as(OptionalTypeSyntax.self) {
-    try validateNotArrayOfOptional(type: optionalType.wrappedType, propertyName: propertyName)
+  if let wrappedType = optionalWrappedType(type) {
+    try validateNotArrayOfOptional(type: wrappedType, propertyName: propertyName)
     return
   }
 
   // Check if this is an array type with optional elements
   if let arrayType = type.as(ArrayTypeSyntax.self) {
-    if arrayType.element.is(OptionalTypeSyntax.self) {
-      let elementTypeName =
-        arrayType.element.as(OptionalTypeSyntax.self)?.wrappedType.trimmed.description ?? "Unknown"
+    if let wrappedElementType = optionalWrappedType(arrayType.element) {
+      let elementTypeName = wrappedElementType.trimmed.description
       throw GenerableMacroError(
         message:
           "Property '\(propertyName)' cannot be an array of optional types '[\(elementTypeName)?]'. Arrays of optionals are not supported. Consider using a different data structure or making the entire array optional instead.",
@@ -1165,6 +1136,39 @@ private func validateNotArrayOfOptional(type: TypeSyntax, propertyName: String) 
       )
     }
   }
+}
+
+private func isOptionalType(_ type: TypeSyntax) -> Bool {
+  optionalWrappedType(type) != nil
+}
+
+/// Extracts the wrapped type from an optional type, or nil if the type is not optional.
+private func optionalWrappedType(_ type: TypeSyntax) -> TypeSyntax? {
+  if let optionalType = type.as(OptionalTypeSyntax.self) {
+    return optionalType.wrappedType
+  }
+
+  if let implicitlyUnwrapped = type.as(ImplicitlyUnwrappedOptionalTypeSyntax.self) {
+    return implicitlyUnwrapped.wrappedType
+  }
+
+  // Handles Optional<T> syntax.
+  if let identifier = type.as(IdentifierTypeSyntax.self),
+    identifier.name.text == "Optional",
+    let firstArgument = identifier.genericArgumentClause?.arguments.first?.argument
+  {
+    return firstArgument
+  }
+
+  // Handles Swift.Optional<T> syntax.
+  if let member = type.as(MemberTypeSyntax.self),
+    member.name.text == "Optional",
+    let firstArgument = member.genericArgumentClause?.arguments.first?.argument
+  {
+    return firstArgument
+  }
+
+  return nil
 }
 
 /// Metadata about a property extracted from a struct declaration.
@@ -1175,11 +1179,8 @@ private struct PropertyDescriptor {
   /// The type of the property.
   let type: TypeSyntax
 
-  /// Whether the property is optional.
-  let isOptional: Bool
-
   /// Guide information including description and constraints.
-  let guide: GuideDescriptor?
+  let guide: GuideMacroDescriptor?
 }
 
 extension DeclSyntaxParseable {
@@ -1210,17 +1211,5 @@ private func formatSyntaxNode<T: DeclSyntaxParseable>(_ node: T) -> T {
     return try T(SyntaxNodeString(stringLiteral: output))
   } catch {
     return node
-  }
-}
-
-struct GenerableMacroError: DiagnosticMessage, Error {
-  let message: String
-  let diagnosticID: MessageID
-  let severity: DiagnosticSeverity
-
-  init(message: String, id: String) {
-    self.message = message
-    self.diagnosticID = MessageID(domain: "GenerableMacro", id: id)
-    self.severity = .error
   }
 }

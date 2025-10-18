@@ -436,21 +436,18 @@ extension User: Generable {
       properties: [
         "name": Schema.Property(
           schema: .string(constraints: [.pattern("^[a-zA-Z][a-zA-Z0-9_]{2,}$")]),
-          description: "Username",
-          isOptional: false
+          description: "Username"
         ),
         "age": Schema.Property(
-          schema: .integer(constraints: [.minimum(18)]),
-          description: "User age",
-          isOptional: true
+          schema: .optional(wrapped: .integer(constraints: [.minimum(18)])),
+          description: "User age"
         ),
         "favoriteColors": Schema.Property(
           schema: .array(
             items: .string(constraints: [.anyOf("red", "green", "blue")]),
             constraints: [.count(lowerBound: 1, upperBound: 5)]
           ),
-          description: "User's favorite colors",
-          isOptional: false
+          description: "User's favorite colors"
         )
       ]
     )

@@ -26,20 +26,20 @@ struct PrimitiveTypes {
     properties: [
       "str": Schema.Property(
         schema: .string(constraints: []),
-        description: "str field",
-        isOptional: false),
+        description: "str field"
+      ),
       "int": Schema.Property(
         schema: .integer(constraints: []),
-        description: "int field",
-        isOptional: false),
+        description: "int field"
+      ),
       "double": Schema.Property(
         schema: .number(constraints: []),
-        description: "double field",
-        isOptional: false),
+        description: "double field"
+      ),
       "bool": Schema.Property(
         schema: .boolean(constraints: []),
-        description: "bool field",
-        isOptional: false),
+        description: "bool field"
+      ),
     ]
   )
 
@@ -67,21 +67,21 @@ struct OptionalPrimitiveTypes {
     description: nil,
     properties: [
       "optStr": Schema.Property(
-        schema: .string(constraints: []),
-        description: "optional str field",
-        isOptional: true),
+        schema: .optional(wrapped: .string(constraints: [])),
+        description: "optional str field"
+      ),
       "optInt": Schema.Property(
-        schema: .integer(constraints: []),
-        description: "optional int field",
-        isOptional: true),
+        schema: .optional(wrapped: .integer(constraints: [])),
+        description: "optional int field"
+      ),
       "optDouble": Schema.Property(
-        schema: .number(constraints: []),
-        description: "optional double field",
-        isOptional: true),
+        schema: .optional(wrapped: .number(constraints: [])),
+        description: "optional double field"
+      ),
       "optBool": Schema.Property(
-        schema: .boolean(constraints: []),
-        description: "optional bool field",
-        isOptional: true),
+        schema: .optional(wrapped: .boolean(constraints: [])),
+        description: "optional bool field"
+      ),
     ]
   )
 
@@ -109,20 +109,23 @@ struct ArrayTypes {
         schema: .array(
           items: .string(constraints: []),
           constraints: []),
-        description: "Simple string array",
-        isOptional: false),
+        description: "Simple string array"
+      ),
       "optionalArrayOfInts": Schema.Property(
-        schema: .array(
-          items: .integer(constraints: []),
-          constraints: []),
-        description: "Optional number array",
-        isOptional: true),
+        schema: .optional(
+          wrapped: .array(
+            items: .integer(constraints: []),
+            constraints: []
+          )
+        ),
+        description: "Optional number array"
+      ),
       "arrayOfArraysOfStrs": Schema.Property(
         schema: .array(
           items: .array(items: .string(constraints: []), constraints: []),
           constraints: []),
-        description: "Array of arrays of strings",
-        isOptional: false),
+        description: "Array of arrays of strings"
+      ),
     ]
   )
 
@@ -163,25 +166,28 @@ struct Constraints {
       "str": Schema.Property(
         schema: .string(
           constraints: [.pattern("[A-Z]+")]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "int": Schema.Property(
-        schema: .integer(
-          constraints: [
-            .range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
-          ]),
-        description: nil,
-        isOptional: true),
+        schema: .optional(
+          wrapped: .integer(
+            constraints: [
+              .range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
+            ]
+          )
+        ),
+        description: nil
+      ),
       "double": Schema.Property(
         schema: .number(
           constraints: [.range(lowerBound: 0.01, upperBound: 9999.99)]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "bool": Schema.Property(
         schema: .boolean(
           constraints: []),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "arrayOfStrs": Schema.Property(
         schema: .array(
           items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
@@ -189,8 +195,8 @@ struct Constraints {
             ArrayConstraint.count(lowerBound: 1, upperBound: nil),
             ArrayConstraint.count(lowerBound: nil, upperBound: 10),
           ]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "arrayOfArraysOfStrs": Schema.Property(
         schema: .array(
           items: .array(
@@ -204,8 +210,8 @@ struct Constraints {
             ArrayConstraint.count(lowerBound: nil, upperBound: 10),
           ]
         ),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
     ]
   )
 
@@ -236,22 +242,24 @@ struct DescriptionsWithConstraints {
         schema: .string(
           constraints: [.pattern("^[A-Z][a-z]+$")]
         ),
-        description: "str field with constraints",
-        isOptional: false),
+        description: "str field with constraints"
+      ),
       "int": Schema.Property(
         schema: .integer(
           constraints: [
             .range(lowerBound: 18, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
           ]
         ),
-        description: "int field with constraints",
-        isOptional: false),
+        description: "int field with constraints"
+      ),
       "double": Schema.Property(
-        schema: .number(
-          constraints: [.range(lowerBound: 0.0, upperBound: nil)]
+        schema: .optional(
+          wrapped: .number(
+            constraints: [.range(lowerBound: 0.0, upperBound: nil)]
+          )
         ),
-        description: "double field with constraints",
-        isOptional: true),
+        description: "double field with constraints"
+      ),
       "strs": Schema.Property(
         schema: .array(
           items: .string(constraints: [.pattern(".+")]),
@@ -259,8 +267,8 @@ struct DescriptionsWithConstraints {
             ArrayConstraint.count(lowerBound: 1, upperBound: nil)
           ]
         ),
-        description: "string array with constraints",
-        isOptional: false),
+        description: "string array with constraints"
+      ),
     ]
   )
 
@@ -298,22 +306,22 @@ struct CustomTypes {
     properties: [
       "str": Schema.Property(
         schema: .string(constraints: []),
-        description: "main str field",
-        isOptional: false),
+        description: "main str field"
+      ),
       "nested": Schema.Property(
         schema: NestedType.schema,
-        description: "required nested type",
-        isOptional: false),
+        description: "required nested type"
+      ),
       "optNested": Schema.Property(
-        schema: NestedType.schema,
-        description: "optional nested type",
-        isOptional: true),
+        schema: .optional(wrapped: NestedType.schema),
+        description: "optional nested type"
+      ),
       "nestedArray": Schema.Property(
         schema: .array(
           items: NestedType.schema,
           constraints: []),
-        description: "array of nested types",
-        isOptional: false),
+        description: "array of nested types"
+      ),
     ]
   )
 
@@ -357,25 +365,28 @@ struct ExplicitConstraintTypes {
       "str": Schema.Property(
         schema: .string(
           constraints: [.pattern("[A-Z]+")]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "int": Schema.Property(
-        schema: .integer(
-          constraints: [
-            .range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
-          ]),
-        description: nil,
-        isOptional: true),
+        schema: .optional(
+          wrapped: .integer(
+            constraints: [
+              .range(lowerBound: 0, upperBound: nil), .range(lowerBound: nil, upperBound: 100),
+            ]
+          )
+        ),
+        description: nil
+      ),
       "double": Schema.Property(
         schema: .number(
           constraints: [.range(lowerBound: 0.01, upperBound: 9999.99)]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "bool": Schema.Property(
         schema: .boolean(
           constraints: []),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "arrayOfStrs": Schema.Property(
         schema: .array(
           items: .string(constraints: [.pattern("^[A-Z]{3}$")]),
@@ -383,8 +394,8 @@ struct ExplicitConstraintTypes {
             ArrayConstraint.count(lowerBound: 1, upperBound: nil),
             ArrayConstraint.count(lowerBound: nil, upperBound: 10),
           ]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
       "arrayOfArraysOfStrs": Schema.Property(
         schema: .array(
           items: .array(
@@ -396,8 +407,8 @@ struct ExplicitConstraintTypes {
             ArrayConstraint.count(lowerBound: 1, upperBound: nil),
             ArrayConstraint.count(lowerBound: nil, upperBound: 10),
           ]),
-        description: nil,
-        isOptional: false),
+        description: nil
+      ),
     ]
   )
 

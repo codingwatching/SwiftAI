@@ -61,30 +61,19 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "stringField": self.stringField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "intField": self.intField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "doubleField": self.doubleField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "boolField": self.boolField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalString": self.optionalString?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalInt": self.optionalInt?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "arrayOfStrings": self.arrayOfStrings?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "arrayOfInts": self.arrayOfInts?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "customType": self.customType?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "arrayOfCustomTypes": self.arrayOfCustomTypes?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes?
-                  .generableContent ?? StructuredContent(kind: .null),
+                "stringField": self.stringField.generableContent,
+                "intField": self.intField.generableContent,
+                "doubleField": self.doubleField.generableContent,
+                "boolField": self.boolField.generableContent,
+                "optionalString": self.optionalString.generableContent,
+                "optionalInt": self.optionalInt.generableContent,
+                "arrayOfStrings": self.arrayOfStrings.generableContent,
+                "arrayOfInts": self.arrayOfInts.generableContent,
+                "optionalArrayOfBools": self.optionalArrayOfBools.generableContent,
+                "customType": self.customType.generableContent,
+                "arrayOfCustomTypes": self.arrayOfCustomTypes.generableContent,
+                "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes
+                  .generableContent,
               ])
             )
           }
@@ -262,18 +251,15 @@ struct GenerableMacroTests {
               "intField": self.intField.generableContent,
               "doubleField": self.doubleField.generableContent,
               "boolField": self.boolField.generableContent,
-              "optionalString": self.optionalString?.generableContent
-                ?? StructuredContent(kind: .null),
-              "optionalInt": self.optionalInt?.generableContent
-                ?? StructuredContent(kind: .null),
+              "optionalString": self.optionalString.generableContent,
+              "optionalInt": self.optionalInt.generableContent,
               "arrayOfStrings": self.arrayOfStrings.generableContent,
               "arrayOfInts": self.arrayOfInts.generableContent,
-              "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
-                ?? StructuredContent(kind: .null),
+              "optionalArrayOfBools": self.optionalArrayOfBools.generableContent,
               "customType": self.customType.generableContent,
               "arrayOfCustomTypes": self.arrayOfCustomTypes.generableContent,
-              "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes?
-                .generableContent ?? StructuredContent(kind: .null),
+              "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes
+                .generableContent,
             ])
           )
         }
@@ -392,12 +378,9 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "optionalString": self.optionalString?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalArray": self.optionalArray?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalDouble": self.optionalDouble?.generableContent
-                  ?? StructuredContent(kind: .null),
+                "optionalString": self.optionalString.generableContent,
+                "optionalArray": self.optionalArray.generableContent,
+                "optionalDouble": self.optionalDouble.generableContent,
               ])
             )
           }
@@ -455,12 +438,9 @@ struct GenerableMacroTests {
         public nonisolated var generableContent: StructuredContent {
           StructuredContent(
             kind: .object([
-              "optionalString": self.optionalString?.generableContent
-                ?? StructuredContent(kind: .null),
-              "optionalArray": self.optionalArray?.generableContent
-                ?? StructuredContent(kind: .null),
-              "optionalDouble": self.optionalDouble?.generableContent
-                ?? StructuredContent(kind: .null),
+              "optionalString": self.optionalString.generableContent,
+              "optionalArray": self.optionalArray.generableContent,
+              "optionalDouble": self.optionalDouble.generableContent,
             ])
           )
         }
@@ -520,11 +500,7 @@ struct GenerableMacroTests {
           public let name: String.Partial?
 
           public nonisolated var generableContent: StructuredContent {
-            StructuredContent(
-              kind: .object([
-                "name": self.name?.generableContent ?? StructuredContent(kind: .null)
-              ])
-            )
+            StructuredContent(kind: .object(["name": self.name.generableContent]))
           }
 
           public nonisolated init(from structuredContent: StructuredContent) throws {
@@ -638,11 +614,9 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "name": self.name?.generableContent ?? StructuredContent(kind: .null),
-                "age": self.age?.generableContent ?? StructuredContent(kind: .null),
-                "score": self.score?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "tags": self.tags?.generableContent ?? StructuredContent(kind: .null),
+                "name": self.name.generableContent, "age": self.age.generableContent,
+                "score": self.score.generableContent,
+                "tags": self.tags.generableContent,
               ])
             )
           }
@@ -717,7 +691,7 @@ struct GenerableMacroTests {
           StructuredContent(
             kind: .object([
               "name": self.name.generableContent, "age": self.age.generableContent,
-              "score": self.score?.generableContent ?? StructuredContent(kind: .null),
+              "score": self.score.generableContent,
               "tags": self.tags.generableContent,
             ])
           )
@@ -800,11 +774,9 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "name": self.name?.generableContent ?? StructuredContent(kind: .null),
-                "age": self.age?.generableContent ?? StructuredContent(kind: .null),
-                "score": self.score?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "tags": self.tags?.generableContent ?? StructuredContent(kind: .null),
+                "name": self.name.generableContent, "age": self.age.generableContent,
+                "score": self.score.generableContent,
+                "tags": self.tags.generableContent,
               ])
             )
           }
@@ -885,7 +857,7 @@ struct GenerableMacroTests {
           StructuredContent(
             kind: .object([
               "name": self.name.generableContent, "age": self.age.generableContent,
-              "score": self.score?.generableContent ?? StructuredContent(kind: .null),
+              "score": self.score.generableContent,
               "tags": self.tags.generableContent,
             ])
           )
@@ -1034,10 +1006,8 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "title": self.title?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "status": self.status?.generableContent
-                  ?? StructuredContent(kind: .null),
+                "title": self.title.generableContent,
+                "status": self.status.generableContent,
               ])
             )
           }

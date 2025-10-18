@@ -237,34 +237,22 @@ private func emitSchemaVariable(
 private func emitGenerableContentVariable(
   properties: [PropertyDescriptor]
 ) throws -> VariableDeclSyntax {
-  var contentProps: [DictionaryElementSyntax] = []
-
-  for property in properties {
+  // Each property is mapped to a key-value pair in the object, making a member of the final object.
+  // The "key" is the "property name", and the "value" is the "generable content" of the property.
+  // For example, the property "name" is mapped to ("name": self.name.generableContent)
+  let contentMembers = properties.map { property in
     let propertyName = property.name
-
-    let valueExpr: ExprSyntax
-    if property.isOptional {
-      // Handle optional properties by safely unwrapping
-      valueExpr = ExprSyntax(
-        "self.\(raw: propertyName)?.generableContent ?? StructuredContent(kind: .null)")
-    } else {
-      valueExpr = ExprSyntax("self.\(raw: propertyName).generableContent")
-    }
-
-    let contentProp = DictionaryElementSyntax(
+    let valueExpr = ExprSyntax("self.\(raw: propertyName).generableContent")
+    return DictionaryElementSyntax(
       key: ExprSyntax(literal: propertyName),
       value: valueExpr
     )
-
-    contentProps.append(contentProp)
   }
 
   return try VariableDeclSyntax("public nonisolated var generableContent: StructuredContent") {
     """
     StructuredContent(kind: .object(\(DictionaryExprSyntax {
-      for contentProp in contentProps {
-        contentProp
-      }
+      for member in contentMembers { member }
     })))
     """
   }

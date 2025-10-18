@@ -343,17 +343,6 @@ private func emitSchemaExpression(for type: TypeSyntax, guideInfo: GuideMacroDes
 /// Input: type: "String"
 /// Output: ExprSyntax for: "String.schema"
 private func emitUnconstrainedSchemaExpression(for type: TypeSyntax) -> ExprSyntax {
-  if let wrappedType = optionalWrappedType(type) {
-    let wrappedExpr = emitUnconstrainedSchemaExpression(for: wrappedType)
-    return ExprSyntax(
-      FunctionCallExprSyntax(
-        callee: ExprSyntax("Schema.optional")
-      ) {
-        LabeledExprSyntax(label: "wrapped", expression: wrappedExpr)
-      }
-    )
-  }
-
   let typeName = type.trimmed.description
   return ExprSyntax("\(raw: typeName).schema")
 }

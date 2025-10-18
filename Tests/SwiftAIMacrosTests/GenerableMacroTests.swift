@@ -185,20 +185,17 @@ struct GenerableMacroTests {
               "doubleField": Schema.Property(schema: Double.schema, description: nil),
               "boolField": Schema.Property(schema: Bool.schema, description: nil),
               "optionalString": Schema.Property(
-                schema: Schema.optional(wrapped: String.schema),
+                schema: String?.schema,
                 description: nil
               ),
-              "optionalInt": Schema.Property(
-                schema: Schema.optional(wrapped: Int.schema),
-                description: nil
-              ),
+              "optionalInt": Schema.Property(schema: Int?.schema, description: nil),
               "arrayOfStrings": Schema.Property(
                 schema: [String].schema,
                 description: nil
               ),
               "arrayOfInts": Schema.Property(schema: [Int].schema, description: nil),
               "optionalArrayOfBools": Schema.Property(
-                schema: Schema.optional(wrapped: [Bool].schema),
+                schema: [Bool]?.schema,
                 description: nil
               ),
               "customType": Schema.Property(
@@ -210,7 +207,7 @@ struct GenerableMacroTests {
                 description: nil
               ),
               "optionalArrayOfCustomTypes": Schema.Property(
-                schema: Schema.optional(wrapped: [CustomStruct].schema),
+                schema: [CustomStruct]?.schema,
                 description: nil
               ),
             ]
@@ -390,15 +387,15 @@ struct GenerableMacroTests {
             description: nil,
             properties: [
               "optionalString": Schema.Property(
-                schema: Schema.optional(wrapped: String.schema),
+                schema: Optional<String> .schema,
                 description: nil
               ),
               "optionalArray": Schema.Property(
-                schema: Schema.optional(wrapped: [Int].schema),
+                schema: Optional<[Int]> .schema,
                 description: nil
               ),
               "optionalDouble": Schema.Property(
-                schema: Schema.optional(wrapped: Double.schema),
+                schema: Swift.Optional<Double> .schema,
                 description: nil
               ),
             ]
@@ -636,9 +633,7 @@ struct GenerableMacroTests {
                 description: "User age in years"
               ),
               "score": Schema.Property(
-                schema: Schema.optional(wrapped: Double.schema).withConstraints([
-                  .minimum(0.0)
-                ]),
+                schema: Double?.schema.withConstraints([.minimum(0.0)]),
                 description: nil
               ),
               "tags": Schema.Property(
@@ -797,7 +792,7 @@ struct GenerableMacroTests {
                 description: "User age in years"
               ),
               "score": Schema.Property(
-                schema: Schema.optional(wrapped: Double.schema).withConstraints([
+                schema: Double?.schema.withConstraints([
                   Constraint<Double> .minimum(0.0)
                 ]),
                 description: nil
@@ -1763,10 +1758,7 @@ struct GenerableMacroTests {
                     schema: .string(constraints: [.constant("withData")]),
                     description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: Schema.optional(wrapped: String.schema),
-                    description: nil
-                  ),
+                  "value": Schema.Property(schema: String?.schema, description: nil),
                 ]
               ),
               .object(
@@ -1999,16 +1991,13 @@ struct GenerableMacroTests {
                     description: nil
                   ),
                   "value": Schema.Property(schema: String.schema, description: nil),
-                  "value1": Schema.Property(
-                    schema: Schema.optional(wrapped: String.schema),
-                    description: nil
-                  ),
+                  "value1": Schema.Property(schema: String?.schema, description: nil),
                   "value2": Schema.Property(
                     schema: [String].schema,
                     description: nil
                   ),
                   "value3": Schema.Property(
-                    schema: Schema.optional(wrapped: [String].schema),
+                    schema: [String]?.schema,
                     description: nil
                   ),
                 ]
@@ -2439,7 +2428,7 @@ struct GenerableMacroTests {
                     description: nil
                   ),
                   "value": Schema.Property(
-                    schema: Schema.optional(wrapped: String.schema),
+                    schema: Optional<String> .schema,
                     description: nil
                   ),
                 ]
@@ -2453,7 +2442,7 @@ struct GenerableMacroTests {
                     description: nil
                   ),
                   "code": Schema.Property(
-                    schema: Schema.optional(wrapped: Int.schema),
+                    schema: Swift.Optional<Int> .schema,
                     description: nil
                   ),
                 ]

@@ -1,5 +1,6 @@
 import Foundation
 import OpenAI
+import OrderedCollections
 
 // MARK: - Message Conversion
 
@@ -152,16 +153,19 @@ func convertSchemaToJSONSchema(
 private func convertObjectSchema(
   name: String,
   description: String?,
-  properties: [String: Schema.Property]
+  properties: OrderedDictionary<String, Schema.Property>
 ) throws -> JSONSchema {
-  let jsonProperties = try properties.mapValues { property in
-    try convertSchemaToJSONSchema(property.schema, isOptional: property.isOptional)
+  let jsonProperties = try properties.map { key, property in
+    (key, try convertSchemaToJSONSchema(property.schema, isOptional: property.isOptional))
   }
 
   var fields: [JSONSchemaField] = [
     .type(.object),
     .title(name),
-    .properties(jsonProperties),
+    // Convert OrderedDictionary to Dictionary for OpenAI SDK compatibility
+    // TODO: This loses ordering which may affect generation results. Fix this here once OpenAI SDK supports stable ordering.
+    // https://platform.openai.com/docs/guides/structured-outputs#key-ordering
+    .properties(Dictionary(uniqueKeysWithValues: jsonProperties)),
     // Openai requires that every property in the object schema must be listed as required.
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
     .required(Array(properties.keys)),

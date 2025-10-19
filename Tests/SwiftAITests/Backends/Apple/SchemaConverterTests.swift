@@ -3,6 +3,7 @@ import Foundation
 import SwiftAI
 import Testing
 import FoundationModels
+import OrderedCollections
 
 // TODO: Two ideas for testing the conversion of Schemas to GenerationSchema:
 //   1. Assert against a known JSON structure (not future proof).
@@ -192,7 +193,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func simpleObjectConversion() throws {
-  let properties = [
+  let properties: OrderedDictionary<String, Schema.Property> = [
     "name": Schema.Property(schema: .string(constraints: []), description: nil, isOptional: false),
     "age": Schema.Property(schema: .integer(constraints: []), description: nil, isOptional: true),
   ]
@@ -462,7 +463,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func propertyDescriptionConversion() throws {
-  let properties = [
+  let properties: OrderedDictionary<String, Schema.Property> = [
     "title": Schema.Property(
       schema: .string(constraints: []),
       description: "The title of the item",
@@ -507,7 +508,7 @@ import FoundationModels
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func objectWithoutDescriptionConversion() throws {
-  let properties = [
+  let properties: OrderedDictionary<String, Schema.Property> = [
     "value": Schema.Property(schema: .string(constraints: []), description: nil, isOptional: false)
   ]
   let schema = Schema.object(

@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 
 /// Defines the structure and constraints of types to generate.
 ///
@@ -12,7 +13,7 @@ public enum Schema: Sendable, Equatable {
   //   represents an integer, for example.
 
   /// An object with defined properties.
-  case object(name: String, description: String?, properties: [String: Property])
+  case object(name: String, description: String?, properties: OrderedDictionary<String, Property>)
 
   /// A union type that can match any of the provided schemas.
   indirect case anyOf(name: String, description: String?, schemas: [Schema])

@@ -1,6 +1,7 @@
 #if canImport(FoundationModels)
 import FoundationModels
 import Foundation
+import OrderedCollections
 
 @available(iOS 26.0, macOS 26.0, *)
 extension Schema {
@@ -50,7 +51,7 @@ extension Schema {
 private func convertObject(
   name: String,
   description: String?,
-  properties: [String: Schema.Property]
+  properties: OrderedDictionary<String, Schema.Property>
 ) throws -> DynamicGenerationSchema {
   return DynamicGenerationSchema(
     name: name,

@@ -78,22 +78,28 @@ extension Schema {
   var asJSONObject: [String: Any] {
     switch self {
     case .object(let name, let description, let properties):
+      let requiredProperties = Array(properties.filter { !$0.value.isOptional }.keys)
+      let propertySchemas = Dictionary(
+        uniqueKeysWithValues:
+          properties.map { key, prop in
+            var schema = prop.schema.asJSONObject
+            if let description = prop.description {
+              schema["description"] = description
+            }
+            return (key, schema)
+          }
+      )
+
       var json: [String: Any] = [
         "type": "object",
-        "properties": properties.mapValues { prop in
-          var propertySchema = prop.schema.asJSONObject
-          if let d = prop.description {
-            propertySchema["description"] = d
-          }
-          return propertySchema
-        },
-        "required": Array(properties.filter { !$0.value.isOptional }.keys),
+        "title": name,
+        "properties": propertySchemas,
+        "required": requiredProperties,
         "additionalProperties": false,
       ]
       if let description {
         json["description"] = description
       }
-      json["title"] = name
       return json
 
     case .string(let constraints):

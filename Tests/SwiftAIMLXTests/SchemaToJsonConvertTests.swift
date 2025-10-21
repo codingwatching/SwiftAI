@@ -143,15 +143,15 @@ struct SchemaToJsonConvert_Primitives_Tests {
       properties: [
         "street": .init(
           schema: .string(constraints: []),
-          description: "Street",
-          isOptional: false
+          description: "Street"
         ),
         "zip": .init(
-          schema: .integer(
-            constraints: [.range(lowerBound: nil, upperBound: 99999)]
+          schema: .optional(
+            wrapped: .integer(
+              constraints: [.range(lowerBound: nil, upperBound: 99999)]
+            )
           ),
-          description: "ZIP",
-          isOptional: true
+          description: "ZIP"
         ),
       ]
     )
@@ -163,26 +163,26 @@ struct SchemaToJsonConvert_Primitives_Tests {
         "name": .init(
           schema: .string(
             constraints: [.pattern("^[A-Z][a-z]+$")]),
-          description: "First name",
-          isOptional: false
+          description: "First name"
         ),
         "role": .init(
           schema: .string(constraints: [.anyOf(["admin", "user", "guest"])]),
-          description: "User role", isOptional: false),
+          description: "User role"),
         "age": .init(
           schema: .integer(constraints: [.range(lowerBound: 18, upperBound: 120)]),
-          description: "Age", isOptional: false),
+          description: "Age"),
         "score": .init(
-          schema: .number(constraints: [.range(lowerBound: 0.0, upperBound: 100.0)]),
-          description: "Score", isOptional: true),
+          schema: .optional(
+            wrapped: .number(constraints: [.range(lowerBound: 0.0, upperBound: 100.0)])
+          ),
+          description: "Score"),
         "isActive": .init(
-          schema: .boolean(constraints: []), description: "Active flag", isOptional: false),
+          schema: .boolean(constraints: []), description: "Active flag"),
         "tags": .init(
           schema: .array(
             items: .string(constraints: [.anyOf(["A", "B"])]),
-            constraints: [.count(lowerBound: 1, upperBound: 3)]), description: "Tags",
-          isOptional: false),
-        "address": .init(schema: addressSchema, description: "Home address", isOptional: false),
+            constraints: [.count(lowerBound: 1, upperBound: 3)]), description: "Tags"),
+        "address": .init(schema: addressSchema, description: "Home address"),
       ]
     )
 

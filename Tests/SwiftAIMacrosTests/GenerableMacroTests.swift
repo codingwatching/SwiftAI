@@ -61,30 +61,19 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "stringField": self.stringField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "intField": self.intField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "doubleField": self.doubleField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "boolField": self.boolField?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalString": self.optionalString?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalInt": self.optionalInt?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "arrayOfStrings": self.arrayOfStrings?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "arrayOfInts": self.arrayOfInts?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "customType": self.customType?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "arrayOfCustomTypes": self.arrayOfCustomTypes?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes?
-                  .generableContent ?? StructuredContent(kind: .null),
+                "stringField": self.stringField.generableContent,
+                "intField": self.intField.generableContent,
+                "doubleField": self.doubleField.generableContent,
+                "boolField": self.boolField.generableContent,
+                "optionalString": self.optionalString.generableContent,
+                "optionalInt": self.optionalInt.generableContent,
+                "arrayOfStrings": self.arrayOfStrings.generableContent,
+                "arrayOfInts": self.arrayOfInts.generableContent,
+                "optionalArrayOfBools": self.optionalArrayOfBools.generableContent,
+                "customType": self.customType.generableContent,
+                "arrayOfCustomTypes": self.arrayOfCustomTypes.generableContent,
+                "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes
+                  .generableContent,
               ])
             )
           }
@@ -191,65 +180,35 @@ struct GenerableMacroTests {
             name: "AllTypes",
             description: nil,
             properties: [
-              "stringField": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "intField": Schema.Property(
-                schema: Int.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "doubleField": Schema.Property(
-                schema: Double.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "boolField": Schema.Property(
-                schema: Bool.schema,
-                description: nil,
-                isOptional: false
-              ),
+              "stringField": Schema.Property(schema: String.schema, description: nil),
+              "intField": Schema.Property(schema: Int.schema, description: nil),
+              "doubleField": Schema.Property(schema: Double.schema, description: nil),
+              "boolField": Schema.Property(schema: Bool.schema, description: nil),
               "optionalString": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: true
+                schema: String?.schema,
+                description: nil
               ),
-              "optionalInt": Schema.Property(
-                schema: Int.schema,
-                description: nil,
-                isOptional: true
-              ),
+              "optionalInt": Schema.Property(schema: Int?.schema, description: nil),
               "arrayOfStrings": Schema.Property(
                 schema: [String].schema,
-                description: nil,
-                isOptional: false
+                description: nil
               ),
-              "arrayOfInts": Schema.Property(
-                schema: [Int].schema,
-                description: nil,
-                isOptional: false
-              ),
+              "arrayOfInts": Schema.Property(schema: [Int].schema, description: nil),
               "optionalArrayOfBools": Schema.Property(
-                schema: [Bool].schema,
-                description: nil,
-                isOptional: true
+                schema: [Bool]?.schema,
+                description: nil
               ),
               "customType": Schema.Property(
                 schema: CustomStruct.schema,
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "arrayOfCustomTypes": Schema.Property(
                 schema: [CustomStruct].schema,
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "optionalArrayOfCustomTypes": Schema.Property(
-                schema: [CustomStruct].schema,
-                description: nil,
-                isOptional: true
+                schema: [CustomStruct]?.schema,
+                description: nil
               ),
             ]
           )
@@ -262,18 +221,15 @@ struct GenerableMacroTests {
               "intField": self.intField.generableContent,
               "doubleField": self.doubleField.generableContent,
               "boolField": self.boolField.generableContent,
-              "optionalString": self.optionalString?.generableContent
-                ?? StructuredContent(kind: .null),
-              "optionalInt": self.optionalInt?.generableContent
-                ?? StructuredContent(kind: .null),
+              "optionalString": self.optionalString.generableContent,
+              "optionalInt": self.optionalInt.generableContent,
               "arrayOfStrings": self.arrayOfStrings.generableContent,
               "arrayOfInts": self.arrayOfInts.generableContent,
-              "optionalArrayOfBools": self.optionalArrayOfBools?.generableContent
-                ?? StructuredContent(kind: .null),
+              "optionalArrayOfBools": self.optionalArrayOfBools.generableContent,
               "customType": self.customType.generableContent,
               "arrayOfCustomTypes": self.arrayOfCustomTypes.generableContent,
-              "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes?
-                .generableContent ?? StructuredContent(kind: .null),
+              "optionalArrayOfCustomTypes": self.optionalArrayOfCustomTypes
+                .generableContent,
             ])
           )
         }
@@ -363,6 +319,131 @@ struct GenerableMacroTests {
   }
 
   @Test
+  func testExplicitOptionalSyntax() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      struct ExplicitOptionalSyntax {
+        let optionalString: Optional<String>
+        let optionalArray: Optional<[Int]>
+        let optionalDouble: Swift.Optional<Double>
+      }
+      """
+    } expansion: {
+      """
+      struct ExplicitOptionalSyntax {
+        let optionalString: Optional<String>
+        let optionalArray: Optional<[Int]>
+        let optionalDouble: Swift.Optional<Double>
+      }
+
+      nonisolated extension ExplicitOptionalSyntax: SwiftAI.Generable {
+        public nonisolated struct Partial: SwiftAI.GenerableContentConvertible,
+          Sendable
+        {
+          public let optionalString: String.Partial?
+          public let optionalArray: [Int].Partial?
+          public let optionalDouble: Double.Partial?
+
+          public nonisolated var generableContent: StructuredContent {
+            StructuredContent(
+              kind: .object([
+                "optionalString": self.optionalString.generableContent,
+                "optionalArray": self.optionalArray.generableContent,
+                "optionalDouble": self.optionalDouble.generableContent,
+              ])
+            )
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+
+            if let optionalStringContent = object["optionalString"] {
+              self.optionalString = try String.Partial?(from: optionalStringContent)
+            }
+            else {
+              self.optionalString = nil
+            }
+
+            if let optionalArrayContent = object["optionalArray"] {
+              self.optionalArray = try [Int].Partial?(from: optionalArrayContent)
+            }
+            else {
+              self.optionalArray = nil
+            }
+
+            if let optionalDoubleContent = object["optionalDouble"] {
+              self.optionalDouble = try Double.Partial?(from: optionalDoubleContent)
+            }
+            else {
+              self.optionalDouble = nil
+            }
+          }
+        }
+
+        public nonisolated static var schema: Schema {
+          .object(
+            name: "ExplicitOptionalSyntax",
+            description: nil,
+            properties: [
+              "optionalString": Schema.Property(
+                schema: Optional<String> .schema,
+                description: nil
+              ),
+              "optionalArray": Schema.Property(
+                schema: Optional<[Int]> .schema,
+                description: nil
+              ),
+              "optionalDouble": Schema.Property(
+                schema: Swift.Optional<Double> .schema,
+                description: nil
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          StructuredContent(
+            kind: .object([
+              "optionalString": self.optionalString.generableContent,
+              "optionalArray": self.optionalArray.generableContent,
+              "optionalDouble": self.optionalDouble.generableContent,
+            ])
+          )
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+
+          if let optionalStringContent = object["optionalString"] {
+            self.optionalString = try String?(from: optionalStringContent)
+          }
+          else {
+            self.optionalString = nil
+          }
+
+          if let optionalArrayContent = object["optionalArray"] {
+            self.optionalArray = try [Int]?(from: optionalArrayContent)
+          }
+          else {
+            self.optionalArray = nil
+          }
+
+          if let optionalDoubleContent = object["optionalDouble"] {
+            self.optionalDouble = try Swift.Optional<Double>(
+              from: optionalDoubleContent
+            )
+          }
+          else {
+            self.optionalDouble = nil
+          }
+        }
+      }
+      """
+    }
+  }
+
+  @Test
   func testPropertiesWithDefaultValuesAreExcluded() throws {
     assertMacro(indentationWidth: .spaces(2)) {
       """
@@ -386,11 +467,7 @@ struct GenerableMacroTests {
           public let name: String.Partial?
 
           public nonisolated var generableContent: StructuredContent {
-            StructuredContent(
-              kind: .object([
-                "name": self.name?.generableContent ?? StructuredContent(kind: .null)
-              ])
-            )
+            StructuredContent(kind: .object(["name": self.name.generableContent]))
           }
 
           public nonisolated init(from structuredContent: StructuredContent) throws {
@@ -410,11 +487,7 @@ struct GenerableMacroTests {
             name: "User",
             description: nil,
             properties: [
-              "name": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: false
-              )
+              "name": Schema.Property(schema: String.schema, description: nil)
             ]
           )
         }
@@ -504,11 +577,9 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "name": self.name?.generableContent ?? StructuredContent(kind: .null),
-                "age": self.age?.generableContent ?? StructuredContent(kind: .null),
-                "score": self.score?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "tags": self.tags?.generableContent ?? StructuredContent(kind: .null),
+                "name": self.name.generableContent, "age": self.age.generableContent,
+                "score": self.score.generableContent,
+                "tags": self.tags.generableContent,
               ])
             )
           }
@@ -555,25 +626,21 @@ struct GenerableMacroTests {
                 schema: String.schema.withConstraints([
                   .pattern("[A-Z]+"), .minLength(5),
                 ]),
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "age": Schema.Property(
                 schema: Int.schema.withConstraints([.minimum(18), .maximum(100)]),
-                description: "User age in years",
-                isOptional: false
+                description: "User age in years"
               ),
               "score": Schema.Property(
-                schema: Double.schema.withConstraints([.minimum(0.0)]),
-                description: nil,
-                isOptional: true
+                schema: Double?.schema.withConstraints([.minimum(0.0)]),
+                description: nil
               ),
               "tags": Schema.Property(
                 schema: [String].schema.withConstraints([
                   .minimumCount(1), .element(.minLength(2)),
                 ]),
-                description: "Tags array",
-                isOptional: false
+                description: "Tags array"
               ),
             ]
           )
@@ -583,7 +650,7 @@ struct GenerableMacroTests {
           StructuredContent(
             kind: .object([
               "name": self.name.generableContent, "age": self.age.generableContent,
-              "score": self.score?.generableContent ?? StructuredContent(kind: .null),
+              "score": self.score.generableContent,
               "tags": self.tags.generableContent,
             ])
           )
@@ -666,11 +733,9 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "name": self.name?.generableContent ?? StructuredContent(kind: .null),
-                "age": self.age?.generableContent ?? StructuredContent(kind: .null),
-                "score": self.score?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "tags": self.tags?.generableContent ?? StructuredContent(kind: .null),
+                "name": self.name.generableContent, "age": self.age.generableContent,
+                "score": self.score.generableContent,
+                "tags": self.tags.generableContent,
               ])
             )
           }
@@ -718,30 +783,26 @@ struct GenerableMacroTests {
                   Constraint<String> .pattern("[A-Z]+"),
                   Constraint<String> .minLength(5),
                 ]),
-                description: nil,
-                isOptional: false
+                description: nil
               ),
               "age": Schema.Property(
                 schema: Int.schema.withConstraints([
                   Constraint<Int> .minimum(18), Constraint<Int> .maximum(100),
                 ]),
-                description: "User age in years",
-                isOptional: false
+                description: "User age in years"
               ),
               "score": Schema.Property(
-                schema: Double.schema.withConstraints([
+                schema: Double?.schema.withConstraints([
                   Constraint<Double> .minimum(0.0)
                 ]),
-                description: nil,
-                isOptional: true
+                description: nil
               ),
               "tags": Schema.Property(
                 schema: [String].schema.withConstraints([
                   Constraint<[String]> .minimumCount(1),
                   Constraint<[String]> .element(Constraint<String> .minLength(2)),
                 ]),
-                description: "Tags array",
-                isOptional: false
+                description: "Tags array"
               ),
             ]
           )
@@ -751,7 +812,7 @@ struct GenerableMacroTests {
           StructuredContent(
             kind: .object([
               "name": self.name.generableContent, "age": self.age.generableContent,
-              "score": self.score?.generableContent ?? StructuredContent(kind: .null),
+              "score": self.score.generableContent,
               "tags": self.tags.generableContent,
             ])
           )
@@ -900,10 +961,8 @@ struct GenerableMacroTests {
           public nonisolated var generableContent: StructuredContent {
             StructuredContent(
               kind: .object([
-                "title": self.title?.generableContent
-                  ?? StructuredContent(kind: .null),
-                "status": self.status?.generableContent
-                  ?? StructuredContent(kind: .null),
+                "title": self.title.generableContent,
+                "status": self.status.generableContent,
               ])
             )
           }
@@ -932,16 +991,8 @@ struct GenerableMacroTests {
             name: "Task",
             description: nil,
             properties: [
-              "title": Schema.Property(
-                schema: String.schema,
-                description: nil,
-                isOptional: false
-              ),
-              "status": Schema.Property(
-                schema: Status.schema,
-                description: nil,
-                isOptional: false
-              ),
+              "title": Schema.Property(schema: String.schema, description: nil),
+              "status": Schema.Property(schema: Status.schema, description: nil),
             ]
           )
         }
@@ -1020,18 +1071,17 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "success":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .success(value: value)
             case "failure":
               self = .failure
@@ -1052,14 +1102,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("success")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -1068,8 +1113,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("failure")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -1101,8 +1145,8 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "success":
             guard let valueContent = object["value"] else {
@@ -1168,36 +1212,33 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "text":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .text(value)
             case "pair":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let value1: Int.Partial? = try {
+              let value1: Int.Partial? =
                 if let value1Content = object["value1"] {
-                  return try Int.Partial?(from: value1Content)
+                  try Int.Partial?(from: value1Content)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .pair(value, value1)
             default:
               throw LLMError.generalError("Unknown enum case: \(type)")
@@ -1216,14 +1257,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("text")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -1232,19 +1268,10 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("pair")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "value1": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
+                  "value1": Schema.Property(schema: Int.schema, description: nil),
                 ]
               ),
             ]
@@ -1275,8 +1302,8 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "text":
             guard let valueContent = object["value"] else {
@@ -1360,30 +1387,28 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "idle":
               self = .idle
             case "loading":
-              let message: String.Partial? = try {
+              let message: String.Partial? =
                 if let messageContent = object["message"] {
-                  return try String.Partial?(from: messageContent)
+                  try String.Partial?(from: messageContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .loading(message: message)
             case "error":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .error(value)
             default:
               throw LLMError.generalError("Unknown enum case: \(type)")
@@ -1402,8 +1427,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("idle")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -1413,14 +1437,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("loading")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "message": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "message": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -1429,14 +1448,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("error")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
             ]
@@ -1474,8 +1488,8 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "idle":
             self = .idle
@@ -1547,36 +1561,33 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "click":
-              let x: Int.Partial? = try {
+              let x: Int.Partial? =
                 if let xContent = object["x"] {
-                  return try Int.Partial?(from: xContent)
+                  try Int.Partial?(from: xContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let y: Int.Partial? = try {
+              let y: Int.Partial? =
                 if let yContent = object["y"] {
-                  return try Int.Partial?(from: yContent)
+                  try Int.Partial?(from: yContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .click(x: x, y: y)
             case "scroll":
-              let delta: Double.Partial? = try {
+              let delta: Double.Partial? =
                 if let deltaContent = object["delta"] {
-                  return try Double.Partial?(from: deltaContent)
+                  try Double.Partial?(from: deltaContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .scroll(delta: delta)
             default:
               throw LLMError.generalError("Unknown enum case: \(type)")
@@ -1595,19 +1606,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("click")]),
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "x": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "y": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                    description: nil
+                  ), "x": Schema.Property(schema: Int.schema, description: nil),
+                  "y": Schema.Property(schema: Int.schema, description: nil),
                 ]
               ),
               .object(
@@ -1616,14 +1617,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("scroll")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "delta": Schema.Property(
-                    schema: Double.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "delta": Schema.Property(schema: Double.schema, description: nil),
                 ]
               ),
             ]
@@ -1654,8 +1650,8 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "click":
             guard let xContent = object["x"] else {
@@ -1729,18 +1725,17 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "withData":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .withData(value: value)
             case "noData":
               self = .noData
@@ -1761,14 +1756,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("withData")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String?.schema,
-                    description: nil,
-                    isOptional: true
-                  ),
+                  "value": Schema.Property(schema: String?.schema, description: nil),
                 ]
               ),
               .object(
@@ -1777,8 +1767,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("noData")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -1810,18 +1799,17 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "withData":
-            let value: String? = try {
+            let value: String? =
               if let valueContent = object["value"] {
-                return try String?(from: valueContent)
+                try String?(from: valueContent)
               }
               else {
-                return nil
+                nil
               }
-            }()
             self = .withData(value: value)
           case "noData":
             self = .noData
@@ -1904,76 +1892,68 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "item0":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let count: Int.Partial? = try {
+              let count: Int.Partial? =
                 if let countContent = object["count"] {
-                  return try Int.Partial?(from: countContent)
+                  try Int.Partial?(from: countContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let value2: Double.Partial? = try {
+              let value2: Double.Partial? =
                 if let value2Content = object["value2"] {
-                  return try Double.Partial?(from: value2Content)
+                  try Double.Partial?(from: value2Content)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let flag: Bool.Partial? = try {
+              let flag: Bool.Partial? =
                 if let flagContent = object["flag"] {
-                  return try Bool.Partial?(from: flagContent)
+                  try Bool.Partial?(from: flagContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .item0(value, count: count, value2, flag: flag)
             case "item1":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let value1: String.Partial? = try {
+              let value1: String.Partial? =
                 if let value1Content = object["value1"] {
-                  return try String.Partial?(from: value1Content)
+                  try String.Partial?(from: value1Content)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let value2: [String].Partial? = try {
+              let value2: [String].Partial? =
                 if let value2Content = object["value2"] {
-                  return try [String].Partial?(from: value2Content)
+                  try [String].Partial?(from: value2Content)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
-              let value3: [String].Partial? = try {
+              let value3: [String].Partial? =
                 if let value3Content = object["value3"] {
-                  return try [String].Partial?(from: value3Content)
+                  try [String].Partial?(from: value3Content)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .item1(value, value1, value2, value3)
             case "item3":
               self = .item3
@@ -1994,29 +1974,12 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("item0")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "count": Schema.Property(
-                    schema: Int.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "value2": Schema.Property(
-                    schema: Double.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "flag": Schema.Property(
-                    schema: Bool.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
+                  "count": Schema.Property(schema: Int.schema, description: nil),
+                  "value2": Schema.Property(schema: Double.schema, description: nil),
+                  "flag": Schema.Property(schema: Bool.schema, description: nil),
                 ]
               ),
               .object(
@@ -2025,28 +1988,17 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("item1")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
-                  "value1": Schema.Property(
-                    schema: String?.schema,
-                    description: nil,
-                    isOptional: true
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
+                  "value1": Schema.Property(schema: String?.schema, description: nil),
                   "value2": Schema.Property(
                     schema: [String].schema,
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
                   "value3": Schema.Property(
                     schema: [String]?.schema,
-                    description: nil,
-                    isOptional: true
+                    description: nil
                   ),
                 ]
               ),
@@ -2056,8 +2008,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("item3")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -2098,8 +2049,8 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "item0":
             guard let valueContent = object["value"] else {
@@ -2124,26 +2075,24 @@ struct GenerableMacroTests {
               throw LLMError.generalError("Missing required property: value")
             }
             let value = try String(from: valueContent)
-            let value1: String? = try {
+            let value1: String? =
               if let value1Content = object["value1"] {
-                return try String?(from: value1Content)
+                try String?(from: value1Content)
               }
               else {
-                return nil
+                nil
               }
-            }()
             guard let value2Content = object["value2"] else {
               throw LLMError.generalError("Missing required property: value2")
             }
             let value2 = try [String] (from: value2Content)
-            let value3: [String]? = try {
+            let value3: [String]? =
               if let value3Content = object["value3"] {
-                return try [String]?(from: value3Content)
+                try [String]?(from: value3Content)
               }
               else {
-                return nil
+                nil
               }
-            }()
             self = .item1(value, value1, value2, value3)
           case "item3":
             self = .item3
@@ -2219,40 +2168,37 @@ struct GenerableMacroTests {
             guard let typeContent = object["type"] else {
               throw LLMError.generalError("Missing 'type' discriminator for enum")
             }
-            let type = try typeContent.string
 
+            let type = try typeContent.string
             switch type {
             case "idle":
               self = .idle
             case "loading":
-              let message: String.Partial? = try {
+              let message: String.Partial? =
                 if let messageContent = object["message"] {
-                  return try String.Partial?(from: messageContent)
+                  try String.Partial?(from: messageContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .loading(message: message)
             case "success":
-              let value: String.Partial? = try {
+              let value: String.Partial? =
                 if let valueContent = object["value"] {
-                  return try String.Partial?(from: valueContent)
+                  try String.Partial?(from: valueContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .success(value: value)
             case "failure":
-              let error: String.Partial? = try {
+              let error: String.Partial? =
                 if let errorContent = object["error"] {
-                  return try String.Partial?(from: errorContent)
+                  try String.Partial?(from: errorContent)
                 }
                 else {
-                  return nil
+                  nil
                 }
-              }()
               self = .failure(error: error)
             default:
               throw LLMError.generalError("Unknown enum case: \(type)")
@@ -2271,8 +2217,7 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("idle")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   )
                 ]
               ),
@@ -2282,14 +2227,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("loading")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "message": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "message": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -2298,14 +2238,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("success")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "value": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "value": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
               .object(
@@ -2314,14 +2249,9 @@ struct GenerableMacroTests {
                 properties: [
                   "type": Schema.Property(
                     schema: .string(constraints: [.constant("failure")]),
-                    description: nil,
-                    isOptional: false
+                    description: nil
                   ),
-                  "error": Schema.Property(
-                    schema: String.schema,
-                    description: nil,
-                    isOptional: false
-                  ),
+                  "error": Schema.Property(schema: String.schema, description: nil),
                 ]
               ),
             ]
@@ -2366,8 +2296,8 @@ struct GenerableMacroTests {
           guard let typeContent = object["type"] else {
             throw LLMError.generalError("Missing 'type' discriminator for enum")
           }
-          let type = try typeContent.string
 
+          let type = try typeContent.string
           switch type {
           case "idle":
             self = .idle
@@ -2389,6 +2319,202 @@ struct GenerableMacroTests {
             }
             let error = try String(from: errorContent)
             self = .failure(error: error)
+          default:
+            throw LLMError.generalError("Unknown enum case: \(type)")
+          }
+        }
+      }
+      """#
+    }
+  }
+
+  @Test
+  func testEnumWithExplicitOptionalAssociatedValues() throws {
+    assertMacro(indentationWidth: .spaces(2)) {
+      """
+      @Generable
+      enum DataResult {
+        case data(value: Optional<String>)
+        case error(code: Swift.Optional<Int>)
+        case empty
+      }
+      """
+    } expansion: {
+      #"""
+      enum DataResult {
+        case data(value: Optional<String>)
+        case error(code: Swift.Optional<Int>)
+        case empty
+      }
+
+      nonisolated extension DataResult: SwiftAI.Generable {
+        public nonisolated enum Partial: SwiftAI.GenerableContentConvertible, Sendable
+        {
+          case data(value: String.Partial?)
+          case error(code: Int.Partial?)
+          case empty
+
+          public nonisolated var generableContent: StructuredContent {
+            switch self {
+            case .data(let value):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("data")),
+                  "value": value.generableContent,
+                ])
+              )
+            case .error(let code):
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("error")),
+                  "code": code.generableContent,
+                ])
+              )
+            case .empty:
+              return StructuredContent(
+                kind: .object([
+                  "type": StructuredContent(kind: .string("empty"))
+                ]
+                )
+              )
+            }
+          }
+
+          public nonisolated init(from structuredContent: StructuredContent) throws {
+            let object = try structuredContent.object
+            guard let typeContent = object["type"] else {
+              throw LLMError.generalError("Missing 'type' discriminator for enum")
+            }
+
+            let type = try typeContent.string
+            switch type {
+            case "data":
+              let value: String.Partial? =
+                if let valueContent = object["value"] {
+                  try String.Partial?(from: valueContent)
+                }
+                else {
+                  nil
+                }
+              self = .data(value: value)
+            case "error":
+              let code: Int.Partial? =
+                if let codeContent = object["code"] {
+                  try Int.Partial?(from: codeContent)
+                }
+                else {
+                  nil
+                }
+              self = .error(code: code)
+            case "empty":
+              self = .empty
+            default:
+              throw LLMError.generalError("Unknown enum case: \(type)")
+            }
+          }
+        }
+
+        public nonisolated static var schema: Schema {
+          .anyOf(
+            name: "DataResult",
+            description: nil,
+            schemas: [
+              .object(
+                name: "dataDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("data")]),
+                    description: nil
+                  ),
+                  "value": Schema.Property(
+                    schema: Optional<String> .schema,
+                    description: nil
+                  ),
+                ]
+              ),
+              .object(
+                name: "errorDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("error")]),
+                    description: nil
+                  ),
+                  "code": Schema.Property(
+                    schema: Swift.Optional<Int> .schema,
+                    description: nil
+                  ),
+                ]
+              ),
+              .object(
+                name: "emptyDiscriminator",
+                description: nil,
+                properties: [
+                  "type": Schema.Property(
+                    schema: .string(constraints: [.constant("empty")]),
+                    description: nil
+                  )
+                ]
+              ),
+            ]
+          )
+        }
+
+        public nonisolated var generableContent: StructuredContent {
+          switch self {
+          case .data(let value):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("data")),
+                "value": value.generableContent,
+              ])
+            )
+          case .error(let code):
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("error")),
+                "code": code.generableContent,
+              ])
+            )
+          case .empty:
+            return StructuredContent(
+              kind: .object([
+                "type": StructuredContent(kind: .string("empty"))
+              ]
+              )
+            )
+          }
+        }
+
+        public nonisolated init(from structuredContent: StructuredContent) throws {
+          let object = try structuredContent.object
+          guard let typeContent = object["type"] else {
+            throw LLMError.generalError("Missing 'type' discriminator for enum")
+          }
+
+          let type = try typeContent.string
+          switch type {
+          case "data":
+            let value: String? =
+              if let valueContent = object["value"] {
+                try String?(from: valueContent)
+              }
+              else {
+                nil
+              }
+            self = .data(value: value)
+          case "error":
+            let code: Swift.Optional<Int> =
+              if let codeContent = object["code"] {
+                try Swift.Optional<Int>(from: codeContent)
+              }
+              else {
+                nil
+              }
+            self = .error(code: code)
+          case "empty":
+            self = .empty
           default:
             throw LLMError.generalError("Unknown enum case: \(type)")
           }

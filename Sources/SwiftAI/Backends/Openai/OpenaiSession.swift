@@ -15,7 +15,7 @@ public final actor OpenaiSession: LLMSession {
         FunctionTool(
           name: tool.name,
           description: tool.description,
-          parameters: try convertSchemaToJSONSchema(type(of: tool).parameters),
+          parameters: try convertRootSchemaToOpenaiSupportedJsonSchema(type(of: tool).parameters),
           strict: true
         )
       }

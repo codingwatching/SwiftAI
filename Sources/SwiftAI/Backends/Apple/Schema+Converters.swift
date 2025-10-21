@@ -43,6 +43,10 @@ extension Schema {
 
     case .anyOf(let name, let description, let schemas):
       return try convertAnyOf(name: name, description: description, schemas: schemas)
+
+    case .optional(let wrapped):
+      assertionFailure("Top-level optional schemas are not supported by the Apple backend")
+      return try wrapped.toDynamicGenerationSchema()
     }
   }
 }
@@ -60,8 +64,8 @@ private func convertObject(
       DynamicGenerationSchema.Property(
         name: name,
         description: property.description,
-        schema: try property.schema.toDynamicGenerationSchema(),
-        isOptional: property.isOptional
+        schema: try property.schema.unwrapped.toDynamicGenerationSchema(),
+        isOptional: property.schema.isOptional
       )
     }
   )

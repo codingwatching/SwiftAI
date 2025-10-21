@@ -12,6 +12,9 @@ public enum Schema: Sendable, Equatable {
   //   This would disallow writing `schema.withConstraint(.pattern("abc"))` when the schema
   //   represents an integer, for example.
 
+  /// A value that may possibly be null or absent.
+  indirect case optional(wrapped: Schema)
+
   /// An object with defined properties.
   case object(name: String, description: String?, properties: OrderedDictionary<String, Property>)
 
@@ -58,6 +61,10 @@ public enum Schema: Sendable, Equatable {
   }
 
   func withConstraint(_ constraint: AnyConstraint) -> Schema {
+    if case .optional(let wrapped) = self {
+      return .optional(wrapped: wrapped.withConstraint(constraint))
+    }
+
     switch (self, constraint.payload) {
     case (.array(let items, let constraints), .sub(let subConstraint)):
       return .array(items: items.withConstraint(subConstraint), constraints: constraints)
@@ -99,7 +106,10 @@ public enum Schema: Sendable, Equatable {
     }
   }
 
-  /// Represents a property within an object schema.
+  /// Represents a sub-schema of an object member.
+  ///
+  /// If the sub-schema is optional, then this property can possibly be either
+  /// null or absent.
   public struct Property: Sendable, Equatable {
     /// The schema that defines this property's structure.
     public let schema: Schema
@@ -107,19 +117,34 @@ public enum Schema: Sendable, Equatable {
     /// Provides context for this property within the parent object.
     public let description: String?
 
-    /// Whether this property is optional in the parent object.
-    public let isOptional: Bool
-
-    /// Creates a new property with the specified schema and optionality.
+    /// Creates a new property with the specified schema and metadata.
+    ///
+    /// Optional properties should wrap their schema in `.optional(wrapped:)`.
     ///
     /// - Parameters:
     ///   - schema: The schema that defines this property's structure
     ///   - description: Optional description for this property
-    ///   - isOptional: Whether this property is optional in the parent object
-    public init(schema: Schema, description: String?, isOptional: Bool) {
+    public init(schema: Schema, description: String?) {
       self.schema = schema
       self.description = description
-      self.isOptional = isOptional
     }
+  }
+}
+
+extension Schema {
+  /// Returns `true` when the schema is wrapped in `.optional`.
+  public var isOptional: Bool {
+    if case .optional = self {
+      return true
+    }
+    return false
+  }
+
+  /// Returns the innermost schema by stripping all `.optional` wrappers.
+  public var unwrapped: Schema {
+    if case .optional(let wrapped) = self {
+      return wrapped.unwrapped
+    }
+    return self
   }
 }

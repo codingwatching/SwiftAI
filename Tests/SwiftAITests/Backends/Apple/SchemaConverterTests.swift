@@ -193,18 +193,12 @@ import OrderedCollections
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func simpleObjectConversion() throws {
-<<<<<<< HEAD
   let properties: OrderedDictionary<String, Schema.Property> = [
-    "name": Schema.Property(schema: .string(constraints: []), description: nil, isOptional: false),
-    "age": Schema.Property(schema: .integer(constraints: []), description: nil, isOptional: true),
-=======
-  let properties = [
     "name": Schema.Property(schema: .string(constraints: []), description: nil),
     "age": Schema.Property(
       schema: .optional(wrapped: .integer(constraints: [])),
       description: nil
     ),
->>>>>>> main
   ]
   let schema = Schema.object(
     name: "Person", description: "Basic information about a person", properties: properties)
@@ -516,13 +510,8 @@ import OrderedCollections
 
 @available(iOS 26.0, macOS 26.0, *)
 @Test func objectWithoutDescriptionConversion() throws {
-<<<<<<< HEAD
   let properties: OrderedDictionary<String, Schema.Property> = [
-    "value": Schema.Property(schema: .string(constraints: []), description: nil, isOptional: false)
-=======
-  let properties = [
     "value": Schema.Property(schema: .string(constraints: []), description: nil)
->>>>>>> main
   ]
   let schema = Schema.object(
     name: "SimpleObject",

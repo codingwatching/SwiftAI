@@ -181,8 +181,7 @@ private func convertObjectSchema(
     // https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object
     .type(.object),
     .title(name),
-    // Convert OrderedDictionary to Dictionary for OpenAI SDK compatibility
-    // TODO: This loses ordering which may affect generation results. Fix this here once OpenAI SDK supports stable ordering.
+    // Order of properties is not guaranteed to be preserved because the Swift dictionaries are unordered.
     // https://platform.openai.com/docs/guides/structured-outputs#key-ordering
     .properties(Dictionary(uniqueKeysWithValues: jsonProperties)),
     // Openai requires that every property in the object schema must be listed as required.

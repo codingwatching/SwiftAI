@@ -178,7 +178,7 @@ struct GenerableMacroTests {
         public nonisolated static var schema: Schema {
           .object(
             name: "AllTypes",
-            description: nil,
+            description: "A struct with a mix of types",
             properties: [
               "stringField": Schema.Property(schema: String.schema, description: nil),
               "intField": Schema.Property(schema: Int.schema, description: nil),

@@ -24,10 +24,12 @@ public struct GenerableMacro: ExtensionMacro {
     conformingTo _: [TypeSyntax],
     in _: some MacroExpansionContext
   ) throws -> [ExtensionDeclSyntax] {
+    let generableDescription = parseGenerableDescription(from: node)
+
     if let structDecl = declaration.as(StructDeclSyntax.self) {
-      return try expandStruct(structDecl, type: type)
+      return try expandStruct(structDecl, type: type, generableDescription: generableDescription)
     } else if let enumDecl = declaration.as(EnumDeclSyntax.self) {
-      return try expandEnum(enumDecl, type: type)
+      return try expandEnum(enumDecl, type: type, generableDescription: generableDescription)
     } else {
       throw GenerableMacroError(
         message: "@Generable can only be applied to structs or enums",
@@ -38,11 +40,11 @@ public struct GenerableMacro: ExtensionMacro {
 
   private static func expandStruct(
     _ structDecl: StructDeclSyntax,
-    type: some TypeSyntaxProtocol
+    type: some TypeSyntaxProtocol,
+    generableDescription: String?
   ) throws -> [ExtensionDeclSyntax] {
     let structName = type.trimmed.description
     let propertyDescriptors = try parseStoredProperties(from: structDecl)
-    // TODO: Extract description from @Generable macro if provided
 
     let extensionDecl = try ExtensionDeclSyntax(
       "nonisolated extension \(type.trimmed): SwiftAI.Generable"
@@ -50,8 +52,12 @@ public struct GenerableMacro: ExtensionMacro {
       try emitPartialStruct(structName: structName, properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitSchemaVariable(structName: structName, properties: propertyDescriptors)
-        .with(\.trailingTrivia, .newlines(2))
+      try emitSchemaVariable(
+        structName: structName,
+        description: generableDescription,
+        properties: propertyDescriptors
+      )
+      .with(\.trailingTrivia, .newlines(2))
 
       try emitGenerableContentVariable(properties: propertyDescriptors)
         .with(\.trailingTrivia, .newlines(2))
@@ -64,7 +70,8 @@ public struct GenerableMacro: ExtensionMacro {
 
   private static func expandEnum(
     _ enumDecl: EnumDeclSyntax,
-    type: some TypeSyntaxProtocol
+    type: some TypeSyntaxProtocol,
+    generableDescription: String?
   ) throws -> [ExtensionDeclSyntax] {
     let enumName = type.trimmed.description
     let cases = try parseEnumCases(from: enumDecl)
@@ -75,7 +82,11 @@ public struct GenerableMacro: ExtensionMacro {
       try emitEnumPartial(enumName: enumName, cases: cases)
         .with(\.trailingTrivia, .newlines(2))
 
-      try emitEnumSchemaVariable(enumName: enumName, cases: cases)
+      try emitEnumSchemaVariable(
+        enumName: enumName,
+        description: generableDescription,
+        cases: cases
+      )
         .with(\.trailingTrivia, .newlines(2))
 
       try emitEnumGenerableContentVariable(cases: cases)
@@ -89,6 +100,27 @@ public struct GenerableMacro: ExtensionMacro {
 }
 
 // MARK: - Private API
+
+private func extractStaticString(from literal: StringLiteralExprSyntax) -> String {
+  return literal.segments.compactMap { segment in
+    segment.as(StringSegmentSyntax.self)?.content.text
+  }.joined()
+}
+
+private func parseGenerableDescription(from attribute: AttributeSyntax) -> String? {
+  guard let arguments = attribute.arguments?.as(LabeledExprListSyntax.self) else {
+    return nil
+  }
+
+  for argument in arguments where argument.label?.text == "description" {
+    guard let literal = argument.expression.as(StringLiteralExprSyntax.self) else {
+      continue
+    }
+    return extractStaticString(from: literal)
+  }
+
+  return nil
+}
 
 private struct GuideMacroDescriptor {
   /// The user provided description in the @Guide macro.
@@ -122,10 +154,7 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
     // TODO: Revisit whether properties with default values should be excluded from schema
   }
 
-  // TODO: Handle @Generable with a `description` parameter.
-
   var propertyDescriptors: [PropertyDescriptor] = []
-
   for memberDecl in storedMembersDecls {
     for bindingSyntax in memberDecl.bindings {
       guard let identifierSyntax = bindingSyntax.pattern.as(IdentifierPatternSyntax.self) else {
@@ -174,6 +203,7 @@ private func parseStoredProperties(from structDecl: StructDeclSyntax) throws
 ///   }
 private func emitSchemaVariable(
   structName: String,
+  description: String?,
   properties: [PropertyDescriptor]
 ) throws -> VariableDeclSyntax {
   var schemaPropExprs: [DictionaryElementSyntax] = []
@@ -205,11 +235,18 @@ private func emitSchemaVariable(
     schemaPropExprs.append(schemaPropExpr)
   }
 
+  let structDescriptionExpr: ExprSyntax =
+    if let desc = description {
+      ExprSyntax(literal: desc)
+    } else {
+      ExprSyntax("nil")
+    }
+
   return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .object(
       name: "\(raw: structName)",
-      description: nil,
+      description: \(structDescriptionExpr),
       properties: \(DictionaryExprSyntax {
         for schemaPropExpr in schemaPropExprs {
           schemaPropExpr
@@ -418,11 +455,8 @@ private func parseGuideMacro(for property: VariableDeclSyntax) -> GuideMacroDesc
       for arg in arguments {
         if let label = arg.label?.text {
           if label == "description" {
-            if let stringLiteral = arg.expression.as(StringLiteralExprSyntax.self),
-              let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
-            {
-              let desc = String(segment.content.text)
-              description = desc.isEmpty ? nil : desc
+            if let stringLiteral = arg.expression.as(StringLiteralExprSyntax.self) {
+              description = extractStaticString(from: stringLiteral)
             }
           }
         } else {
@@ -734,6 +768,7 @@ private func emitEnumPartial(
 ///   }
 private func emitEnumSchemaVariable(
   enumName: String,
+  description: String?,
   cases: [EnumCaseDescriptor]
 ) throws -> VariableDeclSyntax {
   var caseSchemaExprs = [ArrayElementSyntax]()
@@ -793,12 +828,18 @@ private func emitEnumSchemaVariable(
     }
   }
 
-  // TODO: Add description if set in @Generable.
+  let enumDescriptionExpr: ExprSyntax =
+    if let desc = description {
+      ExprSyntax(literal: desc)
+    } else {
+      ExprSyntax("nil")
+    }
+
   return try VariableDeclSyntax("public nonisolated static var schema: Schema") {
     """
     .anyOf(
       name: \(literal: enumName),
-      description: nil,
+      description: \(enumDescriptionExpr),
       schemas: \(ArrayExprSyntax {
         for schemaExpr in caseSchemaExprs {
           schemaExpr

@@ -1248,7 +1248,7 @@ struct GenerableTests {
   func schemaForEnumWithCommaSeparatedCaseDeclarations_ReturnsAnyOfWithObjectDiscriminators() {
     let want = Schema.anyOf(
       name: "ApiResponse",
-      description: nil,
+      description: "The API response status",
       schemas: [
         .object(
           name: "pendingDiscriminator",
@@ -1355,6 +1355,30 @@ struct GenerableTests {
     let reconstructed = try ApiResponse(from: content)
     #expect(reconstructed == original)
   }
+
+  // MARK: @Generable Description Parameter Tests
+
+  @Test
+  func testStructWithDescription_SchemaIncludesDescription() {
+    let schema = NestedStruct.schema
+    guard case .object(let name, let description, _) = schema else {
+      Issue.record("Expected .object schema for NestedStruct")
+      return
+    }
+    #expect(name == "NestedStruct")
+    #expect(description == "A struct that contains another struct")
+  }
+
+  @Test
+  func testEnumWithDescription_SchemaIncludesDescription() {
+    let schema = ApiResponse.schema
+    guard case .anyOf(let name, let description, _) = schema else {
+      Issue.record("Expected .anyOf schema for ApiResponse")
+      return
+    }
+    #expect(name == "ApiResponse")
+    #expect(description == "The API response status")
+  }
 }
 
 // MARK: - Test Structs
@@ -1389,7 +1413,7 @@ private struct ArraysStruct {
   let boolArray: [Bool]
 }
 
-@Generable
+@Generable(description: "A struct that contains another struct")
 private struct NestedStruct {
   let name: String
   let nested: PrimitivesStruct
@@ -1462,7 +1486,7 @@ private struct JobResult: Equatable {
 }
 
 // Enum with comma-separated case declarations
-@Generable
+@Generable(description: "The API response status")
 private enum ApiResponse: Equatable {
   case pending, success(data: String)
   case error(message: String)

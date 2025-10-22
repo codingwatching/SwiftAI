@@ -241,9 +241,17 @@ private func convertIntegerSchema(
     fields.append(.type(.integer))
   }
 
-  // TODO: Support integer constraints.
-  // For now skipping them because the underlying SDK converts them to Decimal and Openai fails at decoding them.
-  _ = constraints
+  for constraint in constraints {
+    switch constraint {
+    case .range(let lowerBound, let upperBound):
+      if let lower = lowerBound {
+        fields.append(.minimum(lower))
+      }
+      if let upper = upperBound {
+        fields.append(.maximum(upper))
+      }
+    }
+  }
 
   return JSONSchema(fields: fields)
 }
@@ -262,9 +270,17 @@ private func convertNumberSchema(
     fields.append(.type(.number))
   }
 
-  // TODO: Support double constraints.
-  // For now skipping them because the underlying SDK converts them to Decimal and Openai fails at decoding them.
-  _ = constraints
+  for constraint in constraints {
+    switch constraint {
+    case .range(let lowerBound, let upperBound):
+      if let lower = lowerBound {
+        fields.append(.minimum(lower))
+      }
+      if let upper = upperBound {
+        fields.append(.maximum(upper))
+      }
+    }
+  }
 
   return JSONSchema(fields: fields)
 }

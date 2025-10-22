@@ -133,7 +133,9 @@ func convertRootSchemaToOpenaiSupportedJsonSchema(_ schema: Schema) throws -> JS
 }
 
 /// Converts SwiftAI Schema to Openai JSONSchema format.
-private func convertSchemaToJSONSchema(_ schema: Schema) throws -> JSONSchema {
+private func convertSchemaToJSONSchema(_ schema: Schema, description: String? = nil) throws
+  -> JSONSchema
+{
   // TODO: Optional objects and anyOf schemas are not supported.
   // It's unclear if we need to support nullability for these cases.
 
@@ -145,19 +147,20 @@ private func convertSchemaToJSONSchema(_ schema: Schema) throws -> JSONSchema {
     return try convertAnyOfSchema(name: name, description: description, schemas: schemas)
   case .string(let constraints):
     return convertStringSchema(
-      constraints: constraints, isOptional: schema.isOptional)
+      constraints: constraints, isOptional: schema.isOptional, description: description)
   case .integer(let constraints):
     return convertIntegerSchema(
-      constraints: constraints, isOptional: schema.isOptional)
+      constraints: constraints, isOptional: schema.isOptional, description: description)
   case .number(let constraints):
     return convertNumberSchema(
-      constraints: constraints, isOptional: schema.isOptional)
+      constraints: constraints, isOptional: schema.isOptional, description: description)
   case .boolean(let constraints):
     return convertBooleanSchema(
-      constraints: constraints, isOptional: schema.isOptional)
+      constraints: constraints, isOptional: schema.isOptional, description: description)
   case .array(let itemSchema, let constraints):
     return try convertArraySchema(
-      itemSchema: itemSchema, constraints: constraints, isOptional: schema.isOptional)
+      itemSchema: itemSchema, constraints: constraints, isOptional: schema.isOptional,
+      description: description)
   case .optional(_):
     assertionFailure("Impossible case. Type was already unwrapped. This should never happen.")
     return JSONSchema(fields: [])
@@ -172,8 +175,7 @@ private func convertObjectSchema(
   properties: OrderedDictionary<String, Schema.Property>
 ) throws -> JSONSchema {
   let jsonProperties = try properties.map { key, property in
-    // TODO: We should send the property description.
-    (key, try convertSchemaToJSONSchema(property.schema))
+    (key, try convertSchemaToJSONSchema(property.schema, description: property.description))
   }
 
   var fields: [JSONSchemaField] = [
@@ -201,7 +203,8 @@ private func convertObjectSchema(
 
 private func convertStringSchema(
   constraints: [StringConstraint],
-  isOptional: Bool
+  isOptional: Bool,
+  description: String? = nil
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -211,6 +214,10 @@ private func convertStringSchema(
     fields.append(.type(.types(["string", "null"])))
   } else {
     fields.append(.type(.string))
+  }
+
+  if let description {
+    fields.append(.description(description))
   }
 
   for constraint in constraints {
@@ -229,7 +236,8 @@ private func convertStringSchema(
 
 private func convertIntegerSchema(
   constraints: [IntConstraint],
-  isOptional: Bool
+  isOptional: Bool,
+  description: String? = nil
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -239,6 +247,10 @@ private func convertIntegerSchema(
     fields.append(.type(.types(["integer", "null"])))
   } else {
     fields.append(.type(.integer))
+  }
+
+  if let description {
+    fields.append(.description(description))
   }
 
   for constraint in constraints {
@@ -258,7 +270,8 @@ private func convertIntegerSchema(
 
 private func convertNumberSchema(
   constraints: [DoubleConstraint],
-  isOptional: Bool
+  isOptional: Bool,
+  description: String? = nil
 ) -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -268,6 +281,10 @@ private func convertNumberSchema(
     fields.append(.type(.types(["number", "null"])))
   } else {
     fields.append(.type(.number))
+  }
+
+  if let description {
+    fields.append(.description(description))
   }
 
   for constraint in constraints {
@@ -287,21 +304,31 @@ private func convertNumberSchema(
 
 private func convertBooleanSchema(
   constraints: [BoolConstraint],
-  isOptional: Bool
+  isOptional: Bool,
+  description: String? = nil
 ) -> JSONSchema {
+  var fields: [JSONSchemaField] = []
+
   if isOptional {
     // Openai emulates optional fields using a union type with "null".
     // https://platform.openai.com/docs/guides/structured-outputs#all-fields-must-be-required
-    return JSONSchema(fields: [.type(.types(["boolean", "null"]))])
+    fields.append(.type(.types(["boolean", "null"])))
   } else {
-    return JSONSchema(fields: [.type(.boolean)])
+    fields.append(.type(.boolean))
   }
+
+  if let description {
+    fields.append(.description(description))
+  }
+
+  return JSONSchema(fields: fields)
 }
 
 private func convertArraySchema(
   itemSchema: Schema,
   constraints: [ArrayConstraint],
-  isOptional: Bool
+  isOptional: Bool,
+  description: String? = nil
 ) throws -> JSONSchema {
   var fields: [JSONSchemaField] = []
 
@@ -312,6 +339,10 @@ private func convertArraySchema(
     fields.append(.type(.types(["array", "null"])))
   } else {
     fields.append(.type(.array))
+  }
+
+  if let description {
+    fields.append(.description(description))
   }
 
   for constraint in constraints {

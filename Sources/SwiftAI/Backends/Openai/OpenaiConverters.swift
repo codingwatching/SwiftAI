@@ -133,34 +133,47 @@ func convertRootSchemaToOpenaiSupportedJsonSchema(_ schema: Schema) throws -> JS
 }
 
 /// Converts SwiftAI Schema to Openai JSONSchema format.
-private func convertSchemaToJSONSchema(_ schema: Schema, description: String? = nil) throws
+private func convertSwiftAISchemaToJSONSchema(_ schema: Schema, propertyDescription: String? = nil)
+  throws
   -> JSONSchema
 {
-  // TODO: Optional objects and anyOf schemas are not supported.
-  // It's unclear if we need to support nullability for these cases.
+
+  // Sometimes both the property description and the type description are provided.
+  // We combine them using a separator to avoid losing information.
+  //
+  // Note: Emitting {"ref": "...", "description": "..."} won't work because OpenAI does
+  // not allow descriptions on properties that use $ref.
+  let descriptionSeparator = " • "
 
   switch schema.unwrapped {
-  case .object(let name, let description, let properties):
+  case .object(let name, let typeDescription, let properties):
     return try convertObjectSchema(
-      name: name, description: description, properties: properties)
-  case .anyOf(let name, let description, let schemas):
-    return try convertAnyOfSchema(name: name, description: description, schemas: schemas)
+      name: name,
+      description: combineDescriptions(
+        propertyDescription, typeDescription, using: descriptionSeparator),
+      properties: properties)
+  case .anyOf(let name, let typeDescription, let schemas):
+    return try convertAnyOfSchema(
+      name: name,
+      description: combineDescriptions(
+        propertyDescription, typeDescription, using: descriptionSeparator),
+      schemas: schemas)
   case .string(let constraints):
     return convertStringSchema(
-      constraints: constraints, isOptional: schema.isOptional, description: description)
+      constraints: constraints, isOptional: schema.isOptional, description: propertyDescription)
   case .integer(let constraints):
     return convertIntegerSchema(
-      constraints: constraints, isOptional: schema.isOptional, description: description)
+      constraints: constraints, isOptional: schema.isOptional, description: propertyDescription)
   case .number(let constraints):
     return convertNumberSchema(
-      constraints: constraints, isOptional: schema.isOptional, description: description)
+      constraints: constraints, isOptional: schema.isOptional, description: propertyDescription)
   case .boolean(let constraints):
     return convertBooleanSchema(
-      constraints: constraints, isOptional: schema.isOptional, description: description)
+      constraints: constraints, isOptional: schema.isOptional, description: propertyDescription)
   case .array(let itemSchema, let constraints):
     return try convertArraySchema(
       itemSchema: itemSchema, constraints: constraints, isOptional: schema.isOptional,
-      description: description)
+      description: propertyDescription)
   case .optional(_):
     assertionFailure("Impossible case. Type was already unwrapped. This should never happen.")
     return JSONSchema(fields: [])
@@ -175,7 +188,11 @@ private func convertObjectSchema(
   properties: OrderedDictionary<String, Schema.Property>
 ) throws -> JSONSchema {
   let jsonProperties = try properties.map { key, property in
-    (key, try convertSchemaToJSONSchema(property.schema, description: property.description))
+    (
+      key,
+      try convertSwiftAISchemaToJSONSchema(
+        property.schema, propertyDescription: property.description)
+    )
   }
 
   var fields: [JSONSchemaField] = [
@@ -357,7 +374,7 @@ private func convertArraySchema(
     }
   }
 
-  let itemsSchema = try convertSchemaToJSONSchema(itemSchema)
+  let itemsSchema = try convertSwiftAISchemaToJSONSchema(itemSchema)
   fields.append(.items(itemsSchema))
 
   return JSONSchema(fields: fields)
@@ -368,7 +385,7 @@ private func convertAnyOfSchema(
   description: String?,
   schemas: [Schema]
 ) throws -> JSONSchema {
-  let convertedSchemas = try schemas.map { try convertSchemaToJSONSchema($0) }
+  let convertedSchemas = try schemas.map { try convertSwiftAISchemaToJSONSchema($0) }
   var fields: [JSONSchemaField] = [
     .anyOf(convertedSchemas)
   ]
@@ -473,5 +490,20 @@ extension ResponseObject {
 
       return .init(chunks: chunks, toolCalls: toolCalls)
     }
+  }
+}
+
+/// Combines two descriptions using a separator, only adding the separator when both parts are not empty.
+private func combineDescriptions(_ first: String?, _ second: String?, using separator: String)
+  -> String?
+{
+  let firstNonEmptyOrNil = first?.isEmpty == false ? first : nil
+  let secondNonEmptyOrNil = second?.isEmpty == false ? second : nil
+
+  switch (firstNonEmptyOrNil, secondNonEmptyOrNil) {
+  case (let f?, let s?):
+    return "\(f)\(separator)\(s)"
+  default:
+    return firstNonEmptyOrNil ?? secondNonEmptyOrNil
   }
 }

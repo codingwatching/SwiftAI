@@ -273,76 +273,84 @@ extension LLMBaseTestCases {
     async throws
   {
     let stream = llm.replyStream(
-      to: """
-        You are a precise and reliable API response parser.
-        Your job is to convert plain-text API logs into a normalized JSON object following a fixed schema.
+      to: [
+        .system(
+          .init(
+            text: """
+              You are a precise and reliable API response parser.
+              Your job is to convert plain-text API logs into a normalized JSON object following a fixed schema.
 
-        ## Rules
+              ## Rules
 
-          1.	Always output a single JSON object with these top-level keys:
-            •	"endpoint"
-            •	"result"
-            •	"responseTime"
-          2.	endpoint
-            •	Copy the value exactly as written after Endpoint:
-          3.	result
-            •	If the log contains a Status with a numeric code between 200-299, or the word "Success", set "type": "success" and include "response" with the value after Response:
-            •	If the log contains a Status with the word "Failure", or any non-2xx code, set "type": "failure" and include "errorMessage" with the value after Error message:
-          4.	responseTime
-            •	Convert the number from microseconds to milliseconds by dividing by 1000
-            •	Round to the nearest integer
+                1.	Always output a single JSON object with these top-level keys:
+                  •	"endpoint"
+                  •	"result"
+                  •	"responseTime"
+                2.	endpoint
+                  •	Copy the value exactly as written after Endpoint:
+                3.	result
+                  •	If the log contains a Status with a numeric code between 200-299, or the word "Success", set "type": "success" and include "response" with the value after Response:
+                  •	If the log contains a Status with the word "Failure", or any non-2xx code, set "type": "failure" and include "errorMessage" with the value after Error message:
+                4.	responseTime
+                  •	Convert the number from microseconds to milliseconds by dividing by 1000
+                  •	Round to the nearest integer
 
-        ## Examples
+              ## Examples
 
-        ### Example 1 (Success)
+              ### Example 1 (Success)
 
-        Input:
+              Input:
 
-        Endpoint: /api/products/789
-        Status: 200
-        Response: "Product found"
-        Response time: 50000 microseconds
+              Endpoint: /api/products/789
+              Status: 200
+              Response: "Product found"
+              Response time: 50000 microseconds
 
-        Output:
+              Output:
 
-        ```json
-        {
-          "endpoint": "/api/products/789",
-          "result": {
-            "type": "success",
-            "response": "Product found"
-          },
-          "responseTime": 50
-        }
-        ```
+              ```json
+              {
+                "endpoint": "/api/products/789",
+                "result": {
+                  "type": "success",
+                  "response": "Product found"
+                },
+                "responseTime": 50
+              }
+              ```
 
-        ### Example 2 (Failure)
+              ### Example 2 (Failure)
 
-        Endpoint: /api/orders/999
-        Status: Failure
-        Error message: Order cancelled
-        Response time: 120000 microseconds
+              Endpoint: /api/orders/999
+              Status: Failure
+              Error message: Order cancelled
+              Response time: 120000 microseconds
 
-        Output:
+              Output:
 
-        ```json
-        {
-          "endpoint": "/api/orders/999",
-          "result": {
-            "type": "failure",
-            "errorMessage": "Order cancelled"
-          },
-          "responseTime": 120
-        }
-        ```
+              ```json
+              {
+                "endpoint": "/api/orders/999",
+                "result": {
+                  "type": "failure",
+                  "errorMessage": "Order cancelled"
+                },
+                "responseTime": 120
+              }
+              ```
+              """)),
+        .user(
+          .init(
+            text: """
 
-        Now parse this API scenario:
+              Now parse the following API scenario:
 
-        Endpoint: /api/hello
-        Status: 200
-        Response: "Hello, world!"
-        Response time: 30000 microseconds
-        """,
+              Endpoint: /api/hello
+              Status: 200
+              Response: "Hello, world!"
+              Response time: 30000 microseconds
+              """)),
+      ],
       returning: ApiResponse.self,
       options: LLMReplyOptions(temperature: 0)
     )
@@ -558,76 +566,83 @@ extension LLMBaseTestCases {
     async throws
   {
     let reply = try await llm.reply(
-      to: """
-        You are a precise and reliable API response parser.
-        Your job is to convert plain-text API logs into a normalized JSON object following a fixed schema.
+      to: [
+        .system(
+          .init(
+            text: """
+              You are a precise and reliable API response parser.
+              Your job is to convert plain-text API logs into a normalized JSON object following a fixed schema.
 
-        ## Rules
+              ## Rules
 
-          1.	Always output a single JSON object with these top-level keys:
-            •	"endpoint"
-            •	"result"
-            •	"responseTime"
-          2.	endpoint
-            •	Copy the value exactly as written after Endpoint:
-          3.	result
-            •	If the log contains a Status with a numeric code between 200-299, or the word "Success", set "type": "success" and include "response" with the value after Response:
-            •	If the log contains a Status with the word "Failure", or any non-2xx code, set "type": "failure" and include "errorMessage" with the value after Error message:
-          4.	responseTime
-            •	Convert the number from microseconds to milliseconds by dividing by 1000
-            •	Round to the nearest integer
+                1.	Always output a single JSON object with these top-level keys:
+                  •	"endpoint"
+                  •	"result"
+                  •	"responseTime"
+                2.	endpoint
+                  •	Copy the value exactly as written after Endpoint:
+                3.	result
+                  •	If the log contains a Status with a numeric code between 200-299, or the word "Success", set "type": "success" and include "response" with the value after Response:
+                  •	If the log contains a Status with the word "Failure", or any non-2xx code, set "type": "failure" and include "errorMessage" with the value after Error message:
+                4.	responseTime
+                  •	Convert the number from microseconds to milliseconds by dividing by 1000
+                  •	Round to the nearest integer
 
-        ## Examples
+              ## Examples
 
-        ### Example 1 (Success)
+              ### Example 1 (Success)
 
-        Input:
+              Input:
 
-        Endpoint: /api/products/789
-        Status: 200
-        Response: "Product found"
-        Response time: 50000 microseconds
+              Endpoint: /api/products/789
+              Status: 200
+              Response: "Product found"
+              Response time: 50000 microseconds
 
-        Output:
+              Output:
 
-        ```json
-        {
-          "endpoint": "/api/products/789",
-          "result": {
-            "type": "success",
-            "response": "Product found"
-          },
-          "responseTime": 50
-        }
-        ```
+              ```json
+              {
+                "endpoint": "/api/products/789",
+                "result": {
+                  "type": "success",
+                  "response": "Product found"
+                },
+                "responseTime": 50
+              }
+              ```
 
-        ### Example 2 (Failure)
+              ### Example 2 (Failure)
 
-        Endpoint: /api/orders/999
-        Status: Failure
-        Error message: Order cancelled
-        Response time: 120000 microseconds
+              Endpoint: /api/orders/999
+              Status: 500
+              Error message: Order cancelled
+              Response time: 120000 microseconds
 
-        Output:
+              Output:
 
-        ```json
-        {
-          "endpoint": "/api/orders/999",
-          "result": {
-            "type": "failure",
-            "errorMessage": "Order cancelled"
-          },
-          "responseTime": 120
-        }
-        ```
+              ```json
+              {
+                "endpoint": "/api/orders/999",
+                "result": {
+                  "type": "failure",
+                  "errorMessage": "Order cancelled"
+                },
+                "responseTime": 120
+              }
+              ```
+              """)),
+        .user(
+          .init(
+            text: """
+              Now parse the following API scenario:
 
-        Now parse this API scenario:
-
-        Endpoint: /api/users/123
-        Status: 500
-        Error message: Internal error
-        Response time: 45000 microseconds
-        """,
+              Endpoint: /api/users/123
+              Status: 500
+              Error message: Internal error
+              Response time: 45000 microseconds
+              """)),
+      ],
       returning: ApiResponse.self,
       options: LLMReplyOptions(temperature: 0)
     )

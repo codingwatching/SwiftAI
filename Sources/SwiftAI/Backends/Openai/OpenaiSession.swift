@@ -183,7 +183,28 @@ public final actor OpenaiSession: LLMSession {
             }
           }
         } catch is CancellationError {
-          // Task was cancelled by user - no action needed
+          // Task was cancelled - no action needed
+        } catch let openAIError as OpenAIError {
+          switch openAIError {
+          case .emptyData:
+            continuation.finish(throwing: LLMError.generalError("OpenAI returned empty response"))
+          case .statusError(let response, let statusCode):
+            // Try to parse structured error response
+            if let responseURL = response.url,
+              let responseData = try? Data(contentsOf: responseURL)
+            {
+              if let apiErrorResponse = try? JSONDecoder().decode(
+                APIErrorResponse.self, from: responseData)
+              {
+                continuation.finish(throwing: apiErrorResponse.error)
+              } else if let bodyString = String(data: responseData, encoding: .utf8) {
+                continuation.finish(
+                  throwing: LLMError.generalError("OpenAI error response: \(bodyString)"))
+              }
+            }
+            continuation.finish(
+              throwing: LLMError.generalError("OpenAI query failed with status \(statusCode)"))
+          }
         } catch {
           continuation.finish(throwing: LLMError.generalError("OpenAI streaming failed: \(error)"))
         }

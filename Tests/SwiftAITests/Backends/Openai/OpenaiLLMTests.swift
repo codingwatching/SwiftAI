@@ -224,33 +224,6 @@ struct OpenaiLLMTests: LLMBaseTestCases {
       )
     }
   }
-
-  @Test("API key validation")
-  func testOpenaiLLM_WithApiKey_ReportsAvailability() {
-    // Test with explicit API key
-    let llmWithKey = OpenaiLLM(apiToken: "test-key", model: "gpt-4.1-nano")
-    #expect(llmWithKey.isAvailable == true)
-    #expect(llmWithKey.availability == .available)
-
-    // Test with empty API key
-    let llmWithoutKey = OpenaiLLM(apiToken: "", model: "gpt-4.1-nano")
-    #expect(llmWithoutKey.isAvailable == false)
-    #expect(llmWithoutKey.availability == .unavailable(reason: .apiKeyMissing))
-  }
-
-  @Test("Environment variable API key loading")
-  func testOpenaiLLM_WithEnvironmentKey_ReportsAvailability() {
-    // This test checks that the environment variable is read
-    // The actual value depends on the test environment
-    let llm = OpenaiLLM(model: "gpt-4.1-nano")
-
-    let hasEnvKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] != nil
-    let expectedAvailability: LLMAvailability =
-      hasEnvKey ? .available : .unavailable(reason: .apiKeyMissing)
-
-    #expect(llm.isAvailable == hasEnvKey)
-    #expect(llm.availability == expectedAvailability)
-  }
 }
 
 /// Check if Openai API key is available for integration tests

@@ -5,53 +5,60 @@ import OpenAI
 public struct OpenaiLLM: LLM {
   public typealias Session = OpenaiSession
 
+  /// Model name used for inference.
+  /// OpenAI offers a wide range of models with different capabilities, performance characteristics, and price points.
+  /// Refer to the [model guide](https://platform.openai.com/docs/models) to browse and compare available models.
+  public let model: String
+
   private let client: OpenAIProtocol
-  private let model: String
-  private let hasApiToken: Bool
 
   /// Creates a new Openai LLM instance.
   ///
   /// - Parameters:
   ///   - apiToken: Your Openai API token. If nil, will try to read from OPENAI_API_KEY environment variable.
-  ///   - model: The model to use (e.g., "gpt-4", "gpt-3.5-turbo")
-  ///   - baseURL: The URL of the API endpoint where requests are sent. If not set, defaults to Openai's API endpoint.
+  ///   - model: The model to use for inference (e.g., "gpt-4", "gpt-3.5-turbo").
+  ///     Refer to the [model guide](https://platform.openai.com/docs/models) for the full list of available models.
+  ///   - organizationIdentifier: Optional OpenAI organization identifier.
+  ///   - host: API host. Set this if you use a proxy or your own server. Default is "api.openai.com".
+  ///   - basePath: Optional base path if OpenAI API proxy is on a custom path. Default is "/v1".
+  ///   - port: The port for the API endpoint. Default is 443.
+  ///   - scheme: The URL scheme. Default is "https".
+  ///   - customHeaders: Additional headers to include in all requests.
+  ///     These values override default headers if names collide.
   ///   - timeoutInterval: Request timeout in seconds (default: 60.0)
   public init(
-    apiToken: String? = nil, model: String, baseURL: String? = nil,
+    apiToken: String? = nil,
+    model: String,
+    organizationIdentifier: String? = nil,
+    host: String = "api.openai.com",
+    basePath: String = "/v1",
+    port: Int = 443,
+    scheme: String = "https",
+    customHeaders: [String: String] = [:],
     timeoutInterval: TimeInterval = 60.0
   ) {
-    let token = apiToken ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? ""
-    let configuration: OpenAI.Configuration
-    if let baseURL = baseURL {
-      configuration = OpenAI.Configuration(
-        token: token,
-        host: baseURL,
-        timeoutInterval: timeoutInterval
-      )
-    } else {
-      configuration = OpenAI.Configuration(token: token, timeoutInterval: timeoutInterval)
-    }
+    let token = apiToken ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
+    let configuration = OpenAI.Configuration(
+      token: token,
+      organizationIdentifier: organizationIdentifier,
+      host: host,
+      port: port,
+      scheme: scheme,
+      basePath: basePath,
+      timeoutInterval: timeoutInterval,
+      customHeaders: customHeaders
+    )
 
     self.client = OpenAI(configuration: configuration)
     self.model = model
-    self.hasApiToken = !token.isEmpty
   }
 
-  /// Returns true if there is a non-empty API token.
   public var isAvailable: Bool {
-    hasApiToken
+    true
   }
 
-  /// The detailed availability status of the OpenAI language model.
-  ///
-  /// This checks for API key presence and returns appropriate availability status.
-  /// Network connectivity checks are not performed for performance reasons.
   public var availability: LLMAvailability {
-    if hasApiToken {
-      return .available
-    } else {
-      return .unavailable(reason: .apiKeyMissing)
-    }
+    .available
   }
 
   public func makeSession(tools: [any Tool], messages: [Message]) -> OpenaiSession {
@@ -144,12 +151,6 @@ public struct OpenaiLLM: LLM {
     in session: OpenaiSession,
     options: LLMReplyOptions
   ) -> AsyncThrowingStream<T.Partial, Error> where T: Sendable {
-    guard isAvailable else {
-      return AsyncThrowingStream { continuation in
-        continuation.finish(throwing: LLMError.generalError("OpenAI API key missing"))
-      }
-    }
-
     return AsyncThrowingStream { continuation in
       Task {
         let stream = await session.generateResponseStream(

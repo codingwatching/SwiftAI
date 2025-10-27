@@ -19,7 +19,7 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "510.0.0"),
     .package(url: "https://github.com/swiftlang/swift-format.git", from: "510.0.0"),
-    .package(url: "https://github.com/MacPaw/OpenAI.git", from: "0.4.6"),
+    .package(url: "https://github.com/MacPaw/OpenAI.git", branch: "0.4.7"),
     .package(url: "https://github.com/pointfreeco/swift-macro-testing.git", from: "0.6.3"),
     .package(url: "https://github.com/ml-explore/mlx-swift-examples.git", from: "2.25.6"),
     .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),

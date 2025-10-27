@@ -273,33 +273,86 @@ extension LLMBaseTestCases {
     async throws
   {
     let stream = llm.replyStream(
-      to: """
-        Parse the following API response exactly as instructed.
-        Do not assume or infer anything beyond what is given.
+      to: [
+        .system(
+          .init(
+            text: """
+              You are a precise and reliable API response parser.
+              Your job is to convert plain-text API logs into a normalized JSON object following a fixed schema.
 
-        > Example:
-        Endpoint: /api/products/789
-        Status: 200
-        Response: "Product found"
-        Response time: 50ms
+              ## Rules
 
-        > Output:
-        {
-          "endpoint": "/api/products/789",
-          "result": {
-            "type": "success",
-            "response": "Product found"
-          },
-          "responseTimeMs": 50
-        }
+                1.	Always output a single JSON object with these top-level keys:
+                  •	"endpoint"
+                  •	"result"
+                  •	"responseTime"
+                2.	endpoint
+                  •	Copy the value exactly as written after Endpoint:
+                3.	result
+                  •	If the log contains a Status with a numeric code between 200-299, or the word "Success", set "type": "success" and include "response" with the value after Response:
+                  •	If the log contains a Status with the word "Failure", or any non-2xx code, set "type": "failure" and include "errorMessage" with the value after Error message:
+                4.	responseTime
+                  •	Convert the number from microseconds to milliseconds by dividing by 1000
+                  •	Round to the nearest integer
 
-        > Now parse this API scenario:
-        Endpoint: /api/users/456
-        Status: 200
-        Response: "User found"
-        Response time: 30ms
-        """,
+              ## Examples
+
+              ### Example 1 (Success)
+
+              Input:
+
+              Endpoint: /api/products/789
+              Status: 200
+              Response: "Product found"
+              Response time: 50000 microseconds
+
+              Output:
+
+              ```json
+              {
+                "endpoint": "/api/products/789",
+                "result": {
+                  "type": "success",
+                  "response": "Product found"
+                },
+                "responseTime": 50
+              }
+              ```
+
+              ### Example 2 (Failure)
+
+              Endpoint: /api/orders/999
+              Status: Failure
+              Error message: Order cancelled
+              Response time: 120000 microseconds
+
+              Output:
+
+              ```json
+              {
+                "endpoint": "/api/orders/999",
+                "result": {
+                  "type": "failure",
+                  "errorMessage": "Order cancelled"
+                },
+                "responseTime": 120
+              }
+              ```
+              """)),
+        .user(
+          .init(
+            text: """
+
+              Now parse the following API scenario:
+
+              Endpoint: /api/hello
+              Status: 200
+              Response: "Hello, world!"
+              Response time: 30000 microseconds
+              """)),
+      ],
       returning: ApiResponse.self,
+      options: LLMReplyOptions(temperature: 0)
     )
 
     var partials: [ApiResponse.Partial] = []
@@ -319,8 +372,8 @@ extension LLMBaseTestCases {
       return
     }
 
-    #expect(final.endpoint == "/api/users/456")
-    #expect(final.responseTimeMs == 30)
+    #expect(final.endpoint == "/api/hello")
+    #expect(final.responseTime == 30)
 
     // Verify the enum case with associated values
     guard let result = final.result else {
@@ -329,7 +382,7 @@ extension LLMBaseTestCases {
     }
 
     if case .success(let response) = result {
-      #expect(response?.lowercased().contains("user found") == true)
+      #expect(response?.lowercased().contains("hello") == true)
     } else {
       Issue.record("Expected success case, got \(result)")
     }
@@ -513,35 +566,90 @@ extension LLMBaseTestCases {
     async throws
   {
     let reply = try await llm.reply(
-      to: """
-        Example:
-        Endpoint: /api/orders/999
-        Status: Failure
-        Error message: Order cancelled
-        Response time: 120ms
+      to: [
+        .system(
+          .init(
+            text: """
+              You are a precise and reliable API response parser.
+              Your job is to convert plain-text API logs into a normalized JSON object following a fixed schema.
 
-        Output:
-        {
-          "endpoint": "/api/orders/999",
-          "result": {
-            "type": "failure",
-            "errorMessage": "Order cancelled"
-          },
-          "responseTimeMs": 120
-        }
+              ## Rules
 
-        Now parse this API scenario:
-        Endpoint: /api/users/123
-        Status: Failure
-        Error message: Internal error
-        Response time: 45ms
-        """,
+                1.	Always output a single JSON object with these top-level keys:
+                  •	"endpoint"
+                  •	"result"
+                  •	"responseTime"
+                2.	endpoint
+                  •	Copy the value exactly as written after Endpoint:
+                3.	result
+                  •	If the log contains a Status with a numeric code between 200-299, or the word "Success", set "type": "success" and include "response" with the value after Response:
+                  •	If the log contains a Status with the word "Failure", or any non-2xx code, set "type": "failure" and include "errorMessage" with the value after Error message:
+                4.	responseTime
+                  •	Convert the number from microseconds to milliseconds by dividing by 1000
+                  •	Round to the nearest integer
+
+              ## Examples
+
+              ### Example 1 (Success)
+
+              Input:
+
+              Endpoint: /api/products/789
+              Status: 200
+              Response: "Product found"
+              Response time: 50000 microseconds
+
+              Output:
+
+              ```json
+              {
+                "endpoint": "/api/products/789",
+                "result": {
+                  "type": "success",
+                  "response": "Product found"
+                },
+                "responseTime": 50
+              }
+              ```
+
+              ### Example 2 (Failure)
+
+              Endpoint: /api/orders/999
+              Status: 500
+              Error message: Order cancelled
+              Response time: 120000 microseconds
+
+              Output:
+
+              ```json
+              {
+                "endpoint": "/api/orders/999",
+                "result": {
+                  "type": "failure",
+                  "errorMessage": "Order cancelled"
+                },
+                "responseTime": 120
+              }
+              ```
+              """)),
+        .user(
+          .init(
+            text: """
+              Now parse the following API scenario:
+
+              Endpoint: /api/users/123
+              Status: 500
+              Error message: Internal error
+              Response time: 45000 microseconds
+              """)),
+      ],
       returning: ApiResponse.self,
+      options: LLMReplyOptions(temperature: 0)
     )
 
     let response = reply.content
     #expect(response.endpoint == "/api/users/123")
-    #expect(response.responseTimeMs == 45)
+    #expect(response.responseTime == 45)
 
     // Verify the enum case with associated values
     if case .failure(let errorMessage) = response.result {
@@ -1186,22 +1294,25 @@ struct TodoList: Equatable {
   let todos: [Todo]
 }
 
-@Generable
+@Generable(description: "Represents the result of an API call")
 enum ApiResult: Equatable {
+  @Guide(description: "Sent when the API call is successful")
   case success(response: String)
+
+  @Guide(description: "Sent when the API call fails")
   case failure(errorMessage: String)
 }
 
-@Generable
+@Generable(description: "Result of an API call including metadata")
 struct ApiResponse: Equatable {
   @Guide(description: "The endpoint that was called")
   let endpoint: String
 
-  @Guide(description: "The result of the API call")
+  @Guide(description: "Result of the API call")
   let result: ApiResult
 
   @Guide(description: "Response time in milliseconds")
-  let responseTimeMs: Int
+  let responseTime: Int
 }
 
 // MARK: - Mock Tools
